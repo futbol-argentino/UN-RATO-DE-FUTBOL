@@ -666,7 +666,7 @@ ul {
 /* ============================== TEAM ============================== */
 .team__grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
 }
 
@@ -676,6 +676,7 @@ ul {
 
 .team__photo-wrap {
   aspect-ratio: 3 / 4;
+  overflow: hidden;
 }
 
 .team__photo {
@@ -688,18 +689,6 @@ ul {
   padding: 1.35rem 1.25rem 1.5rem;
 }
 
-.team__role {
-  color: var(--accent);
-  font-size: var(--step--1);
-  margin-top: 0.2rem;
-}
-
-.team__desc {
-  margin-top: 0.6rem;
-  color: var(--muted);
-  font-size: var(--step--1);
-}
-
 .team__social {
   display: inline-flex;
   margin-top: 0.9rem;
@@ -710,7 +699,7 @@ ul {
   color: var(--accent);
 }
 
-@media (max-width: 980px) {
+@media (max-width: 900px) {
   .team__grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1242,6 +1231,10 @@ ul {
   background: linear-gradient(160deg, #16202f, #0a0e17);
 }
 
+.team__photo {
+  object-position: top center;
+}
+
 .img-fallback {
   opacity: 0;
 }
@@ -1255,8 +1248,7 @@ ul {
   <header class="site-header">
     <div class="container site-header__inner">
       <a href="#inicio" class="site-header__brand">
-        <!-- REEMPLAZAR por assets/logo-reducido.svg cuando esté disponible -->
-        <span class="site-header__mark" aria-hidden="true">URDF</span>
+        <span class="site-header__mark" id="header-mark" aria-hidden="true">URDF</span>
         <span class="site-header__name" data-site-nombre>Un Rato de Fútbol</span>
       </a>
 
@@ -1306,8 +1298,7 @@ ul {
       </div>
 
       <div class="container hero__content">
-        <!-- REEMPLAZAR por assets/logo.svg -->
-        <span class="hero__mark">URDF</span>
+        <span class="hero__mark" id="hero-mark">URDF</span>
         <h1 class="hero__title" data-site-nombre>Un Rato de Fútbol</h1>
         <p class="hero__subtitle" data-site-slogan>Periodismo, fútbol y pasión.</p>
         <p class="hero__desc">Un proyecto de comunicación deportiva dedicado a la cobertura, difusión y generación de contenidos vinculados al fútbol.</p>
@@ -1619,7 +1610,7 @@ ul {
   <footer class="site-footer">
     <div class="container site-footer__grid">
       <div class="site-footer__brand">
-        <span class="site-header__mark" aria-hidden="true">URDF</span>
+        <span class="site-header__mark" id="footer-mark" aria-hidden="true">URDF</span>
         <p class="site-footer__title" data-site-nombre>Un Rato de Fútbol</p>
         <p class="site-footer__slogan" data-site-slogan>Periodismo, fútbol y pasión.</p>
       </div>
@@ -1707,15 +1698,6 @@ const TEAM = [
     descripcion: "Aporta el análisis táctico en las transmisiones y trabaja el contacto directo en zona de vestuarios.",
     // REEMPLAZAR POR FOTO REAL DE LAUTARO PERALTA
     foto: "assets/equipo/lautaro-peralta.jpg",
-    instagram: "",
-  },
-  {
-    id: "francesco-gandolfo",
-    nombre: "Francesco Gandolfo",
-    rol: "Comentarista / Vestuarista",
-    descripcion: "Suma su mirada al comentario en vivo y a la cobertura desde el vestuario tras cada encuentro.",
-    // REEMPLAZAR POR FOTO REAL DE FRANCESCO GANDOLFO
-    foto: "assets/equipo/francesco-gandolfo.jpg",
     instagram: "",
   },
   {
@@ -1920,8 +1902,6 @@ function renderTeam() {
         </div>
         <div class="team__info">
           <h3>${m.nombre}</h3>
-          <p class="team__role">${m.rol}</p>
-          <p class="team__desc">${m.descripcion}</p>
           ${
             m.instagram
               ? `<a href="${m.instagram}" class="team__social" aria-label="Instagram de ${m.nombre}">${icon(
@@ -2191,9 +2171,22 @@ function setBgIfExists(el, src) {
   img.src = src;
 }
 
+function setLogoIfExists(id, src, alt) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const img = new Image();
+  img.onload = () => {
+    el.innerHTML = `<img src="${src}" alt="${alt}" style="width:100%;height:100%;object-fit:contain;" />`;
+  };
+  img.src = src;
+}
+
 function initStaticImages() {
   setBgIfExists($(".hero__bg"), "assets/hero-bg.jpg");
   setBgIfExists($(".about__image"), "assets/equipo.jpg");
+  setLogoIfExists("header-mark", SITE.logoReducido, SITE.nombre);
+  setLogoIfExists("footer-mark", SITE.logoReducido, SITE.nombre);
+  setLogoIfExists("hero-mark", SITE.logo, SITE.nombre);
 }
 
 // ------------------------------------------------------------------
