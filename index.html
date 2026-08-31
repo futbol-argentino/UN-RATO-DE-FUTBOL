@@ -535,6 +535,14 @@ ul {
   margin-bottom: 1.75rem;
 }
 
+.hero__mark.has-logo {
+  width: min(340px, 70vw);
+  height: auto;
+  border: none;
+  border-radius: 0;
+  margin-bottom: 2.25rem;
+}
+
 .hero__title {
   font-family: var(--font-display);
   font-size: var(--step-5);
@@ -2171,22 +2179,57 @@ function setBgIfExists(el, src) {
   img.src = src;
 }
 
-function setLogoIfExists(id, src, alt) {
+// Prueba una lista de rutas candidatas en orden y usa la primera que
+// realmente exista (cubre el caso de subir logo.png en vez de logo.svg,
+// o guardarlo suelto en la raíz en vez de en /assets).
+function tryLoadFirst(paths, onFound) {
+  let i = 0;
+  const attempt = () => {
+    if (i >= paths.length) return;
+    const path = paths[i++];
+    const img = new Image();
+    img.onload = () => onFound(path);
+    img.onerror = attempt;
+    img.src = path;
+  };
+  attempt();
+}
+
+function setLogoIfExists(id, candidatePaths, alt, big) {
   const el = document.getElementById(id);
   if (!el) return;
-  const img = new Image();
-  img.onload = () => {
-    el.innerHTML = `<img src="${src}" alt="${alt}" style="width:100%;height:100%;object-fit:contain;" />`;
-  };
-  img.src = src;
+  tryLoadFirst(candidatePaths, (foundSrc) => {
+    el.innerHTML = `<img src="${foundSrc}" alt="${alt}" style="width:100%;height:100%;object-fit:contain;" />`;
+    if (big) el.classList.add("has-logo");
+  });
 }
 
 function initStaticImages() {
   setBgIfExists($(".hero__bg"), "assets/hero-bg.jpg");
   setBgIfExists($(".about__image"), "assets/equipo.jpg");
-  setLogoIfExists("header-mark", SITE.logoReducido, SITE.nombre);
-  setLogoIfExists("footer-mark", SITE.logoReducido, SITE.nombre);
-  setLogoIfExists("hero-mark", SITE.logo, SITE.nombre);
+
+  const reducidoCandidates = [
+    SITE.logoReducido,
+    "assets/logo-reducido.png",
+    "assets/logo-reducido.webp",
+    "assets/logo.svg",
+    "assets/logo.png",
+    "logo-reducido.svg",
+    "logo.svg",
+  ];
+  const grandeCandidates = [
+    SITE.logo,
+    "assets/logo.png",
+    "assets/logo.webp",
+    "assets/logo.jpg",
+    "assets/logo-reducido.svg",
+    "logo.svg",
+    "logo.png",
+  ];
+
+  setLogoIfExists("header-mark", reducidoCandidates, SITE.nombre, false);
+  setLogoIfExists("footer-mark", reducidoCandidates, SITE.nombre, false);
+  setLogoIfExists("hero-mark", grandeCandidates, SITE.nombre, true);
 }
 
 // ------------------------------------------------------------------
