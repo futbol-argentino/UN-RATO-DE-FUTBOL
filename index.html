@@ -45,7 +45,1208 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Archivo+Expanded:wght@700;800&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="css/style.css" />
+  <style>
+:root {
+  /* ---- Colores de marca — reemplazar cuando se defina la paleta oficial ---- */
+  --primary: #0a2540;        /* azul noche institucional */
+  --secondary: #060910;      /* negro azulado, base de fondo */
+  --background: #060910;
+  --surface: #0e1420;
+  --surface-raised: #131a29;
+  --text: #f3f5f8;
+  --muted: #8d97ab;
+  --accent: #4fc3e8;         /* celeste — acento único de la marca */
+  --accent-dim: #2c5f74;
+  --border: rgba(243, 245, 248, 0.1);
+  --border-strong: rgba(243, 245, 248, 0.18);
+
+  /* ---- Tipografía ---- */
+  --font-display: "Archivo Expanded", "Archivo", sans-serif;
+  --font-heading: "Archivo", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "Space Mono", monospace;
+
+  /* ---- Escala tipográfica ---- */
+  --step--1: clamp(0.83rem, 0.8rem + 0.15vw, 0.9rem);
+  --step-0: clamp(1rem, 0.96rem + 0.2vw, 1.1rem);
+  --step-1: clamp(1.2rem, 1.1rem + 0.5vw, 1.4rem);
+  --step-2: clamp(1.5rem, 1.3rem + 1vw, 1.9rem);
+  --step-3: clamp(1.9rem, 1.6rem + 1.5vw, 2.5rem);
+  --step-4: clamp(2.4rem, 1.9rem + 2.5vw, 3.6rem);
+  --step-5: clamp(3rem, 2.2rem + 4vw, 5.2rem);
+
+  /* ---- Layout ---- */
+  --content-max: 1180px;
+  --content-pad: clamp(1.25rem, 4vw, 3rem);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 18px;
+  --shadow-soft: 0 20px 50px -25px rgba(0, 0, 0, 0.6);
+
+  /* ---- Motion ---- */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur: 0.5s;
+}
+
+@media (prefers-color-scheme: light) {
+  /* El proyecto está diseñado como sitio de fondo oscuro (identidad editorial deportiva).
+     Se mantiene el esquema oscuro también en modo claro del sistema para preservar marca. */
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.55;
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  line-height: 1.1;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--secondary);
+}
+
+.container {
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding-inline: var(--content-pad);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.section {
+  padding-block: clamp(4rem, 9vw, 7.5rem);
+  position: relative;
+}
+
+.section-head {
+  max-width: 640px;
+  margin-bottom: clamp(2rem, 5vw, 3.5rem);
+}
+
+.section-head h2 {
+  font-size: var(--step-4);
+  margin-top: 0.5rem;
+}
+
+.section-head p {
+  color: var(--muted);
+  margin-top: 1rem;
+  font-size: var(--step-1);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.9rem 1.7rem;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: var(--step--1);
+  border: 1px solid transparent;
+  transition: transform 0.25s var(--ease), background 0.25s var(--ease), border-color 0.25s var(--ease), color 0.25s var(--ease);
+  white-space: nowrap;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--secondary);
+}
+
+.btn-primary:hover {
+  background: #6ccdec;
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.btn-outline:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--accent);
+  padding: 0.4rem 0;
+}
+
+.btn-ghost:hover {
+  color: var(--text);
+}
+
+/* Reveal-on-scroll: un único mecanismo, usado con moderación en cada sección */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: var(--accent);
+  color: var(--secondary);
+  padding: 0.75rem 1.25rem;
+  z-index: 200;
+  border-radius: 0 0 var(--radius-sm) 0;
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
+/* ---------- Header ---------- */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+
+.site-header.is-scrolled {
+  background: rgba(6, 9, 16, 0.86);
+  backdrop-filter: blur(10px);
+  border-bottom-color: var(--border);
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  min-height: 76px;
+}
+
+.site-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  margin-right: auto;
+}
+
+.site-header__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.site-header__name {
+  font-size: var(--step--1);
+  letter-spacing: 0.01em;
+}
+
+.site-header__nav ul {
+  display: flex;
+  gap: 1.8rem;
+}
+
+.site-header__nav a {
+  font-size: var(--step--1);
+  font-weight: 500;
+  color: var(--muted);
+  transition: color 0.2s var(--ease);
+}
+
+.site-header__nav a:hover {
+  color: var(--text);
+}
+
+.site-header__cta {
+  padding: 0.6rem 1.3rem;
+}
+
+.site-header__toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  padding: 0.4rem;
+}
+
+.mobile-nav {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .site-header__nav,
+  .site-header__cta {
+    display: none;
+  }
+
+  .site-header__toggle {
+    display: inline-flex;
+  }
+
+  .mobile-nav {
+    display: block;
+    max-height: 0;
+    overflow: hidden;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    transition: max-height 0.35s var(--ease);
+  }
+
+  .mobile-nav.is-open {
+    max-height: 420px;
+  }
+
+  .mobile-nav ul {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem var(--content-pad) 0;
+    gap: 0.25rem;
+  }
+
+  .mobile-nav a {
+    display: block;
+    padding: 0.7rem 0;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mobile-nav .btn {
+    margin: 1.25rem var(--content-pad) 1.5rem;
+  }
+}
+
+/* ---------- Footer ---------- */
+.site-footer {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-block: 3.5rem 1.5rem;
+}
+
+.site-footer__grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 2.5rem;
+}
+
+.site-footer__title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  margin-top: 1rem;
+}
+
+.site-footer__slogan {
+  color: var(--muted);
+  margin-top: 0.35rem;
+}
+
+.site-footer__links {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.site-footer__links a {
+  color: var(--muted);
+  transition: color 0.2s var(--ease);
+}
+
+.site-footer__links a:hover {
+  color: var(--accent);
+}
+
+.site-footer__bottom {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+@media (max-width: 720px) {
+  .site-footer__grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+/* ============================== HERO ============================== */
+.hero {
+  position: relative;
+  min-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.hero__bg {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  /* REEMPLAZAR: fondo temporal a modo de placeholder elegante hasta cargar /assets/hero-bg.jpg */
+  background:
+    radial-gradient(circle at 18% 20%, rgba(79, 195, 232, 0.18), transparent 45%),
+    linear-gradient(160deg, #0c1220 0%, #060910 60%, #05070c 100%);
+  background-size: cover;
+  background-position: center;
+}
+
+.hero__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgba(6, 9, 16, 0.55) 0%, rgba(6, 9, 16, 0.85) 78%, #05070c 100%);
+}
+
+.hero__ticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: center;
+  margin-top: clamp(5rem, 12vh, 7rem);
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent);
+  background: rgba(79, 195, 232, 0.07);
+}
+
+.hero__content {
+  text-align: center;
+  padding-top: 2.5rem;
+  padding-bottom: clamp(3rem, 8vh, 4.5rem);
+}
+
+.hero__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--accent);
+  margin-bottom: 1.75rem;
+}
+
+.hero__title {
+  font-family: var(--font-display);
+  font-size: var(--step-5);
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+.hero__subtitle {
+  margin-top: 1rem;
+  font-size: var(--step-2);
+  color: var(--accent);
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
+
+.hero__desc {
+  max-width: 560px;
+  margin: 1.25rem auto 0;
+  color: var(--muted);
+  font-size: var(--step-1);
+}
+
+.hero__actions {
+  margin-top: 2.25rem;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* ============================== ABOUT ============================== */
+.about__grid {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: center;
+}
+
+.about__image {
+  aspect-ratio: 4 / 5;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(155deg, #16202f, #0a0e17);
+  border: 1px solid var(--border);
+}
+
+.about__text h2 {
+  font-size: var(--step-4);
+  margin-top: 0.5rem;
+}
+
+.about__lead {
+  margin-top: 1.25rem;
+  font-size: var(--step-1);
+  color: var(--text);
+}
+
+.about__body {
+  margin-top: 1rem;
+  color: var(--muted);
+}
+
+.about__stats {
+  margin-top: 2.25rem;
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 1.75rem;
+}
+
+.about__stat-value {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--step-3);
+  color: var(--accent);
+}
+
+.about__stat-label {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+@media (max-width: 900px) {
+  .about__grid {
+    grid-template-columns: 1fr;
+  }
+  .about__stats {
+    grid-template-columns: repeat(2, auto);
+  }
+}
+
+/* ============================== OBJECTIVE ============================== */
+.objective__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+}
+
+.objective__card {
+  padding: 1.75rem;
+}
+
+.objective__icon {
+  color: var(--accent);
+}
+
+.objective__card h3 {
+  margin-top: 1rem;
+  font-size: var(--step-1);
+}
+
+.objective__card p {
+  margin-top: 0.6rem;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+@media (max-width: 980px) {
+  .objective__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .objective__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================== TEAM ============================== */
+.team__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+}
+
+.team__card {
+  overflow: hidden;
+}
+
+.team__photo-wrap {
+  aspect-ratio: 3 / 4;
+}
+
+.team__photo {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, #17222f, #0a0e17);
+}
+
+.team__info {
+  padding: 1.35rem 1.25rem 1.5rem;
+}
+
+.team__role {
+  color: var(--accent);
+  font-size: var(--step--1);
+  margin-top: 0.2rem;
+}
+
+.team__desc {
+  margin-top: 0.6rem;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.team__social {
+  display: inline-flex;
+  margin-top: 0.9rem;
+  color: var(--muted);
+}
+
+.team__social:hover {
+  color: var(--accent);
+}
+
+@media (max-width: 980px) {
+  .team__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .team__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================== WORK ============================== */
+.work__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.work__card {
+  background: var(--surface);
+  padding: 2rem 1.5rem;
+  position: relative;
+}
+
+.work__index {
+  display: block;
+  font-family: var(--font-mono);
+  color: var(--accent-dim);
+  font-size: var(--step--1);
+  margin-bottom: 1.25rem;
+}
+
+.work__card svg {
+  color: var(--accent);
+}
+
+.work__card h3 {
+  margin-top: 1rem;
+  font-size: var(--step-1);
+}
+
+.work__card p {
+  margin-top: 0.6rem;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+@media (max-width: 980px) {
+  .work__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .work__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================== INTERVIEWS ============================== */
+.interviews__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.interview-card {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  overflow: hidden;
+}
+
+.interview-card__media {
+  position: relative;
+}
+
+.interview-card__image {
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  background: linear-gradient(160deg, #16202f, #0a0e17);
+}
+
+.interview-card__number {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  background: var(--secondary);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+}
+
+.interview-card__body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.interview-card__meta {
+  color: var(--muted);
+  font-size: var(--step--1);
+  font-family: var(--font-mono);
+}
+
+.interview-card__body p:not(.interview-card__meta) {
+  color: var(--muted);
+}
+
+.interview-card__body .btn {
+  margin-top: 0.75rem;
+  align-self: flex-start;
+}
+
+.interview-card__pending {
+  margin-top: 0.5rem;
+  font-size: var(--step--1);
+  color: var(--muted);
+  font-style: italic;
+}
+
+@media (max-width: 780px) {
+  .interviews__grid {
+    grid-template-columns: 1fr;
+  }
+  .interview-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================== BROADCASTS ============================== */
+.broadcasts__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.broadcast-row {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.broadcast-row__thumb {
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.broadcast-row__image {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, #16202f, #0a0e17);
+}
+
+.broadcast-row__info h3 {
+  font-size: var(--step-0);
+  margin-top: 0.25rem;
+}
+
+.broadcast-row__meta {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: var(--step--1);
+  font-family: var(--font-mono);
+}
+
+@media (max-width: 680px) {
+  .broadcast-row {
+    grid-template-columns: 90px 1fr;
+  }
+  .broadcast-row .btn,
+  .broadcast-row .interview-card__pending {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+/* ============================== COVERAGE ============================== */
+.coverage__grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: stretch;
+}
+
+.coverage__lead {
+  margin-top: 1.25rem;
+  color: var(--muted);
+  font-size: var(--step-1);
+  max-width: 46ch;
+}
+
+.coverage__chips {
+  margin-top: 1.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.coverage__chips li {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: var(--step--1);
+  color: var(--text);
+}
+
+.coverage__cta {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.75rem;
+  background: linear-gradient(160deg, var(--surface-raised), var(--surface));
+}
+
+.coverage__cta h3 {
+  font-size: var(--step-2);
+}
+
+.coverage__cta p {
+  color: var(--muted);
+}
+
+.coverage__cta .btn {
+  margin-top: 0.75rem;
+  align-self: flex-start;
+}
+
+@media (max-width: 900px) {
+  .coverage__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================== PRESS ============================== */
+.press__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-top: 2.5rem;
+}
+
+.press__card {
+  padding: 1.75rem;
+}
+
+.press__card svg {
+  color: var(--accent);
+}
+
+.press__card h3 {
+  margin-top: 1rem;
+  font-size: var(--step-1);
+}
+
+.press__card p {
+  margin-top: 0.6rem;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.press__actions {
+  margin-top: 2.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+@media (max-width: 780px) {
+  .press__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================== COMMITMENT ============================== */
+.commitment {
+  padding-block: clamp(2.5rem, 5vw, 3.5rem);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.commitment__box {
+  max-width: 760px;
+}
+
+.commitment__text {
+  margin-top: 0.75rem;
+  font-size: var(--step-1);
+  color: var(--text);
+}
+
+/* ============================== NUMBERS ============================== */
+.numbers {
+  background: var(--surface);
+}
+
+.numbers__grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1.5rem;
+  text-align: center;
+}
+
+.numbers__value {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--step-4);
+  color: var(--accent);
+}
+
+.numbers__label {
+  display: block;
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+@media (max-width: 900px) {
+  .numbers__grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2.25rem 1rem;
+  }
+}
+
+/* ============================== SOCIAL ============================== */
+.social__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+}
+
+.social__card {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  position: relative;
+  transition: border-color 0.25s var(--ease), transform 0.25s var(--ease);
+}
+
+.social__card:hover {
+  border-color: var(--accent);
+  transform: translateY(-3px);
+}
+
+.social__icon {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.social__name {
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
+.social__user {
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.social__arrow {
+  position: absolute;
+  top: 1.4rem;
+  right: 1.4rem;
+  color: var(--muted);
+}
+
+@media (max-width: 780px) {
+  .social__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ============================== CONTACT ============================== */
+.contact__grid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: clamp(2rem, 5vw, 4rem);
+}
+
+.contact__reasons {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.contact__reasons li {
+  padding-left: 1rem;
+  border-left: 2px solid var(--border-strong);
+}
+
+.contact__direct {
+  margin-top: 1.75rem;
+  color: var(--muted);
+  font-size: var(--step--1);
+  line-height: 1.9;
+}
+
+.contact__direct a {
+  color: var(--accent);
+}
+
+.contact__form {
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.contact__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.field label {
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+.field input,
+.field select,
+.field textarea {
+  background: var(--background);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.9rem;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--step--1);
+  resize: vertical;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--accent);
+}
+
+.field__error {
+  color: #f18b8b;
+  font-size: 0.78rem;
+}
+
+.contact__submit {
+  align-self: flex-start;
+  margin-top: 0.5rem;
+}
+
+.contact__success {
+  background: rgba(79, 195, 232, 0.12);
+  border: 1px solid var(--accent-dim);
+  color: var(--accent);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--step--1);
+}
+
+@media (max-width: 900px) {
+  .contact__grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .contact__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================== FINAL CTA ============================== */
+.final-cta__box {
+  text-align: center;
+  padding: clamp(3rem, 8vw, 5rem) clamp(1.5rem, 5vw, 3rem);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(155deg, var(--surface-raised), var(--surface));
+  border: 1px solid var(--border);
+}
+
+.final-cta__box h2 {
+  font-size: var(--step-4);
+}
+
+.final-cta__box p {
+  margin: 1rem auto 0;
+  max-width: 46ch;
+  color: var(--muted);
+  font-size: var(--step-1);
+}
+
+.final-cta__box .btn {
+  margin-top: 1.75rem;
+}
+
+
+/* ---------- Imagenes reales (equipo, entrevistas, transmisiones) ---------- */
+.team__photo,
+.interview-card__image,
+.broadcast-row__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: linear-gradient(160deg, #16202f, #0a0e17);
+}
+
+.img-fallback {
+  opacity: 0;
+}
+
+  </style>
 </head>
 <body>
   <a href="#inicio" class="skip-link">Saltar al contenido</a>
@@ -447,6 +1648,573 @@
     </div>
   </footer>
 
-  <script type="module" src="js/main.js"></script>
+  <script>
+// ============================================================
+// DATOS DEL SITIO — EDITAR ACÁ
+// Todo el contenido dinámico (equipo, entrevistas, transmisiones,
+// redes, estadísticas) vive en este archivo. No hace falta tocar
+// index.html ni js/main.js para actualizar estos datos.
+// ============================================================
+
+const SITE = {
+  nombre: "Un Rato de Fútbol",
+  slogan: "Periodismo, fútbol y pasión.",
+  descripcionCorta:
+    "Un proyecto de comunicación deportiva dedicado a la cobertura, difusión y generación de contenidos vinculados al fútbol.",
+  // Rutas de logos — reemplazar por los archivos reales
+  logo: "assets/logo.svg",
+  logoReducido: "assets/logo-reducido.svg",
+  // Dossier de prensa en PDF — reemplazar por el archivo real
+  dossierPdf: "assets/dossier/dossier-un-rato-de-futbol.pdf",
+};
+
+const SOCIAL_LINKS = [
+  { id: "instagram", nombre: "Instagram", usuario: "@unratodefutbol", url: "https://instagram.com/unratodefutbol" },
+  { id: "tiktok", nombre: "TikTok", usuario: "@unratodefutbol", url: "https://tiktok.com/@unratodefutbol" },
+  { id: "youtube", nombre: "YouTube", usuario: "Un Rato de Fútbol", url: "https://youtube.com/@unratodefutbol" },
+  { id: "kick", nombre: "Kick", usuario: "unratodefutbol", url: "https://kick.com/unratodefutbol" },
+];
+
+const CONTACT_INFO = {
+  emailPrensa: "prensa@unratodefutbol.com",
+  emailGeneral: "hola@unratodefutbol.com",
+  motivos: [
+    { value: "prensa", label: "Prensa — entrevistas, coberturas y acreditaciones" },
+    { value: "clubes", label: "Clubes / Instituciones — propuestas y coordinación" },
+    { value: "sponsors", label: "Sponsors — propuestas comerciales y alianzas" },
+    { value: "general", label: "Consulta general" },
+  ],
+  // Reemplazar por el endpoint de Formspree / EmailJS / Supabase cuando esté disponible.
+  // Ver README.md, sección "Conectar el formulario a un backend".
+  formEndpoint: "",
+};
+
+// Para agregar un integrante nuevo, sumá un objeto más al array.
+const TEAM = [
+  {
+    id: "joaquin-sandoval",
+    nombre: "Joaquín Sandoval",
+    rol: "Relator",
+    descripcion: "Conduce el relato de las transmisiones, marcando el ritmo y la emoción de cada partido.",
+    // REEMPLAZAR POR FOTO REAL DE JOAQUÍN SANDOVAL
+    foto: "assets/equipo/joaquin-sandoval.jpg",
+    instagram: "",
+  },
+  {
+    id: "lautaro-peralta",
+    nombre: "Lautaro Peralta",
+    rol: "Comentarista / Vestuarista",
+    descripcion: "Aporta el análisis táctico en las transmisiones y trabaja el contacto directo en zona de vestuarios.",
+    // REEMPLAZAR POR FOTO REAL DE LAUTARO PERALTA
+    foto: "assets/equipo/lautaro-peralta.jpg",
+    instagram: "",
+  },
+  {
+    id: "francesco-gandolfo",
+    nombre: "Francesco Gandolfo",
+    rol: "Comentarista / Vestuarista",
+    descripcion: "Suma su mirada al comentario en vivo y a la cobertura desde el vestuario tras cada encuentro.",
+    // REEMPLAZAR POR FOTO REAL DE FRANCESCO GANDOLFO
+    foto: "assets/equipo/francesco-gandolfo.jpg",
+    instagram: "",
+  },
+  {
+    id: "nicolas-de-los-santos",
+    nombre: "Nicolás De Los Santos",
+    rol: "Periodista / Entrevistador",
+    descripcion: "Encabeza las entrevistas del proyecto, generando el vínculo con jugadores, entrenadores y dirigentes.",
+    // REEMPLAZAR POR FOTO REAL DE NICOLÁS DE LOS SANTOS
+    foto: "assets/equipo/nicolas-de-los-santos.jpg",
+    instagram: "",
+  },
+];
+
+// Para sumar una nueva entrevista, agregá un objeto al array.
+const INTERVIEWS = [
+  {
+    id: "marcelo-goux",
+    numero: 2,
+    entrevistado: "Marcelo Goux",
+    descripcion: "Charla sobre su recorrido en el fútbol y su mirada sobre el presente del deporte.",
+    fecha: "2026-05-14",
+    // REEMPLAZAR POR FOTO REAL DE MARCELO GOUX
+    imagen: "assets/entrevistas/marcelo-goux.jpg",
+    youtubeUrl: "",
+  },
+  {
+    id: "alan-crenz",
+    numero: 1,
+    entrevistado: "Alan Crenz",
+    descripcion: "La primera entrevista del proyecto: trayectoria, anécdotas y presente futbolístico.",
+    fecha: "2026-03-02",
+    // REEMPLAZAR POR FOTO REAL DE ALAN CRENZ
+    imagen: "assets/entrevistas/alan-crenz.jpg",
+    youtubeUrl: "",
+  },
+];
+
+// Cargá acá los partidos relatados/comentados por el equipo.
+const BROADCASTS = [
+  {
+    id: "transmision-1",
+    competencia: "Torneo Regional",
+    equipos: "Por definir vs. Por definir",
+    fecha: "2026-06-01",
+    resultado: "—",
+    plataforma: "YouTube",
+    imagen: "assets/transmisiones/transmision-1.jpg",
+    url: "",
+  },
+  {
+    id: "transmision-2",
+    competencia: "Torneo Regional",
+    equipos: "Por definir vs. Por definir",
+    fecha: "2026-06-15",
+    resultado: "—",
+    plataforma: "Kick",
+    imagen: "assets/transmisiones/transmision-2.jpg",
+    url: "",
+  },
+];
+
+// Números mostrados en "Quiénes somos"
+const QUICK_STATS = [
+  { id: "entrevistas", valor: 2, sufijo: "+", label: "Entrevistas" },
+  { id: "coberturas", valor: 5, sufijo: "+", label: "Coberturas" },
+  { id: "transmisiones", valor: 2, sufijo: "+", label: "Transmisiones" },
+  { id: "seguidores", valor: 500, sufijo: "+", label: "Seguidores" },
+];
+
+// Números mostrados en "Un proyecto en crecimiento"
+const GROWTH_STATS = [
+  { id: "seguidores", valor: 500, sufijo: "+", label: "Seguidores en redes" },
+  { id: "entrevistas", valor: 2, sufijo: "+", label: "Entrevistas realizadas" },
+  { id: "transmisiones", valor: 2, sufijo: "+", label: "Transmisiones al aire" },
+  { id: "coberturas", valor: 5, sufijo: "+", label: "Coberturas periodísticas" },
+  { id: "reproducciones", valor: 10000, sufijo: "+", label: "Reproducciones" },
+];
+
+
+
+// ------------------------------------------------------------------
+// Utilidades
+// ------------------------------------------------------------------
+const $ = (sel, ctx = document) => ctx.querySelector(sel);
+const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+
+function formatFechaLarga(iso) {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatFechaCorta(iso) {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+// Iconos en línea (trazo simple, consistentes con el resto del sitio).
+const icon = (name, size = 18) => {
+  const paths = {
+    menu: '<line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>',
+    x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+    "play-circle":
+      '<circle cx="12" cy="12" r="10"/><path d="M10 8.5v7l6-3.5-6-3.5Z"/>',
+    "file-down":
+      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M12 12v6"/><path d="m9 15 3 3 3-3"/>',
+    send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+    instagram:
+      '<rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37Z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>',
+    youtube:
+      '<path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33Z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/>',
+    "arrow-up-right": '<line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>',
+  };
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${
+    paths[name] || ""
+  }</svg>`;
+};
+
+// ------------------------------------------------------------------
+// Header: sticky background + menú mobile
+// ------------------------------------------------------------------
+function initHeader() {
+  const header = $(".site-header");
+  const toggle = $(".site-header__toggle");
+  const mobileNav = $("#mobile-nav");
+
+  const onScroll = () => header.classList.toggle("is-scrolled", window.scrollY > 12);
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+
+  const closeMenu = () => {
+    mobileNav.classList.remove("is-open");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.innerHTML = icon("menu", 24);
+    document.body.style.overflow = "";
+  };
+
+  toggle.addEventListener("click", () => {
+    const isOpen = mobileNav.classList.toggle("is-open");
+    toggle.setAttribute("aria-expanded", String(isOpen));
+    toggle.innerHTML = icon(isOpen ? "x" : "menu", 24);
+    document.body.style.overflow = isOpen ? "hidden" : "";
+  });
+
+  $$("#mobile-nav a").forEach((a) => a.addEventListener("click", closeMenu));
+}
+
+// ------------------------------------------------------------------
+// Reveal on scroll — único mecanismo de animación de aparición
+// ------------------------------------------------------------------
+function initReveal() {
+  const items = $$(".reveal");
+  if (!("IntersectionObserver" in window) || items.length === 0) {
+    items.forEach((el) => el.classList.add("is-visible"));
+    return;
+  }
+  const observer = new IntersectionObserver(
+    (entries, obs) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          obs.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.15 }
+  );
+  items.forEach((el) => observer.observe(el));
+}
+
+// ------------------------------------------------------------------
+// Render: Quiénes somos — estadísticas rápidas
+// ------------------------------------------------------------------
+function renderQuickStats() {
+  const el = $("#quick-stats");
+  if (!el) return;
+  el.innerHTML = QUICK_STATS.map(
+    (s) => `
+      <li>
+        <span class="about__stat-value">${s.sufijo}${s.valor}</span>
+        <span class="about__stat-label">${s.label}</span>
+      </li>`
+  ).join("");
+}
+
+// ------------------------------------------------------------------
+// Render: Equipo
+// ------------------------------------------------------------------
+function renderTeam() {
+  const el = $("#team-grid");
+  if (!el) return;
+  el.innerHTML = TEAM.map(
+    (m) => `
+      <article class="team__card card reveal">
+        <div class="team__photo-wrap">
+          <img class="team__photo" src="${m.foto}" alt="${m.nombre}" loading="lazy" onerror="this.classList.add('img-fallback')" />
+        </div>
+        <div class="team__info">
+          <h3>${m.nombre}</h3>
+          <p class="team__role">${m.rol}</p>
+          <p class="team__desc">${m.descripcion}</p>
+          ${
+            m.instagram
+              ? `<a href="${m.instagram}" class="team__social" aria-label="Instagram de ${m.nombre}">${icon(
+                  "instagram",
+                  16
+                )}</a>`
+              : ""
+          }
+        </div>
+      </article>`
+  ).join("");
+}
+
+// ------------------------------------------------------------------
+// Render: Entrevistas
+// ------------------------------------------------------------------
+function renderInterviews() {
+  const el = $("#interviews-grid");
+  if (!el) return;
+  el.innerHTML = INTERVIEWS.map(
+    (e) => `
+      <article class="interview-card card reveal">
+        <div class="interview-card__media">
+          <img class="interview-card__image" src="${e.imagen}" alt="Entrevista a ${e.entrevistado}" loading="lazy" onerror="this.classList.add('img-fallback')" />
+          <span class="interview-card__number">#${e.numero}</span>
+        </div>
+        <div class="interview-card__body">
+          <h3>${e.entrevistado}</h3>
+          <p class="interview-card__meta">Entrevista #${e.numero} · ${formatFechaLarga(e.fecha)}</p>
+          <p>${e.descripcion}</p>
+          ${
+            e.youtubeUrl
+              ? `<a href="${e.youtubeUrl}" class="btn btn-outline" target="_blank" rel="noreferrer">${icon(
+                  "play-circle"
+                )}Ver entrevista</a>`
+              : `<span class="interview-card__pending">Próximamente en YouTube</span>`
+          }
+        </div>
+      </article>`
+  ).join("");
+}
+
+// ------------------------------------------------------------------
+// Render: Transmisiones
+// ------------------------------------------------------------------
+function renderBroadcasts() {
+  const el = $("#broadcasts-list");
+  if (!el) return;
+  el.innerHTML = BROADCASTS.map(
+    (b) => `
+      <article class="broadcast-row card reveal">
+        <div class="broadcast-row__thumb">
+          <img class="broadcast-row__image" src="${b.imagen}" alt="${b.equipos}" loading="lazy" onerror="this.classList.add('img-fallback')" />
+        </div>
+        <div class="broadcast-row__info">
+          <p class="eyebrow">${b.competencia}</p>
+          <h3>${b.equipos}</h3>
+          <p class="broadcast-row__meta">${formatFechaCorta(b.fecha)} · ${b.plataforma} · Resultado: ${b.resultado}</p>
+        </div>
+        ${
+          b.url
+            ? `<a href="${b.url}" class="btn btn-outline" target="_blank" rel="noreferrer">${icon(
+                "play-circle"
+              )}Ver transmisión</a>`
+            : `<span class="interview-card__pending">Próximamente</span>`
+        }
+      </article>`
+  ).join("");
+}
+
+// ------------------------------------------------------------------
+// Render: Prensa — link del dossier
+// ------------------------------------------------------------------
+function renderDossierLink() {
+  const el = $("#dossier-link");
+  if (el) el.setAttribute("href", SITE.dossierPdf);
+}
+
+// ------------------------------------------------------------------
+// Render: Números — contador animado
+// ------------------------------------------------------------------
+function renderNumbers() {
+  const el = $("#numbers-grid");
+  if (!el) return;
+  el.innerHTML = GROWTH_STATS.map(
+    (s) => `
+      <li>
+        <span class="numbers__value" data-value="${s.valor}" data-sufijo="${s.sufijo}">0</span>
+        <span class="numbers__label">${s.label}</span>
+      </li>`
+  ).join("");
+
+  const counters = $$(".numbers__value", el);
+  if (!("IntersectionObserver" in window)) {
+    counters.forEach((c) => (c.textContent = `${Number(c.dataset.value).toLocaleString("es-AR")}${c.dataset.sufijo}`));
+    return;
+  }
+
+  const animate = (node) => {
+    const target = Number(node.dataset.value);
+    const sufijo = node.dataset.sufijo;
+    const duration = 1400;
+    const start = performance.now();
+    const step = (now) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - (1 - progress) ** 3;
+      node.textContent = `${Math.round(target * eased).toLocaleString("es-AR")}${sufijo}`;
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+
+  const observer = new IntersectionObserver(
+    (entries, obs) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          animate(entry.target);
+          obs.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.4 }
+  );
+  counters.forEach((c) => observer.observe(c));
+}
+
+// ------------------------------------------------------------------
+// Render: Redes sociales
+// ------------------------------------------------------------------
+function renderSocial() {
+  const grid = $("#social-grid");
+  const footerList = $("#footer-social");
+
+  if (grid) {
+    grid.innerHTML = SOCIAL_LINKS.map(
+      (s) => `
+        <a href="${s.url}" target="_blank" rel="noreferrer" class="social__card card reveal">
+          <span class="social__icon">${
+            s.id === "instagram" || s.id === "youtube" ? icon(s.id, 22) : s.nombre.slice(0, 2).toUpperCase()
+          }</span>
+          <span class="social__name">${s.nombre}</span>
+          <span class="social__user">${s.usuario}</span>
+          <span class="social__arrow">${icon("arrow-up-right")}</span>
+        </a>`
+    ).join("");
+  }
+
+  if (footerList) {
+    footerList.innerHTML = SOCIAL_LINKS.map(
+      (s) => `<li><a href="${s.url}" target="_blank" rel="noreferrer">${s.nombre}</a></li>`
+    ).join("");
+  }
+}
+
+// ------------------------------------------------------------------
+// Render: Contacto — motivos, emails
+// ------------------------------------------------------------------
+function renderContact() {
+  const reasonsList = $("#contact-reasons");
+  const motivoSelect = $("#motivo");
+  const emailPrensa = $("#email-prensa");
+  const emailGeneral = $("#email-general");
+
+  if (reasonsList) {
+    reasonsList.innerHTML = CONTACT_INFO.motivos.map((m) => `<li>${m.label}</li>`).join("");
+  }
+  if (motivoSelect) {
+    motivoSelect.innerHTML = CONTACT_INFO.motivos
+      .map((m) => `<option value="${m.value}">${m.label}</option>`)
+      .join("");
+  }
+  if (emailPrensa) {
+    emailPrensa.href = `mailto:${CONTACT_INFO.emailPrensa}`;
+    emailPrensa.textContent = CONTACT_INFO.emailPrensa;
+  }
+  if (emailGeneral) {
+    emailGeneral.href = `mailto:${CONTACT_INFO.emailGeneral}`;
+    emailGeneral.textContent = CONTACT_INFO.emailGeneral;
+  }
+}
+
+// ------------------------------------------------------------------
+// Formulario de contacto con validación
+// ------------------------------------------------------------------
+function initContactForm() {
+  const form = $("#contact-form");
+  if (!form) return;
+  const successMsg = $("#contact-success");
+
+  const fields = {
+    nombre: { el: $("#nombre"), error: $("#error-nombre"), validate: (v) => v.trim().length > 0 || "Ingresá tu nombre." },
+    apellido: { el: $("#apellido"), error: $("#error-apellido"), validate: (v) => v.trim().length > 0 || "Ingresá tu apellido." },
+    email: {
+      el: $("#email"),
+      error: $("#error-email"),
+      validate: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Ingresá un email válido.",
+    },
+    mensaje: {
+      el: $("#mensaje"),
+      error: $("#error-mensaje"),
+      validate: (v) => v.trim().length >= 10 || "Contanos un poco más (mínimo 10 caracteres).",
+    },
+  };
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    let isValid = true;
+
+    Object.values(fields).forEach(({ el, error, validate }) => {
+      const result = validate(el.value);
+      if (result === true) {
+        error.textContent = "";
+        el.removeAttribute("aria-invalid");
+      } else {
+        error.textContent = result;
+        el.setAttribute("aria-invalid", "true");
+        isValid = false;
+      }
+    });
+
+    if (!isValid) {
+      successMsg.hidden = true;
+      return;
+    }
+
+    // ------------------------------------------------------------
+    // No hay backend conectado todavía. Cuando se defina un servicio
+    // (Formspree, EmailJS, Supabase, etc.) completar CONTACT_INFO.formEndpoint
+    // en js/data.js. Ver README.md.
+    // ------------------------------------------------------------
+    if (CONTACT_INFO.formEndpoint) {
+      try {
+        const data = Object.fromEntries(new FormData(form).entries());
+        await fetch(CONTACT_INFO.formEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+      } catch {
+        // El envío falló pero igual confirmamos la validación local al usuario.
+      }
+    }
+
+    successMsg.hidden = false;
+    form.reset();
+  });
+}
+
+// ------------------------------------------------------------------
+// Textos de marca repetidos (nombre, slogan, año)
+// ------------------------------------------------------------------
+function renderBrandText() {
+  $$("[data-site-nombre]").forEach((el) => (el.textContent = SITE.nombre));
+  $$("[data-site-slogan]").forEach((el) => (el.textContent = SITE.slogan));
+  $$("[data-site-year]").forEach((el) => (el.textContent = new Date().getFullYear()));
+}
+
+
+// ------------------------------------------------------------------
+// Imagenes estaticas (hero, "quienes somos"): intenta cargar el
+// archivo real; si no existe, se conserva el degrade de css/style.css
+// ------------------------------------------------------------------
+function setBgIfExists(el, src) {
+  if (!el) return;
+  const img = new Image();
+  img.onload = () => { el.style.backgroundImage = `url("${src}")`; el.style.backgroundSize = "cover"; el.style.backgroundPosition = "center"; };
+  img.src = src;
+}
+
+function initStaticImages() {
+  setBgIfExists($(".hero__bg"), "assets/hero-bg.jpg");
+  setBgIfExists($(".about__image"), "assets/equipo.jpg");
+}
+
+// ------------------------------------------------------------------
+// Init
+// ------------------------------------------------------------------
+document.addEventListener("DOMContentLoaded", () => {
+  renderBrandText();
+  renderQuickStats();
+  renderTeam();
+  renderInterviews();
+  renderBroadcasts();
+  renderDossierLink();
+  renderNumbers();
+  renderSocial();
+  renderContact();
+  initStaticImages();
+  initHeader();
+  initContactForm();
+  initReveal();
+});
+
+  </script>
 </body>
 </html>
