@@ -186,6 +186,29 @@
 
   footer{ text-align:center; color:var(--ink-dim); font-size:12px; padding:20px 0 0; }
   .step-nav{ display:flex; justify-content:space-between; margin-top:22px; }
+
+  .pos-form{ display:flex; align-items:center; gap:6px; margin-top:4px; flex-wrap:wrap; }
+  .pos-badge{ font-family:'Oswald', sans-serif; font-size:10.5px; border:1px solid var(--line); border-radius:3px; padding:1px 6px; }
+  .form-line{ display:flex; gap:2px; }
+  .form-dot{ display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; background:var(--panel-alt); border:1px solid var(--line); font-size:9.5px; color:var(--ink-dim); }
+  .form-dot.pos{ background:rgba(90,143,90,0.25); border-color:var(--green-win); color:var(--green-win); }
+  .form-dot.neg{ background:rgba(178,58,46,0.2); border-color:var(--red); color:#E5A79C; }
+  .side .no-data{ color:var(--ink-dim); font-size:10.5px; }
+
+  .zone-legend{ display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; font-size:12px; color:var(--ink-dim); }
+  .zone-chip{ display:flex; align-items:center; gap:6px; }
+  .zone-chip i{ width:10px; height:10px; border-radius:2px; display:inline-block; }
+  .zone-swatch{ display:inline-block; width:14px; height:14px; border-radius:3px; margin-right:8px; vertical-align:middle; border:1px solid rgba(255,255,255,0.15); }
+
+  .round-nav{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:14px 0 10px; flex-wrap:wrap; }
+  .round-nav select{ width:auto; max-width:240px; }
+  .round-nav .round-label{ color:var(--ink-dim); font-size:12.5px; }
+
+  .menu-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:12px 4px; border-bottom:1px solid rgba(51,71,58,0.5); }
+  .menu-row .info strong{ color:var(--ink); font-size:14.5px; }
+  .menu-row .info .meta{ color:var(--ink-dim); font-size:12px; margin-top:3px; }
+  .menu-row .actions{ display:flex; gap:8px; align-items:center; }
+  .topbar-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
 </style>
 </head>
 <body>
@@ -196,12 +219,12 @@
   "use strict";
 
   // ---------- State ----------
-  const state = {
-    step: 'config',
-    config: {
+  function defaultConfig(){
+    return {
       name: 'Torneo',
       format: 'liga',
       pointsWin: 3, pointsDraw: 1, pointsLoss: 0,
+      allowDraws: true,
       doubleRound: false,
       twoLegged: false,
       numGroups: 2,
@@ -212,17 +235,121 @@
       homeAdvantage: 40,
       drawProb: 0.25,
       surpriseFactor: 45,
-      seedMethod: 'elo'
-    },
+      seedMethod: 'elo',
+      zones: []           // {id, label, from, to, color}
+    };
+  }
+
+  const state = {
+    step: 'menu',
+    lastContentStep: 'config',
+    tournamentId: null,
+    config: defaultConfig(),
     teams: [],          // {id, name, elo, initialElo}
-    matches: [],         // {id, stage:'liga'|'group'|'knockout'|'swiss', round, group, leg, home, away, homeScore, awayScore, played, bye}
+    matches: [],         // {id, stage:'liga'|'group'|'knockout'|'swiss', round, group, leg, home, away, homeScore, awayScore, played, bye, playedAt}
+    groupsCount: 0,
     knockoutRounds: [],   // array of round labels once bracket built
     swissRoundsPlayed: 0,
     knockoutBuilt: false,
-    matchCounter: 0
+    matchCounter: 0,
+    playSeq: 0,
+    fixtureNav: {}
   };
 
   const els = { app: document.getElementById('app') };
+
+  // ---------- Persistencia (localStorage) ----------
+  const STORAGE_INDEX_KEY = 'torneosElo_index_v1';
+  const STORAGE_DATA_PREFIX = 'torneosElo_data_v1_';
+
+  function loadIndex(){
+    try{
+      const raw = localStorage.getItem(STORAGE_INDEX_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+  function saveIndex(idx){
+    try{ localStorage.setItem(STORAGE_INDEX_KEY, JSON.stringify(idx)); }catch(e){ /* almacenamiento no disponible */ }
+  }
+  function summarizeTournament(){
+    const teamCount = state.teams.length;
+    const totalMatches = state.matches.filter(m=>!m.bye).length;
+    const playedMatches = state.matches.filter(m=>!m.bye && m.played).length;
+    let status = 'Sin equipos cargados';
+    if(teamCount>0 && state.matches.length===0) status = 'Equipos cargados, sin fixture';
+    else if(totalMatches>0 && playedMatches < totalMatches) status = `En curso (${playedMatches}/${totalMatches})`;
+    else if(totalMatches>0 && playedMatches === totalMatches) status = 'Finalizado';
+    return { teamCount, status };
+  }
+  function snapshotState(){
+    return {
+      config: state.config,
+      teams: state.teams,
+      matches: state.matches,
+      groupsCount: state.groupsCount,
+      knockoutBuilt: state.knockoutBuilt,
+      swissRoundsPlayed: state.swissRoundsPlayed,
+      matchCounter: state.matchCounter,
+      playSeq: state.playSeq,
+      fixtureNav: state.fixtureNav,
+      step: state.lastContentStep
+    };
+  }
+  function persist(){
+    if(!state.tournamentId) return;
+    try{
+      localStorage.setItem(STORAGE_DATA_PREFIX + state.tournamentId, JSON.stringify(snapshotState()));
+      const idx = loadIndex();
+      const entry = {
+        id: state.tournamentId,
+        name: state.config.name || 'Torneo',
+        format: state.config.format,
+        updatedAt: Date.now(),
+        summary: summarizeTournament()
+      };
+      const i = idx.findIndex(t=>t.id===state.tournamentId);
+      if(i>=0) idx[i] = entry; else idx.unshift(entry);
+      saveIndex(idx);
+    }catch(e){ /* almacenamiento lleno o no disponible: se ignora silenciosamente */ }
+  }
+  function deleteTournament(id){
+    try{ localStorage.removeItem(STORAGE_DATA_PREFIX + id); }catch(e){}
+    saveIndex(loadIndex().filter(t=>t.id!==id));
+  }
+  function loadTournament(id){
+    try{
+      const raw = localStorage.getItem(STORAGE_DATA_PREFIX + id);
+      if(!raw) return false;
+      const data = JSON.parse(raw);
+      state.tournamentId = id;
+      state.config = Object.assign(defaultConfig(), data.config || {});
+      state.teams = data.teams || [];
+      state.matches = data.matches || [];
+      state.groupsCount = data.groupsCount || 0;
+      state.knockoutBuilt = !!data.knockoutBuilt;
+      state.swissRoundsPlayed = data.swissRoundsPlayed || 0;
+      state.matchCounter = data.matchCounter || 0;
+      state.playSeq = data.playSeq || 0;
+      state.fixtureNav = data.fixtureNav || {};
+      state.step = (data.step && data.step !== 'menu') ? data.step : 'config';
+      state.lastContentStep = state.step;
+      return true;
+    }catch(e){ return false; }
+  }
+  function newTournament(){
+    state.tournamentId = 't' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+    state.config = defaultConfig();
+    state.teams = [];
+    state.matches = [];
+    state.groupsCount = 0;
+    state.knockoutBuilt = false;
+    state.swissRoundsPlayed = 0;
+    state.matchCounter = 0;
+    state.playSeq = 0;
+    state.fixtureNav = {};
+    state.step = 'config';
+    state.lastContentStep = 'config';
+  }
 
   // ---------- Helpers ----------
   function teamById(id){ return state.teams.find(t => t.id === id); }
@@ -370,6 +497,8 @@
     state.matchCounter = 0;
     state.knockoutBuilt = false;
     state.swissRoundsPlayed = 0;
+    state.playSeq = 0;
+    state.fixtureNav = {};
     const cfg = state.config;
 
     if(cfg.format === 'liga'){
@@ -494,20 +623,84 @@
     return arr;
   }
 
+  // Últimos 3 resultados de un equipo (G/E/P), en orden cronológico de juego.
+  function computeForm(teamId, matchFilter){
+    const involved = state.matches.filter(m => !m.bye && m.played && matchFilter(m) && (m.home===teamId || m.away===teamId));
+    involved.sort((a,b) => (a.playedAt||0) - (b.playedAt||0));
+    const last3 = involved.slice(-3);
+    return last3.map(m => {
+      const isHome = m.home === teamId;
+      const gf = isHome ? m.homeScore : m.awayScore;
+      const gc = isHome ? m.awayScore : m.homeScore;
+      if(gf > gc) return 'G';
+      if(gf < gc) return 'P';
+      return 'E';
+    });
+  }
+
+  function zoneForPosition(pos, zones){
+    if(!zones || !zones.length) return null;
+    return zones.find(z => pos >= z.from && pos <= z.to) || null;
+  }
+
+  // Badge de posición + forma reciente, usado en las filas del fixture.
+  function renderPosForm(teamId, meta){
+    if(!meta) return '';
+    const pos = meta.posMap[teamId];
+    if(!pos) return '';
+    const zone = zoneForPosition(pos, meta.zones);
+    const posColor = zone ? zone.color : 'var(--ink-dim)';
+    const form = meta.formMap[teamId] || [];
+    const formHtml = form.length
+      ? form.map(r => `<span class="form-dot ${r==='G'?'pos':(r==='P'?'neg':'')}">${r}</span>`).join('')
+      : '<span class="no-data">sin partidos</span>';
+    return `<div class="pos-form"><span class="pos-badge" style="color:${posColor};border-color:${posColor};">#${pos}</span><span class="form-line">${formHtml}</span></div>`;
+  }
+
   // ---------- Rendering ----------
   function render(){
-    const cfg = state.config;
+    if(state.step !== 'menu') state.lastContentStep = state.step;
     let html = '';
     html += renderTopbar();
     html += '<div id="stepContent">';
-    if(state.step === 'config') html += renderConfigStep();
+    if(state.step === 'menu') html += renderMenuStep();
+    else if(state.step === 'config') html += renderConfigStep();
     else if(state.step === 'teams') html += renderTeamsStep();
     else if(state.step === 'fixture') html += renderFixtureStep();
     else if(state.step === 'standings') html += renderStandingsStep();
     html += '</div>';
-    html += '<footer>Generador de torneos por ELO &middot; todo se calcula en tu navegador, nada se guarda en un servidor.</footer>';
+    html += '<footer>Generador de torneos por ELO &middot; todo se calcula y se guarda en tu navegador, nada se sube a un servidor.</footer>';
     els.app.innerHTML = html;
     bindEvents();
+    if(state.tournamentId) persist();
+  }
+
+  function renderMenuStep(){
+    const idx = loadIndex().sort((a,b) => b.updatedAt - a.updatedAt);
+    const fmtLabels = { liga:'Liga', grupos:'Grupos + eliminación', eliminacion:'Eliminación directa', suizo:'Sistema suizo' };
+    let rows = idx.map(t => {
+      const d = new Date(t.updatedAt);
+      const fecha = d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+      const summary = t.summary || {};
+      return `<div class="menu-row">
+        <div class="info">
+          <strong>${escapeHtml(t.name)}</strong>
+          <div class="meta">${fmtLabels[t.format] || t.format} &middot; ${summary.teamCount||0} equipos &middot; ${escapeHtml(summary.status||'')} &middot; actualizado ${fecha}</div>
+        </div>
+        <div class="actions">
+          <button class="btn small primary" data-action="open-tournament" data-id="${t.id}">Abrir</button>
+          <button class="btn small ghost" data-action="delete-tournament" data-id="${t.id}" title="Eliminar">Eliminar</button>
+        </div>
+      </div>`;
+    }).join('');
+    if(idx.length===0) rows = '<div class="empty">Todavía no guardaste ningún torneo. Creá el primero para empezar.</div>';
+    return `
+    <div class="panel">
+      <h2>Mis torneos</h2>
+      <p class="hint">Tus torneos se guardan automáticamente en este navegador a medida que trabajás en ellos. Podés tener varios en simultáneo.</p>
+      <div>${rows}</div>
+      <div class="btn-row"><button class="btn primary" data-action="new-tournament">Crear nuevo torneo</button></div>
+    </div>`;
   }
 
   function stepStatus(step){
@@ -523,6 +716,12 @@
   }
 
   function renderTopbar(){
+    if(state.step === 'menu'){
+      return `<div class="topbar">
+        <h1>Generador de Torneos <span>&middot; ELO</span></h1>
+        <p class="sub">Armá torneos con el formato que quieras y dejá que el ranking ELO decida las probabilidades. Guardá cuantos torneos quieras.</p>
+      </div>`;
+    }
     const steps = [
       {k:'config', n:1, label:'Configurar'},
       {k:'teams', n:2, label:'Equipos'},
@@ -538,8 +737,13 @@
       return `<div class="${cls.join(' ')}" data-goto="${s.k}"><span class="n">${s.n}</span>${s.label}</div>`;
     }).join('');
     return `<div class="topbar">
-      <h1>${escapeHtml(state.config.name || 'Torneo')} <span>&middot; ELO</span></h1>
-      <p class="sub">Armá un torneo con el formato que quieras y dejá que el ranking ELO decida las probabilidades.</p>
+      <div class="topbar-head">
+        <div>
+          <h1>${escapeHtml(state.config.name || 'Torneo')} <span>&middot; ELO</span></h1>
+          <p class="sub">Armá un torneo con el formato que quieras y dejá que el ranking ELO decida las probabilidades.</p>
+        </div>
+        <button class="btn ghost small" data-action="goto-menu">&larr; Mis torneos</button>
+      </div>
       <div class="tabs">${tabs}</div>
     </div>`;
   }
@@ -614,6 +818,8 @@
       <p class="hint">En cada ronda se empareja a los equipos con puntaje similar, evitando repetir cruces ya jugados.</p>
     </div>` : ''}
 
+    ${(cfg.format === 'liga' || cfg.format === 'grupos' || cfg.format === 'suizo') ? renderZonesPanel(cfg) : ''}
+
     <div class="panel">
       <h2>Motor ELO</h2>
       <p class="hint">Estos valores determinan cómo se calculan las probabilidades y cómo se actualiza el ranking tras cada partido.</p>
@@ -647,6 +853,30 @@
       <button class="btn primary" data-action="goto-teams">Continuar a equipos</button>
     </div>
     `;
+  }
+
+  function renderZonesPanel(cfg){
+    const zones = cfg.zones || [];
+    const rows = zones.map(z => `
+      <div class="team-row">
+        <span class="zone-swatch" style="background:${z.color};"></span>
+        <span class="name">${escapeHtml(z.label)} <span style="color:var(--ink-dim);">(pos. ${z.from}${z.to!==z.from?`–${z.to}`:''})</span></span>
+        <button data-action="remove-zone" data-id="${z.id}" title="Quitar">&times;</button>
+      </div>`).join('');
+    return `<div class="panel">
+      <h2>Zonas de clasificación</h2>
+      <p class="hint">Definí qué logra cada posición de la tabla: copas internacionales, descenso, repechaje, etc. Se muestran en la tabla y en el fixture.</p>
+      <div class="grid cols-3" style="align-items:end;">
+        <div class="field"><label>Nombre de la zona</label><input type="text" id="newZoneLabel" placeholder="Ej: Copa Libertadores"></div>
+        <div class="field-row">
+          <div class="field" style="max-width:100px;"><label>Desde</label><input type="number" id="newZoneFrom" min="1" value="1"></div>
+          <div class="field" style="max-width:100px;"><label>Hasta</label><input type="number" id="newZoneTo" min="1" value="4"></div>
+        </div>
+        <div class="field" style="max-width:110px;"><label>Color</label><input type="color" id="newZoneColor" value="#5A8F5A"></div>
+      </div>
+      <div class="btn-row" style="margin-top:12px;"><button class="btn" data-action="add-zone">Agregar zona</button></div>
+      <div style="margin-top:16px;">${rows || '<div class="empty">Todavía no definiste zonas. La tabla se muestra sin colores especiales.</div>'}</div>
+    </div>`;
   }
 
   function renderTeamsStep(){
@@ -698,7 +928,8 @@
     return Math.round(adjusted*100) + '%';
   }
 
-  function renderMatchRow(m){
+  function renderMatchRow(m, meta){
+    meta = meta || null;
     if(m.bye){
       const survivor = m.home !== null ? teamById(m.home) : teamById(m.away);
       return `<div class="match played">
@@ -714,15 +945,37 @@
     const winnerHome = m.played && m.homeScore > m.awayScore;
     const winnerAway = m.played && m.awayScore > m.homeScore;
     return `<div class="match ${m.played?'played':''}" data-match="${m.id}">
-      <div class="side ${winnerHome?'winner':''}">${escapeHtml(home.name)}<span class="elo-tag num">${home.elo}${m.played && m.deltaHome!==undefined ? ` <span class="delta ${m.deltaHome>0?'pos':(m.deltaHome<0?'neg':'')}">${m.deltaHome>=0?'+':''}${m.deltaHome}</span>`:''}</span></div>
+      <div class="side ${winnerHome?'winner':''}">${escapeHtml(home.name)}<span class="elo-tag num">${home.elo}${m.played && m.deltaHome!==undefined ? ` <span class="delta ${m.deltaHome>0?'pos':(m.deltaHome<0?'neg':'')}">${m.deltaHome>=0?'+':''}${m.deltaHome}</span>`:''}</span>${renderPosForm(m.home, meta)}</div>
       <input type="number" min="0" class="score-input" data-role="home-score" value="${m.homeScore ?? ''}" ${m.played?'disabled':''}>
       <div class="vs">${m.played ? '&ndash;' : matchProbLabel(m)}</div>
       <input type="number" min="0" class="score-input" data-role="away-score" value="${m.awayScore ?? ''}" ${m.played?'disabled':''}>
-      <div class="side away ${winnerAway?'winner':''}">${escapeHtml(away.name)}<span class="elo-tag num">${away.elo}${m.played && m.deltaAway!==undefined ? ` <span class="delta ${m.deltaAway>0?'pos':(m.deltaAway<0?'neg':'')}">${m.deltaAway>=0?'+':''}${m.deltaAway}</span>`:''}</span></div>
+      <div class="side away ${winnerAway?'winner':''}">${escapeHtml(away.name)}<span class="elo-tag num">${away.elo}${m.played && m.deltaAway!==undefined ? ` <span class="delta ${m.deltaAway>0?'pos':(m.deltaAway<0?'neg':'')}">${m.deltaAway>=0?'+':''}${m.deltaAway}</span>`:''}</span>${renderPosForm(m.away, meta)}</div>
       <div class="match-actions" style="grid-column:1/-1;justify-content:flex-end;">
         ${!m.played ? `<button class="btn small" data-action="simulate-match" data-id="${m.id}">Simular</button>
         <button class="btn small primary" data-action="confirm-match" data-id="${m.id}">Confirmar resultado</button>` : ''}
       </div>
+    </div>`;
+  }
+
+  // ---------- Navegación fecha a fecha ----------
+  function ensureRoundPointer(ctx, total){
+    if(!state.fixtureNav) state.fixtureNav = {};
+    let cur = state.fixtureNav[ctx];
+    if(!cur || cur < 1) cur = 1;
+    if(total > 0 && cur > total) cur = total;
+    state.fixtureNav[ctx] = cur;
+    return cur;
+  }
+  function renderRoundNav(ctx, current, total, labelPrefix){
+    if(total <= 1) return '';
+    let options = '';
+    for(let i=1; i<=total; i++){
+      options += `<option value="${i}" ${i===current?'selected':''}>${labelPrefix} ${i}</option>`;
+    }
+    return `<div class="round-nav">
+      <button class="btn small ghost" data-action="nav-round" data-context="${ctx}" data-dir="prev" data-total="${total}" ${current<=1?'disabled':''}>&larr; Anterior</button>
+      <select id="roundSelect_${ctx}">${options}</select>
+      <button class="btn small ghost" data-action="nav-round" data-context="${ctx}" data-dir="next" data-total="${total}" ${current>=total?'disabled':''}>Siguiente &rarr;</button>
     </div>`;
   }
 
@@ -732,21 +985,44 @@
 
     if(cfg.format === 'liga'){
       const rounds = [...new Set(state.matches.map(m=>m.round))].sort((a,b)=>a-b);
-      rounds.forEach(r => {
-        const ms = state.matches.filter(m=>m.round===r);
-        body += `<div class="round-header"><h3>Fecha ${r}</h3></div>` + ms.map(renderMatchRow).join('');
-      });
+      const total = rounds.length;
+      const cur = ensureRoundPointer('liga', total);
+      const ms = state.matches.filter(m=>m.round===cur);
+      const ids = state.teams.map(t=>t.id);
+      const anyPlayed = state.matches.some(m=>m.stage==='liga' && m.played && !m.bye);
+      let meta = null;
+      if(anyPlayed){
+        const standings = computeStandings(ids, m=>m.stage==='liga');
+        const posMap = {}; standings.forEach((r,i)=>posMap[r.id]=i+1);
+        const formMap = {}; ids.forEach(id=>formMap[id]=computeForm(id, m=>m.stage==='liga'));
+        meta = { posMap, formMap, zones: cfg.zones };
+      }
+      body += `<div class="round-header"><h3>Fecha ${cur} de ${total}</h3></div>`;
+      body += renderRoundNav('liga', cur, total, 'Fecha');
+      body += ms.map(m=>renderMatchRow(m, meta)).join('');
     }
 
     else if(cfg.format === 'grupos'){
       for(let g=0; g<state.groupsCount; g++){
         const groupMatches = state.matches.filter(m => m.stage==='group' && m.group===g);
         const rounds = [...new Set(groupMatches.map(m=>m.round))].sort((a,b)=>a-b);
+        const total = rounds.length;
+        const ctx = 'group-'+g;
+        const cur = ensureRoundPointer(ctx, total);
+        const ms = groupMatches.filter(m=>m.round===cur);
+        const idsInGroup = [...new Set(groupMatches.flatMap(m=>[m.home,m.away]))];
+        const anyPlayed = groupMatches.some(m=>m.played && !m.bye);
+        let meta = null;
+        if(anyPlayed){
+          const standings = computeStandings(idsInGroup, m=>m.stage==='group'&&m.group===g);
+          const posMap = {}; standings.forEach((r,i)=>posMap[r.id]=i+1);
+          const formMap = {}; idsInGroup.forEach(id=>formMap[id]=computeForm(id, m=>m.stage==='group'&&m.group===g));
+          meta = { posMap, formMap, zones: cfg.zones };
+        }
         body += `<div class="group-block"><h3>Grupo ${String.fromCharCode(65+g)}</h3>`;
-        rounds.forEach(r => {
-          const ms = groupMatches.filter(m=>m.round===r);
-          body += `<div class="round-header"><h3 style="color:var(--ink-dim);font-size:12.5px;">Fecha ${r}</h3></div>` + ms.map(renderMatchRow).join('');
-        });
+        body += `<div class="round-header"><h3 style="color:var(--ink-dim);font-size:12.5px;">Fecha ${cur} de ${total}</h3></div>`;
+        body += renderRoundNav(ctx, cur, total, 'Fecha');
+        body += ms.map(m=>renderMatchRow(m, meta)).join('');
         body += `</div>`;
       }
       const groupsDone = allGroupMatchesPlayed();
@@ -764,10 +1040,21 @@
 
     else if(cfg.format === 'suizo'){
       const rounds = [...new Set(state.matches.filter(m=>m.stage==='swiss').map(m=>m.round))].sort((a,b)=>a-b);
-      rounds.forEach(r => {
-        const ms = state.matches.filter(m=>m.stage==='swiss' && m.round===r);
-        body += `<div class="round-header"><h3>Ronda ${r}</h3></div>` + ms.map(renderMatchRow).join('');
-      });
+      const total = rounds.length;
+      const cur = ensureRoundPointer('swiss', total);
+      const ms = state.matches.filter(m=>m.stage==='swiss' && m.round===cur);
+      const ids = state.teams.map(t=>t.id);
+      const anyPlayed = state.matches.some(m=>m.stage==='swiss' && m.played && !m.bye);
+      let meta = null;
+      if(anyPlayed){
+        const standings = computeStandings(ids, m=>m.stage==='swiss');
+        const posMap = {}; standings.forEach((r,i)=>posMap[r.id]=i+1);
+        const formMap = {}; ids.forEach(id=>formMap[id]=computeForm(id, m=>m.stage==='swiss'));
+        meta = { posMap, formMap, zones: cfg.zones };
+      }
+      body += `<div class="round-header"><h3>Ronda ${cur} de ${total}</h3></div>`;
+      body += renderRoundNav('swiss', cur, total, 'Ronda');
+      body += ms.map(m=>renderMatchRow(m, meta)).join('');
       const lastRound = rounds[rounds.length-1] || 0;
       const lastRoundDone = state.matches.filter(m=>m.stage==='swiss' && m.round===lastRound).every(m=>m.played);
       if(lastRoundDone && lastRound < cfg.swissRounds){
@@ -812,16 +1099,20 @@
     });
     html += '</div>';
 
-    // flat list of pending matches for score entry (bracket cards are read-only display)
-    const pendingRounds = rounds;
+    // lista de partidos de la ronda actual (el cuadro de arriba siempre muestra todas las rondas)
     let listHtml = '';
-    pendingRounds.forEach(r => {
-      const ms = state.matches.filter(m=>m.stage==='knockout' && m.round===r);
-      const unplayedOrRecent = ms.filter(m=>!m.bye);
-      if(unplayedOrRecent.length === 0) return;
-      listHtml += `<div class="round-header"><h3>${roundLabel(ms.filter(x=>x.leg===1).length, r, rounds.length)} &mdash; partidos</h3></div>`;
-      listHtml += unplayedOrRecent.map(m => renderMatchRow(m) + (m.leg===2 ? '' : '')).join('');
-    });
+    if(rounds.length){
+      const total = rounds.length;
+      const cur = ensureRoundPointer('knockout', total);
+      const r = rounds[cur-1];
+      const ms = state.matches.filter(m=>m.stage==='knockout' && m.round===r && !m.bye);
+      if(ms.length){
+        const label = roundLabel(state.matches.filter(x=>x.stage==='knockout'&&x.round===r&&x.leg===1).length, r, total);
+        listHtml += `<div class="round-header"><h3>${label} &mdash; partidos</h3></div>`;
+        listHtml += renderRoundNav('knockout', cur, total, 'Ronda');
+        listHtml += ms.map(m => renderMatchRow(m, null)).join('');
+      }
+    }
 
     const lastRound = rounds[rounds.length-1];
     const lastRoundMatches = state.matches.filter(m=>m.stage==='knockout' && m.round===lastRound);
@@ -892,7 +1183,7 @@
     if(cfg.format === 'liga'){
       const ids = state.teams.map(t=>t.id);
       const standings = computeStandings(ids, m => m.stage==='liga');
-      body += renderStandingsTable(standings, ids.length > 0 && state.matches.length>0 && state.matches.every(m=>m.played));
+      body += renderStandingsTable(standings, ids.length > 0 && state.matches.length>0 && state.matches.every(m=>m.played), cfg.zones);
       if(standings.length && state.matches.length>0 && state.matches.every(m=>m.played)) championName = teamById(standings[0].id).name;
     }
 
@@ -900,7 +1191,7 @@
       for(let g=0; g<state.groupsCount; g++){
         const idsInGroup = [...new Set(state.matches.filter(m=>m.stage==='group'&&m.group===g).flatMap(m=>[m.home,m.away]))];
         const standings = computeStandings(idsInGroup, m => m.stage==='group' && m.group===g);
-        body += `<div class="group-block"><h3>Grupo ${String.fromCharCode(65+g)}</h3>` + renderStandingsTable(standings, false) + `</div>`;
+        body += `<div class="group-block"><h3>Grupo ${String.fromCharCode(65+g)}</h3>` + renderStandingsTable(standings, false, cfg.zones) + `</div>`;
       }
       if(state.knockoutBuilt){
         body += `<div class="panel" style="margin-top:0;"><h2>Fase eliminatoria</h2>` + renderKnockoutBracketOnly() + `</div>`;
@@ -935,7 +1226,7 @@
       const allRoundsDone = state.matches.filter(m=>m.stage==='swiss').length>0 &&
         [...new Set(state.matches.filter(m=>m.stage==='swiss').map(m=>m.round))].length >= cfg.swissRounds &&
         state.matches.filter(m=>m.stage==='swiss').every(m=>m.played);
-      body += renderStandingsTable(standings, allRoundsDone);
+      body += renderStandingsTable(standings, allRoundsDone, cfg.zones);
       if(allRoundsDone && standings.length) championName = teamById(standings[0].id).name;
     }
 
@@ -979,16 +1270,19 @@
     return html + '</div>';
   }
 
-  function renderStandingsTable(standings, highlightTop){
+  function renderStandingsTable(standings, highlightTop, zones){
+    zones = zones || [];
     if(standings.length === 0) return '<div class="empty">Sin datos todavía.</div>';
+    const rows = standings.map((r,i)=>{
+      const t = teamById(r.id);
+      const zone = zoneForPosition(i+1, zones);
+      const posStyle = zone ? `border-left:4px solid ${zone.color};` : '';
+      return `<tr class="${(i<3 && !zone)?'top3':''}"><td style="${posStyle}">${i+1}</td><td>${escapeHtml(t.name)}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td><td class="num">${t.elo}</td></tr>`;
+    }).join('');
+    const legend = zones.length ? `<div class="zone-legend">${zones.map(z=>`<span class="zone-chip"><i style="background:${z.color};"></i>${escapeHtml(z.label)} (${z.from}${z.to!==z.from?'–'+z.to:''})</span>`).join('')}</div>` : '';
     return `<table><thead><tr>
       <th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th>Pts</th><th>ELO</th>
-      </tr></thead><tbody>
-      ${standings.map((r,i)=>{
-        const t = teamById(r.id);
-        return `<tr class="${i<3?'top3':''}"><td>${i+1}</td><td>${escapeHtml(t.name)}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td><td class="num">${t.elo}</td></tr>`;
-      }).join('')}
-      </tbody></table>`;
+      </tr></thead><tbody>${rows}</tbody></table>${legend}`;
   }
 
   function escapeHtml(s){
@@ -1019,6 +1313,14 @@
 
   function onChange(e){
     const id = e.target.id;
+    if(!id) return;
+    if(id.startsWith('roundSelect_')){
+      const ctx = id.slice('roundSelect_'.length);
+      if(!state.fixtureNav) state.fixtureNav = {};
+      state.fixtureNav[ctx] = Number(e.target.value) || 1;
+      render();
+      return;
+    }
     const cfg = state.config;
     if(id==='cfgName') cfg.name = e.target.value;
     else if(id==='cfgFormat'){ cfg.format = e.target.value; render(); }
@@ -1058,6 +1360,52 @@
     else if(action === 'goto-config'){ state.step='config'; render(); }
     else if(action === 'goto-fixture'){ state.step='fixture'; render(); }
     else if(action === 'goto-standings'){ state.step='standings'; render(); }
+    else if(action === 'goto-menu'){ state.step='menu'; render(); }
+
+    else if(action === 'new-tournament'){ newTournament(); render(); }
+    else if(action === 'open-tournament'){
+      const id = btn.getAttribute('data-id');
+      if(loadTournament(id)) render();
+    }
+    else if(action === 'delete-tournament'){
+      const id = btn.getAttribute('data-id');
+      if(confirm('¿Eliminar este torneo guardado? Esta acción no se puede deshacer.')){
+        deleteTournament(id);
+        if(state.tournamentId === id) state.tournamentId = null;
+        render();
+      }
+    }
+
+    else if(action === 'add-zone'){
+      const labelInput = document.getElementById('newZoneLabel');
+      const fromInput = document.getElementById('newZoneFrom');
+      const toInput = document.getElementById('newZoneTo');
+      const colorInput = document.getElementById('newZoneColor');
+      const label = labelInput.value.trim();
+      if(!label) return;
+      const from = Math.max(1, Number(fromInput.value)||1);
+      const to = Math.max(from, Number(toInput.value)||from);
+      if(!state.config.zones) state.config.zones = [];
+      state.config.zones.push({ id:'z'+Date.now()+Math.random().toString(36).slice(2,5), label, from, to, color: colorInput.value||'#5A8F5A' });
+      render();
+    }
+    else if(action === 'remove-zone'){
+      const id = btn.getAttribute('data-id');
+      state.config.zones = (state.config.zones||[]).filter(z=>z.id!==id);
+      render();
+    }
+
+    else if(action === 'nav-round'){
+      const ctx = btn.getAttribute('data-context');
+      const dir = btn.getAttribute('data-dir');
+      const total = Number(btn.getAttribute('data-total')) || 1;
+      if(!state.fixtureNav) state.fixtureNav = {};
+      let cur = state.fixtureNav[ctx] || 1;
+      cur += (dir==='next' ? 1 : -1);
+      cur = Math.max(1, Math.min(total, cur));
+      state.fixtureNav[ctx] = cur;
+      render();
+    }
 
     else if(action === 'add-team'){
       const nameInput = document.getElementById('newTeamName');
@@ -1114,6 +1462,7 @@
         return;
       }
       m.played = true;
+      m.playedAt = ++state.playSeq;
       applyEloUpdate(m);
       render();
     }
@@ -1121,17 +1470,22 @@
       state.matches.filter(m=>!m.played && !m.bye).forEach(m => {
         const [h,a] = simulateResult(m);
         m.homeScore = h; m.awayScore = a; m.played = true;
+        m.playedAt = ++state.playSeq;
         applyEloUpdate(m);
       });
       render();
     }
     else if(action === 'build-knockout-from-groups'){
       buildKnockoutFromGroups();
+      if(!state.fixtureNav) state.fixtureNav = {};
+      state.fixtureNav['knockout'] = 1;
       render();
     }
     else if(action === 'next-knockout-round'){
       const round = Number(btn.getAttribute('data-round'));
       advanceKnockoutRound(round);
+      if(!state.fixtureNav) state.fixtureNav = {};
+      state.fixtureNav['knockout'] = round+1;
       render();
     }
     else if(action === 'next-swiss-round'){
@@ -1140,6 +1494,8 @@
       const ids = state.teams.map(t=>t.id);
       const standings = computeStandings(ids, m=>m.stage==='swiss');
       generateSwissRound(standings.map(s=>s.id), lastRound+1);
+      if(!state.fixtureNav) state.fixtureNav = {};
+      state.fixtureNav['swiss'] = lastRound+1;
       render();
     }
     else if(action === 'export-csv'){
@@ -1150,6 +1506,9 @@
         state.teams = [];
         state.matches = [];
         state.knockoutBuilt = false;
+        state.matchCounter = 0;
+        state.playSeq = 0;
+        state.fixtureNav = {};
         state.step = 'config';
         render();
       }
@@ -1208,7 +1567,14 @@
   }
 
   // ---------- Init ----------
-  state.config.allowDraws = true;
+  (function initApp(){
+    const idx = loadIndex();
+    if(idx.length > 0){
+      state.step = 'menu';
+    } else {
+      newTournament();
+    }
+  })();
   render();
 })();
 </script>
