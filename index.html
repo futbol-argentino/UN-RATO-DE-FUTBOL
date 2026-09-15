@@ -240,7 +240,27 @@
     };
   }
 
+  function defaultCareer(){
+    return {
+      step: 'inicio',            // 'inicio' | 'equipos' | 'elegir' | 'temporada'
+      teams: [],                 // {id, name, elo, zone:0|1}
+      myTeamId: null,
+      year: 2026,
+      tournament: 'apertura',    // 'apertura' | 'clausura'
+      matches: [],               // liga: {id, comp, zone, round, home, away, homeScore, awayScore, played, bye, interzonal, playedAt}
+      knockout: [],              // playoffs: {..., stage:'octavos'|'cuartos'|'semis'|'final', neutral, wentToPenalties, penaltyWinner}
+      knockoutBuilt: false,
+      champion: null,            // {tournament, year, teamId}
+      history: [],               // temporadas/torneos archivados (para Tabla Anual, etc. en próximas fases)
+      matchCounter: 0,
+      playSeq: 0,
+      fixtureNav: {},
+      engine: { homeAdvantage: 40, kFactor: 24, drawProb: 0.25, surpriseFactor: 45, allowDraws: true }
+    };
+  }
+
   const state = {
+    mode: 'torneos',    // 'torneos' | 'carrera'
     step: 'menu',
     lastContentStep: 'config',
     tournamentId: null,
@@ -253,10 +273,26 @@
     knockoutBuilt: false,
     matchCounter: 0,
     playSeq: 0,
-    fixtureNav: {}
+    fixtureNav: {},
+    career: defaultCareer()
   };
 
   const els = { app: document.getElementById('app') };
+
+  // ---------- Persistencia Modo Carrera (localStorage) ----------
+  const CAREER_STORAGE_KEY = 'carreraElo_v1';
+  function careerPersist(){
+    try{ localStorage.setItem(CAREER_STORAGE_KEY, JSON.stringify(state.career)); }catch(e){}
+  }
+  function careerLoad(){
+    try{
+      const raw = localStorage.getItem(CAREER_STORAGE_KEY);
+      if(!raw) return false;
+      const data = JSON.parse(raw);
+      state.career = Object.assign(defaultCareer(), data);
+      return true;
+    }catch(e){ return false; }
+  }
 
   // ---------- Persistencia (localStorage) ----------
   const STORAGE_INDEX_KEY = 'torneosElo_index_v1';
@@ -659,6 +695,15 @@
 
   // ---------- Rendering ----------
   function render(){
+    if(state.mode === 'carrera'){
+      let chtml = renderCarreraTopbar();
+      chtml += '<div id="stepContent">' + renderCarreraStep() + '</div>';
+      chtml += '<footer>Modo Carrera &middot; se simula y se guarda en tu navegador.</footer>';
+      els.app.innerHTML = chtml;
+      bindEvents();
+      careerPersist();
+      return;
+    }
     if(state.step !== 'menu') state.lastContentStep = state.step;
     let html = '';
     html += renderTopbar();
@@ -699,7 +744,9 @@
       <h2>Mis torneos</h2>
       <p class="hint">Tus torneos se guardan automáticamente en este navegador a medida que trabajás en ellos. Podés tener varios en simultáneo.</p>
       <div>${rows}</div>
-      <div class="btn-row"><button class="btn primary" data-action="new-tournament">Crear nuevo torneo</button></div>
+      <div class="btn-row">
+        <button class="btn primary" data-action="new-tournament">Crear nuevo torneo</button>
+      </div>
     </div>`;
   }
 
@@ -718,8 +765,13 @@
   function renderTopbar(){
     if(state.step === 'menu'){
       return `<div class="topbar">
-        <h1>Generador de Torneos <span>&middot; ELO</span></h1>
-        <p class="sub">Armá torneos con el formato que quieras y dejá que el ranking ELO decida las probabilidades. Guardá cuantos torneos quieras.</p>
+        <div class="topbar-head">
+          <div>
+            <h1>Generador de Torneos <span>&middot; ELO</span></h1>
+            <p class="sub">Armá torneos con el formato que quieras y dejá que el ranking ELO decida las probabilidades. Guardá cuantos torneos quieras.</p>
+          </div>
+          <button class="btn ghost small" data-action="go-carrera">&#9917; Modo Carrera</button>
+        </div>
       </div>`;
     }
     const steps = [
@@ -742,7 +794,10 @@
           <h1>${escapeHtml(state.config.name || 'Torneo')} <span>&middot; ELO</span></h1>
           <p class="sub">Armá un torneo con el formato que quieras y dejá que el ranking ELO decida las probabilidades.</p>
         </div>
-        <button class="btn ghost small" data-action="goto-menu">&larr; Mis torneos</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn ghost small" data-action="goto-menu">&larr; Mis torneos</button>
+          <button class="btn ghost small" data-action="go-carrera">&#9917; Modo Carrera</button>
+        </div>
       </div>
       <div class="tabs">${tabs}</div>
     </div>`;
@@ -966,16 +1021,17 @@
     state.fixtureNav[ctx] = cur;
     return cur;
   }
-  function renderRoundNav(ctx, current, total, labelPrefix){
+  function renderRoundNav(ctx, current, total, labelPrefix, action){
+    action = action || 'nav-round';
     if(total <= 1) return '';
     let options = '';
     for(let i=1; i<=total; i++){
       options += `<option value="${i}" ${i===current?'selected':''}>${labelPrefix} ${i}</option>`;
     }
     return `<div class="round-nav">
-      <button class="btn small ghost" data-action="nav-round" data-context="${ctx}" data-dir="prev" data-total="${total}" ${current<=1?'disabled':''}>&larr; Anterior</button>
+      <button class="btn small ghost" data-action="${action}" data-context="${ctx}" data-dir="prev" data-total="${total}" ${current<=1?'disabled':''}>&larr; Anterior</button>
       <select id="roundSelect_${ctx}">${options}</select>
-      <button class="btn small ghost" data-action="nav-round" data-context="${ctx}" data-dir="next" data-total="${total}" ${current>=total?'disabled':''}>Siguiente &rarr;</button>
+      <button class="btn small ghost" data-action="${action}" data-context="${ctx}" data-dir="next" data-total="${total}" ${current>=total?'disabled':''}>Siguiente &rarr;</button>
     </div>`;
   }
 
@@ -1270,11 +1326,12 @@
     return html + '</div>';
   }
 
-  function renderStandingsTable(standings, highlightTop, zones){
+  function renderStandingsTable(standings, highlightTop, zones, resolver){
     zones = zones || [];
+    resolver = resolver || teamById;
     if(standings.length === 0) return '<div class="empty">Sin datos todavía.</div>';
     const rows = standings.map((r,i)=>{
-      const t = teamById(r.id);
+      const t = resolver(r.id);
       const zone = zoneForPosition(i+1, zones);
       const posStyle = zone ? `border-left:4px solid ${zone.color};` : '';
       return `<tr class="${(i<3 && !zone)?'top3':''}"><td style="${posStyle}">${i+1}</td><td>${escapeHtml(t.name)}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td><td class="num">${t.elo}</td></tr>`;
@@ -1312,12 +1369,23 @@
   }
 
   function onChange(e){
+    if(e.target.hasAttribute && e.target.hasAttribute('data-career-elo')){
+      const tid = e.target.getAttribute('data-career-elo');
+      const t = careerTeamById(tid);
+      if(t) t.elo = Number(e.target.value) || t.elo;
+      return;
+    }
     const id = e.target.id;
     if(!id) return;
     if(id.startsWith('roundSelect_')){
       const ctx = id.slice('roundSelect_'.length);
-      if(!state.fixtureNav) state.fixtureNav = {};
-      state.fixtureNav[ctx] = Number(e.target.value) || 1;
+      if(ctx.startsWith('career-')){
+        if(!state.career.fixtureNav) state.career.fixtureNav = {};
+        state.career.fixtureNav[ctx] = Number(e.target.value) || 1;
+      } else {
+        if(!state.fixtureNav) state.fixtureNav = {};
+        state.fixtureNav[ctx] = Number(e.target.value) || 1;
+      }
       render();
       return;
     }
@@ -1355,6 +1423,120 @@
     const btn = e.target.closest('[data-action]');
     if(!btn) return;
     const action = btn.getAttribute('data-action');
+
+    // ---- Modo Carrera ----
+    if(action === 'go-carrera'){
+      state.mode = 'carrera';
+      if(!careerLoad()) state.career = defaultCareer();
+      render();
+      return;
+    }
+    else if(action === 'go-torneos'){ state.mode = 'torneos'; render(); return; }
+    else if(action === 'career-goto-inicio'){ state.career.step='inicio'; render(); return; }
+    else if(action === 'career-goto-equipos'){ state.career.step='equipos'; render(); return; }
+    else if(action === 'career-goto-elegir'){ state.career.step='elegir'; render(); return; }
+    else if(action === 'career-goto-temporada'){ state.career.step='temporada'; render(); return; }
+    else if(action === 'career-reset'){
+      if(confirm('Esto borra tu carrera actual (equipos, resultados, todo). ¿Continuar?')){
+        state.career = defaultCareer();
+        render();
+      }
+      return;
+    }
+    else if(action === 'career-bulk-add'){
+      const zone = Number(btn.getAttribute('data-zone'));
+      const area = document.getElementById(zone===0 ? 'careerBulkA' : 'careerBulkB');
+      const lines = area.value.split('\n').map(l=>l.trim()).filter(Boolean);
+      lines.forEach(line => {
+        const parts = line.split(',');
+        const name = parts[0].trim();
+        const eloVal = parts[1] ? Number(parts[1].trim()) : 1500;
+        if(name) state.career.teams.push({ id:'ct'+Date.now()+Math.random().toString(36).slice(2,6), name, elo: isNaN(eloVal)?1500:eloVal, zone });
+      });
+      area.value = '';
+      render();
+      return;
+    }
+    else if(action === 'career-remove-team'){
+      const id = btn.getAttribute('data-id');
+      state.career.teams = state.career.teams.filter(t=>t.id!==id);
+      if(state.career.myTeamId === id) state.career.myTeamId = null;
+      render();
+      return;
+    }
+    else if(action === 'career-pick-team'){
+      state.career.myTeamId = btn.getAttribute('data-id');
+      careerGenerateTournament();
+      render();
+      return;
+    }
+    else if(action === 'career-nav-round'){
+      const ctx = btn.getAttribute('data-context');
+      const dir = btn.getAttribute('data-dir');
+      const total = Number(btn.getAttribute('data-total')) || 1;
+      if(!state.career.fixtureNav) state.career.fixtureNav = {};
+      let cur = state.career.fixtureNav[ctx] || 1;
+      cur += (dir==='next' ? 1 : -1);
+      cur = Math.max(1, Math.min(total, cur));
+      state.career.fixtureNav[ctx] = cur;
+      render();
+      return;
+    }
+    else if(action === 'career-confirm-match'){
+      const m = careerFindMatch(btn.getAttribute('data-id'));
+      if(!m) return;
+      const row = btn.closest('.match');
+      const h = row.querySelector('[data-role="home-score"]').value;
+      const a = row.querySelector('[data-role="away-score"]').value;
+      if(h==='' || a===''){ alert('Cargá ambos resultados antes de confirmar.'); return; }
+      m.homeScore = Number(h); m.awayScore = Number(a);
+      m.played = true;
+      m.playedAt = ++state.career.playSeq;
+      if(m.stage && m.homeScore === m.awayScore){
+        m.wentToPenalties = true;
+        m.penaltyWinner = resolvePenaltiesWinner(m);
+      }
+      careerApplyEloUpdate(m);
+      checkCareerChampion(m);
+      render();
+      return;
+    }
+    else if(action === 'career-simulate-match'){
+      const m = careerFindMatch(btn.getAttribute('data-id'));
+      if(!m) return;
+      const [h,a] = careerSimulateResult(m);
+      m.homeScore = h; m.awayScore = a; m.played = true;
+      m.playedAt = ++state.career.playSeq;
+      if(m.stage && h===a){ m.wentToPenalties = true; m.penaltyWinner = resolvePenaltiesWinner(m); }
+      careerApplyEloUpdate(m);
+      checkCareerChampion(m);
+      render();
+      return;
+    }
+    else if(action === 'career-simulate-round'){
+      const scope = btn.getAttribute('data-scope');
+      let list;
+      if(scope === 'liga-round'){
+        const roundNum = Number(btn.getAttribute('data-round'));
+        list = state.career.matches.filter(m=>m.round===roundNum && m.comp===state.career.tournament && !m.played && !m.bye);
+      } else {
+        list = state.career.knockout.filter(m=>m.stage===scope && !m.played && !m.bye);
+      }
+      list.forEach(m => {
+        const [h,a] = careerSimulateResult(m);
+        m.homeScore = h; m.awayScore = a; m.played = true;
+        m.playedAt = ++state.career.playSeq;
+        if(m.stage && h===a){ m.wentToPenalties = true; m.penaltyWinner = resolvePenaltiesWinner(m); }
+        careerApplyEloUpdate(m);
+        checkCareerChampion(m);
+      });
+      render();
+      return;
+    }
+    else if(action === 'career-build-playoffs'){ careerBuildPlayoffs(); render(); return; }
+    else if(action === 'career-advance-playoffs'){ careerAdvancePlayoffs(btn.getAttribute('data-stage')); render(); return; }
+    else if(action === 'career-start-clausura'){ careerStartClausura(); render(); return; }
+    else if(action === 'career-start-next-apertura'){ careerStartNextApertura(); render(); return; }
 
     if(action === 'goto-teams'){ state.step='teams'; render(); }
     else if(action === 'goto-config'){ state.step='config'; render(); }
@@ -1564,6 +1746,460 @@
     s = String(s);
     if(s.includes(',') || s.includes('"')) return '"' + s.replace(/"/g,'""') + '"';
     return s;
+  }
+
+  // =====================================================================
+  // ---------- MODO CARRERA (Primera División) ----------
+  // =====================================================================
+
+  function careerTeamById(id){ return state.career.teams.find(t=>t.id===id); }
+  function careerUid(prefix){ return prefix + (state.career.matchCounter++); }
+
+  function careerMkMatch(comp, zone, round, home, away, extra){
+    extra = extra || {};
+    const base = { id: careerUid('cm'), comp, zone, round, home, away, homeScore:null, awayScore:null, played:false, bye:false };
+    if(home === null || away === null){ base.played = true; base.bye = true; }
+    return Object.assign(base, extra);
+  }
+
+  function careerEloExpected(a,b){ return 1/(1+Math.pow(10,(b-a)/400)); }
+
+  function careerMatchAdjustedProb(m){
+    const home = careerTeamById(m.home), away = careerTeamById(m.away);
+    const adv = m.neutral ? 0 : state.career.engine.homeAdvantage;
+    const exp = careerEloExpected(home.elo + adv, away.elo);
+    return adjustedProbability(exp, state.career.engine.surpriseFactor);
+  }
+
+  function careerSimulateResult(m){
+    const adjusted = careerMatchAdjustedProb(m);
+    const g = gapStrength(adjusted);
+    const drawProb = state.career.engine.drawProb * (0.2 + 0.8*(1-g));
+    const pHome = adjusted * (1-drawProb);
+    const pAway = (1-adjusted) * (1-drawProb);
+    const roll = Math.random();
+    let outcome;
+    if(roll < pHome) outcome = 'home';
+    else if(roll < pHome+pAway) outcome = 'away';
+    else outcome = 'draw';
+    if(!state.career.engine.allowDraws && outcome==='draw'){
+      outcome = Math.random() < adjusted ? 'home' : 'away';
+    }
+    return goalsForOutcome(outcome, adjusted);
+  }
+
+  function careerApplyEloUpdate(m){
+    const home = careerTeamById(m.home), away = careerTeamById(m.away);
+    if(!home || !away) return;
+    const adv = m.neutral ? 0 : state.career.engine.homeAdvantage;
+    const expHome = careerEloExpected(home.elo+adv, away.elo);
+    const expAway = 1-expHome;
+    let sHome;
+    if(m.homeScore > m.awayScore) sHome = 1;
+    else if(m.homeScore < m.awayScore) sHome = 0;
+    else sHome = 0.5;
+    const sAway = 1-sHome;
+    const k = state.career.engine.kFactor;
+    const dH = Math.round(k*(sHome-expHome));
+    const dA = Math.round(k*(sAway-expAway));
+    home.elo += dH; away.elo += dA;
+    m.deltaHome = dH; m.deltaAway = dA;
+  }
+
+  // En los octavos, cuartos, semis y final del formato real no hay alargue: empate en 90' va directo a penales.
+  function resolvePenaltiesWinner(m){
+    const adjusted = careerMatchAdjustedProb(m);
+    const tilted = 0.5 + (adjusted-0.5) * 0.3; // los penales son casi un cara o ceca
+    return Math.random() < tilted ? m.home : m.away;
+  }
+  function careerMatchWinner(m){
+    if(m.homeScore > m.awayScore) return m.home;
+    if(m.awayScore > m.homeScore) return m.away;
+    return m.penaltyWinner || null;
+  }
+
+  function careerComputeStandings(teamIds, matchFilter){
+    const rows = {};
+    teamIds.forEach(id => { rows[id] = { id, pj:0, pg:0, pe:0, pp:0, gf:0, gc:0, pts:0 }; });
+    state.career.matches.filter(matchFilter).forEach(m => {
+      if(!m.played || m.bye) return;
+      if(rows[m.home]){
+        const r = rows[m.home];
+        r.pj++; r.gf += m.homeScore; r.gc += m.awayScore;
+        if(m.homeScore > m.awayScore){ r.pg++; r.pts += 3; }
+        else if(m.homeScore < m.awayScore){ r.pp++; }
+        else { r.pe++; r.pts += 1; }
+      }
+      if(rows[m.away]){
+        const r = rows[m.away];
+        r.pj++; r.gf += m.awayScore; r.gc += m.homeScore;
+        if(m.awayScore > m.homeScore){ r.pg++; r.pts += 3; }
+        else if(m.awayScore < m.homeScore){ r.pp++; }
+        else { r.pe++; r.pts += 1; }
+      }
+    });
+    const arr = Object.values(rows);
+    arr.forEach(r => r.dg = r.gf - r.gc);
+    arr.sort((x,y) => y.pts - x.pts || y.dg - x.dg || y.gf - x.gf || (careerTeamById(y.id).elo - careerTeamById(x.id).elo));
+    return arr;
+  }
+
+  function careerComputeForm(teamId, matchFilter){
+    const involved = state.career.matches.filter(m => !m.bye && m.played && matchFilter(m) && (m.home===teamId || m.away===teamId));
+    involved.sort((a,b) => (a.playedAt||0) - (b.playedAt||0));
+    return involved.slice(-3).map(m => {
+      const isHome = m.home === teamId;
+      const gf = isHome ? m.homeScore : m.awayScore;
+      const gc = isHome ? m.awayScore : m.homeScore;
+      if(gf > gc) return 'G';
+      if(gf < gc) return 'P';
+      return 'E';
+    });
+  }
+
+  function shuffleArr(arr){
+    for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+    return arr;
+  }
+
+  function careerGenerateTournament(){
+    const c = state.career;
+    c.matches = [];
+    c.knockout = [];
+    c.knockoutBuilt = false;
+    c.matchCounter = 0;
+    c.playSeq = 0;
+    c.fixtureNav = {};
+    c.champion = null;
+
+    const zoneA = c.teams.filter(t=>t.zone===0).map(t=>t.id);
+    const zoneB = c.teams.filter(t=>t.zone===1).map(t=>t.id);
+    let maxRounds = 0;
+
+    [zoneA, zoneB].forEach((zoneIds, zi) => {
+      if(zoneIds.length < 2) return;
+      const rounds = roundRobinRounds(zoneIds);
+      rounds.forEach((round, ri) => {
+        round.forEach(mm => c.matches.push(careerMkMatch(c.tournament, zi, ri+1, mm.home, mm.away)));
+      });
+      maxRounds = Math.max(maxRounds, rounds.length);
+    });
+
+    // Fecha interzonal: sorteo al azar de un rival de la otra zona
+    if(zoneA.length && zoneB.length){
+      const shuffledA = shuffleArr(zoneA.slice());
+      const shuffledB = shuffleArr(zoneB.slice());
+      const n = Math.min(shuffledA.length, shuffledB.length);
+      const interRound = maxRounds + 1;
+      for(let i=0;i<n;i++){
+        const homeIsA = Math.random() < 0.5;
+        const home = homeIsA ? shuffledA[i] : shuffledB[i];
+        const away = homeIsA ? shuffledB[i] : shuffledA[i];
+        c.matches.push(careerMkMatch(c.tournament, null, interRound, home, away, {interzonal:true}));
+      }
+    }
+    c.step = 'temporada';
+  }
+
+  function careerBuildPlayoffs(){
+    const c = state.career;
+    const zoneA = c.teams.filter(t=>t.zone===0).map(t=>t.id);
+    const zoneB = c.teams.filter(t=>t.zone===1).map(t=>t.id);
+    const standA = careerComputeStandings(zoneA, m=>m.comp===c.tournament).slice(0,8).map(r=>r.id);
+    const standB = careerComputeStandings(zoneB, m=>m.comp===c.tournament).slice(0,8).map(r=>r.id);
+    const pairs = [];
+    for(let i=0;i<4;i++) pairs.push({ home: standB[i], away: standA[7-i] });   // 8°A vs 1°B ... 5°A vs 4°B (local: mejor ubicado)
+    for(let i=0;i<4;i++) pairs.push({ home: standA[i], away: standB[7-i] });   // 8°B vs 1°A ... 5°B vs 4°A
+    pairs.forEach(p => c.knockout.push(careerMkMatch(c.tournament, null, 1, p.home, p.away, {stage:'octavos', neutral:false})));
+    c.knockoutBuilt = true;
+    if(!c.fixtureNav) c.fixtureNav = {};
+    c.fixtureNav['career-playoffs'] = 1;
+  }
+
+  function careerAdvancePlayoffs(fromStage){
+    const c = state.career;
+    const stages = ['octavos','cuartos','semis','final'];
+    const roundsMap = {octavos:1, cuartos:2, semis:3, final:4};
+    const nextStage = stages[stages.indexOf(fromStage)+1];
+    if(!nextStage) return;
+    const matches = c.knockout.filter(m=>m.stage===fromStage);
+    const winners = matches.map(m=>careerMatchWinner(m));
+    const nextPairs = [];
+    for(let i=0;i<winners.length;i+=2) nextPairs.push({ home: winners[i], away: winners[i+1] });
+    nextPairs.forEach(p => c.knockout.push(careerMkMatch(c.tournament, null, roundsMap[nextStage], p.home, p.away, {stage:nextStage, neutral:true})));
+  }
+
+  function checkCareerChampion(m){
+    if(m && m.stage === 'final' && m.played){
+      state.career.champion = { tournament: state.career.tournament, year: state.career.year, teamId: careerMatchWinner(m) };
+    }
+  }
+
+  function careerArchiveTournament(){
+    const c = state.career;
+    if(!c.history) c.history = [];
+    c.history.push({
+      year: c.year, tournament: c.tournament,
+      matches: JSON.parse(JSON.stringify(c.matches)),
+      knockout: JSON.parse(JSON.stringify(c.knockout)),
+      champion: c.champion
+    });
+  }
+  function careerStartClausura(){
+    careerArchiveTournament();
+    state.career.tournament = 'clausura';
+    careerGenerateTournament();
+  }
+  function careerStartNextApertura(){
+    careerArchiveTournament();
+    state.career.year += 1;
+    state.career.tournament = 'apertura';
+    careerGenerateTournament();
+  }
+
+  function ensureCareerRoundPointer(ctx, total){
+    if(!state.career.fixtureNav) state.career.fixtureNav = {};
+    let cur = state.career.fixtureNav[ctx];
+    if(!cur || cur < 1) cur = 1;
+    if(total > 0 && cur > total) cur = total;
+    state.career.fixtureNav[ctx] = cur;
+    return cur;
+  }
+
+  function careerFindMatch(id){
+    return state.career.matches.find(m=>m.id===id) || state.career.knockout.find(m=>m.id===id);
+  }
+
+  function careerMatchProbLabel(m){
+    const home = careerTeamById(m.home), away = careerTeamById(m.away);
+    if(!home || !away) return '';
+    return Math.round(careerMatchAdjustedProb(m)*100) + '%';
+  }
+
+  function renderCareerMatchRow(m, meta){
+    meta = meta || null;
+    if(m.bye){
+      const survivor = m.home !== null ? careerTeamById(m.home) : careerTeamById(m.away);
+      return `<div class="match played">
+        <div class="side">${survivor ? escapeHtml(survivor.name) : '&mdash;'}</div>
+        <div></div><div class="bye-note">pase libre</div><div></div>
+        <div class="side away"></div>
+      </div>`;
+    }
+    const home = careerTeamById(m.home), away = careerTeamById(m.away);
+    if(!home || !away) return '';
+    const winnerId = m.stage ? careerMatchWinner(m) : null;
+    const winnerHome = m.played && (m.stage ? winnerId===m.home : m.homeScore > m.awayScore);
+    const winnerAway = m.played && (m.stage ? winnerId===m.away : m.awayScore > m.homeScore);
+    const penTag = m.wentToPenalties ? ` <span style="color:var(--gold-bright);font-size:11px;">(pen.)</span>` : '';
+    return `<div class="match ${m.played?'played':''}" data-match="${m.id}">
+      <div class="side ${winnerHome?'winner':''}">${escapeHtml(home.name)}<span class="elo-tag num">${home.elo}${m.played && m.deltaHome!==undefined ? ` <span class="delta ${m.deltaHome>0?'pos':(m.deltaHome<0?'neg':'')}">${m.deltaHome>=0?'+':''}${m.deltaHome}</span>`:''}</span>${renderPosForm(m.home, meta)}</div>
+      <input type="number" min="0" class="score-input" data-role="home-score" value="${m.homeScore ?? ''}" ${m.played?'disabled':''}>
+      <div class="vs">${m.played ? '&ndash;'+penTag : careerMatchProbLabel(m)}</div>
+      <input type="number" min="0" class="score-input" data-role="away-score" value="${m.awayScore ?? ''}" ${m.played?'disabled':''}>
+      <div class="side away ${winnerAway?'winner':''}">${escapeHtml(away.name)}<span class="elo-tag num">${away.elo}${m.played && m.deltaAway!==undefined ? ` <span class="delta ${m.deltaAway>0?'pos':(m.deltaAway<0?'neg':'')}">${m.deltaAway>=0?'+':''}${m.deltaAway}</span>`:''}</span>${renderPosForm(m.away, meta)}</div>
+      <div class="match-actions" style="grid-column:1/-1;justify-content:flex-end;">
+        ${!m.played ? `<button class="btn small" data-action="career-simulate-match" data-id="${m.id}">Simular</button>
+        <button class="btn small primary" data-action="career-confirm-match" data-id="${m.id}">Confirmar resultado</button>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function renderCarreraTopbar(){
+    const c = state.career;
+    const myTeam = c.myTeamId ? careerTeamById(c.myTeamId) : null;
+    return `<div class="topbar">
+      <div class="topbar-head">
+        <div>
+          <h1>Modo Carrera <span>&middot; ${myTeam ? escapeHtml(myTeam.name) : 'Primera División'}</span></h1>
+          <p class="sub">Fútbol argentino día a día, simulado con ELO.</p>
+        </div>
+        <button class="btn ghost small" data-action="go-torneos">&larr; Generador de Torneos</button>
+      </div>
+    </div>`;
+  }
+
+  function renderCarreraStep(){
+    const c = state.career;
+    if(c.step === 'equipos') return renderCareraEquipos();
+    if(c.step === 'elegir') return renderCareraElegir();
+    if(c.step === 'temporada') return renderCareraTemporada();
+    return renderCareraInicio();
+  }
+
+  function renderCareraInicio(){
+    const c = state.career;
+    if(c.myTeamId && c.teams.length){
+      const t = careerTeamById(c.myTeamId);
+      return `<div class="panel">
+        <h2>Modo Carrera</h2>
+        <p class="hint">Seguís al mando de <strong style="color:var(--ink);">${t?escapeHtml(t.name):'tu equipo'}</strong>, temporada ${c.year}.</p>
+        <div class="btn-row">
+          <button class="btn primary" data-action="career-goto-temporada">Continuar carrera</button>
+          <button class="btn ghost" data-action="career-reset">Empezar una carrera nueva</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="panel">
+      <h2>Modo Carrera &mdash; Primera División</h2>
+      <p class="hint">Elegí un equipo y dirigilo día a día: Copa de la Liga Apertura y Clausura, con dos zonas de 15, fecha interzonal sorteada y fase eliminatoria en octavos, cuartos, semis y final. Todo se simula según el ELO de cada equipo. (Tabla Anual, Promedios, descensos, Copa Argentina y las demás divisiones llegan en próximas actualizaciones.)</p>
+      <div class="btn-row"><button class="btn primary" data-action="career-goto-equipos">Cargar equipos y arrancar</button></div>
+    </div>`;
+  }
+
+  function renderCareraEquipos(){
+    const c = state.career;
+    function zoneRows(zoneIdx){
+      const list = c.teams.filter(t=>t.zone===zoneIdx);
+      if(list.length===0) return '<div class="empty">Sin equipos todavía.</div>';
+      return list.map(t=>`
+        <div class="team-row">
+          <span class="name">${escapeHtml(t.name)}</span>
+          <input type="number" class="num" data-career-elo="${t.id}" value="${t.elo}" style="width:80px;">
+          <button data-action="career-remove-team" data-id="${t.id}" title="Quitar">&times;</button>
+        </div>`).join('');
+    }
+    const zoneACount = c.teams.filter(t=>t.zone===0).length;
+    const zoneBCount = c.teams.filter(t=>t.zone===1).length;
+    const canContinue = zoneACount>=2 && zoneBCount>=2 && zoneACount===zoneBCount;
+    return `
+    <div class="panel">
+      <h2>Cargar Primera División</h2>
+      <p class="hint">Dos zonas de 15 equipos. Pegá una lista, una línea por equipo, formato "Nombre, ELO" (el ELO es opcional, por defecto 1500).</p>
+    </div>
+    <div class="grid cols-2" style="align-items:start;">
+      <div class="panel">
+        <h2>Zona A ${zoneACount?`(${zoneACount})`:''}</h2>
+        <textarea id="careerBulkA" placeholder="Boca, 1620&#10;River, 1650"></textarea>
+        <div class="btn-row"><button class="btn" data-action="career-bulk-add" data-zone="0">Cargar en Zona A</button></div>
+        <div style="margin-top:14px;">${zoneRows(0)}</div>
+      </div>
+      <div class="panel">
+        <h2>Zona B ${zoneBCount?`(${zoneBCount})`:''}</h2>
+        <textarea id="careerBulkB" placeholder="Racing, 1580&#10;Independiente, 1560"></textarea>
+        <div class="btn-row"><button class="btn" data-action="career-bulk-add" data-zone="1">Cargar en Zona B</button></div>
+        <div style="margin-top:14px;">${zoneRows(1)}</div>
+      </div>
+    </div>
+    ${!canContinue ? `<div class="msg warn">Cargá equipos en ambas zonas, con la misma cantidad en cada una (idealmente 15 y 15).</div>` : ''}
+    <div class="btn-row">
+      <button class="btn ghost" data-action="career-goto-inicio">Volver</button>
+      <button class="btn primary" data-action="career-goto-elegir" ${canContinue?'':'disabled'}>Continuar</button>
+    </div>`;
+  }
+
+  function renderCareraElegir(){
+    const c = state.career;
+    function rows(zoneIdx, label){
+      const list = c.teams.filter(t=>t.zone===zoneIdx).slice().sort((a,b)=>b.elo-a.elo);
+      return `<div class="group-block"><h3>${label}</h3>` + list.map(t=>`
+        <div class="team-row">
+          <span class="name">${escapeHtml(t.name)}</span>
+          <span class="elo num">${t.elo}</span>
+          <button class="btn small primary" data-action="career-pick-team" data-id="${t.id}">Elegir</button>
+        </div>`).join('') + `</div>`;
+    }
+    return `
+    <div class="panel">
+      <h2>Elegí tu equipo</h2>
+      <p class="hint">Vas a dirigir a este club en la Primera División, arrancando por la Copa de la Liga Apertura ${c.year}.</p>
+    </div>
+    ${rows(0,'Zona A')}
+    ${rows(1,'Zona B')}
+    <div class="btn-row"><button class="btn ghost" data-action="career-goto-equipos">Volver a equipos</button></div>`;
+  }
+
+  const CAREER_ZONE_LEGEND = [{ id:'octavos', label:'Clasifica a Octavos', from:1, to:8, color:'#5A8F5A' }];
+
+  function renderCareraTemporada(){
+    const c = state.career;
+    const myTeam = careerTeamById(c.myTeamId);
+    const tournamentLabel = c.tournament === 'apertura' ? 'Copa de la Liga &mdash; Apertura' : 'Copa de la Liga &mdash; Clausura';
+    const zoneA = c.teams.filter(t=>t.zone===0).map(t=>t.id);
+    const zoneB = c.teams.filter(t=>t.zone===1).map(t=>t.id);
+
+    const ligaMatches = c.matches.filter(m=>m.comp===c.tournament);
+    const ligaDone = ligaMatches.length>0 && ligaMatches.every(m=>m.played);
+
+    let body = `<div class="panel">
+      <h2>${tournamentLabel} ${c.year}</h2>
+      <p class="hint">Jugás con <strong style="color:var(--ink);">${myTeam?escapeHtml(myTeam.name):'&mdash;'}</strong> (Zona ${myTeam&&myTeam.zone===1?'B':'A'}).</p>
+    </div>`;
+
+    // FIXTURE fecha a fecha
+    const rounds = [...new Set(ligaMatches.map(m=>m.round))].sort((a,b)=>a-b);
+    const total = rounds.length;
+    const cur = ensureCareerRoundPointer('career-liga', total);
+    const curMatches = ligaMatches.filter(m=>m.round===cur);
+    const anyPlayed = ligaMatches.some(m=>m.played && !m.bye);
+    const zoneIdsForMeta = myTeam ? c.teams.filter(t=>t.zone===myTeam.zone).map(t=>t.id) : [];
+    let meta = null;
+    if(anyPlayed && zoneIdsForMeta.length){
+      const standings = careerComputeStandings(zoneIdsForMeta, m=>m.comp===c.tournament);
+      const posMap = {}; standings.forEach((r,i)=>posMap[r.id]=i+1);
+      const formMap = {}; zoneIdsForMeta.forEach(id=>formMap[id]=careerComputeForm(id, m=>m.comp===c.tournament));
+      meta = { posMap, formMap, zones: CAREER_ZONE_LEGEND };
+    }
+
+    body += `<div class="panel"><h2>Fixture</h2>`;
+    body += `<div class="round-header"><h3>${curMatches.some(m=>m.interzonal)?'Fecha interzonal':'Fecha '+cur} de ${total}</h3></div>`;
+    body += renderRoundNav('career-liga', cur, total, 'Fecha', 'career-nav-round');
+    body += curMatches.map(m=>renderCareerMatchRow(m, meta)).join('');
+    if(curMatches.some(m=>!m.played && !m.bye)){
+      body += `<div class="btn-row"><button class="btn primary" data-action="career-simulate-round" data-scope="liga-round" data-round="${cur}">Simular esta fecha</button></div>`;
+    }
+    body += `</div>`;
+
+    // TABLAS
+    const standA = careerComputeStandings(zoneA, m=>m.comp===c.tournament);
+    const standB = careerComputeStandings(zoneB, m=>m.comp===c.tournament);
+    body += `<div class="group-block"><h3>Zona A</h3>${renderStandingsTable(standA, false, CAREER_ZONE_LEGEND, careerTeamById)}</div>`;
+    body += `<div class="group-block"><h3>Zona B</h3>${renderStandingsTable(standB, false, CAREER_ZONE_LEGEND, careerTeamById)}</div>`;
+
+    // PLAYOFFS
+    const canPlayoffs = zoneA.length>=8 && zoneB.length>=8;
+    if(ligaDone && !c.knockoutBuilt){
+      body += canPlayoffs
+        ? `<div class="btn-row"><button class="btn primary" data-action="career-build-playoffs">Generar Octavos de Final</button></div>`
+        : `<div class="msg warn">Necesitás al menos 8 equipos por zona para armar la fase eliminatoria.</div>`;
+    }
+    if(c.knockoutBuilt) body += renderCareraPlayoffs();
+
+    // Fin de torneo / avance de temporada
+    if(c.champion && c.champion.tournament === c.tournament){
+      const champ = careerTeamById(c.champion.teamId);
+      body += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la ${c.tournament==='apertura'?'Copa de la Liga Apertura':'Copa de la Liga Clausura'} ${c.year}: <strong>${escapeHtml(champ.name)}</strong></div>`;
+      if(c.tournament === 'apertura'){
+        body += `<div class="btn-row"><button class="btn primary" data-action="career-start-clausura">Continuar al Clausura ${c.year}</button></div>`;
+      } else {
+        body += `<div class="panel"><h2>Fin de temporada ${c.year}</h2><p class="hint">La Tabla Anual, la Tabla de Promedios, los descensos, la Copa Argentina y las Supercopas llegan en la próxima etapa del Modo Carrera. Por ahora, arrancá la próxima temporada manteniendo las mismas zonas.</p><div class="btn-row"><button class="btn primary" data-action="career-start-next-apertura">Arrancar Apertura ${c.year+1}</button></div></div>`;
+      }
+    }
+
+    return body;
+  }
+
+  function renderCareraPlayoffs(){
+    const c = state.career;
+    const stages = ['octavos','cuartos','semis','final'];
+    const stageLabels = { octavos:'Octavos de Final', cuartos:'Cuartos de Final', semis:'Semifinales', final:'Final' };
+    let html = `<div class="panel"><h2>Fase Eliminatoria</h2>`;
+    stages.forEach(stage => {
+      const ms = c.knockout.filter(m=>m.stage===stage);
+      if(ms.length === 0) return;
+      html += `<div class="round-header"><h3>${stageLabels[stage]}</h3></div>`;
+      html += ms.map(m=>renderCareerMatchRow(m, null)).join('');
+      const allPlayed = ms.every(m=>m.played);
+      const nextStage = stages[stages.indexOf(stage)+1];
+      if(!allPlayed){
+        html += `<div class="btn-row"><button class="btn small" data-action="career-simulate-round" data-scope="${stage}">Simular ${stageLabels[stage].toLowerCase()}</button></div>`;
+      }
+      if(allPlayed && nextStage && c.knockout.filter(m=>m.stage===nextStage).length===0){
+        html += `<div class="btn-row"><button class="btn primary" data-action="career-advance-playoffs" data-stage="${stage}">Avanzar a ${stageLabels[nextStage]}</button></div>`;
+      }
+    });
+    html += `</div>`;
+    return html;
   }
 
   // ---------- Init ----------
