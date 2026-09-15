@@ -211,6 +211,7 @@
       kFactor: 24,
       homeAdvantage: 40,
       drawProb: 0.25,
+      surpriseFactor: 45,
       seedMethod: 'elo'
     },
     teams: [],          // {id, name, elo, initialElo}
@@ -229,6 +230,24 @@
 
   function eloExpected(eloA, eloB){
     return 1 / (1 + Math.pow(10, (eloB - eloA) / 400));
+  }
+
+  // Blends the pure ELO win expectation toward 50/50 as surpriseFactor rises (0-100).
+  // At 0 the favorite's real ELO odds are used as-is; at 100 the match plays much more evenly.
+  function adjustedProbability(expHome, surpriseFactor){
+    const temp = 1 + (surpriseFactor / 100) * 1.6;
+    const invT = 1 / temp;
+    const a = Math.pow(expHome, invT);
+    const b = Math.pow(1 - expHome, invT);
+    return a / (a + b);
+  }
+
+  function poissonRandom(lambda){
+    if(lambda <= 0) return 0;
+    const L = Math.exp(-lambda);
+    let k = 0, p = 1;
+    do { k++; p *= Math.random(); } while(p > L);
+    return k - 1;
   }
 
   function applyEloUpdate(match){
@@ -250,29 +269,52 @@
     match.deltaAway = deltaAway;
   }
 
-  function randomScoreline(outcome){
-    // outcome: 'home' | 'away' | 'draw'
-    function ri(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
-    if(outcome === 'draw'){ const g = ri(0,2); return [g,g]; }
-    if(outcome === 'home'){ const h = ri(1,3); const a = ri(0, Math.max(0,h-1)); return [h,a]; }
-    const a = ri(1,3); const h = ri(0, Math.max(0,a-1)); return [h,a];
+  // How much the ELO gap actually separates the two sides, after the surprise-factor blend: 0 = coin flip, 1 = huge mismatch.
+  function gapStrength(adjusted){ return Math.abs(adjusted - 0.5) * 2; }
+
+  function matchAdjustedProb(match){
+    const home = teamById(match.home), away = teamById(match.away);
+    const exp = eloExpected(home.elo + state.config.homeAdvantage, away.elo);
+    return adjustedProbability(exp, state.config.surpriseFactor);
+  }
+
+  // Scorelines get bigger when the favorite wins as expected, and stay narrow on upsets — the way real surprise results tend to look.
+  function goalsForOutcome(outcome, adjusted){
+    const g = gapStrength(adjusted);
+    const favoriteIsHome = adjusted >= 0.5;
+    if(outcome === 'draw'){
+      const base = poissonRandom(0.9 + (1 - g) * 0.7);
+      return [base, base];
+    }
+    const winnerIsFavorite = (outcome === 'home' && favoriteIsHome) || (outcome === 'away' && !favoriteIsHome);
+    let margin, loserGoals;
+    if(winnerIsFavorite){
+      margin = 1 + poissonRandom(0.3 + g * 1.6);
+      loserGoals = poissonRandom(0.5 + (1 - g) * 0.8);
+    } else {
+      margin = 1 + (Math.random() < (0.15 + (1 - g) * 0.1) ? 1 : 0);
+      loserGoals = poissonRandom(0.9);
+    }
+    const winnerGoals = loserGoals + margin;
+    return outcome === 'home' ? [winnerGoals, loserGoals] : [loserGoals, winnerGoals];
   }
 
   function simulateResult(match){
-    const home = teamById(match.home), away = teamById(match.away);
-    const expHome = eloExpected(home.elo + state.config.homeAdvantage, away.elo);
-    const pDraw = state.config.drawProb;
-    const pHome = expHome * (1 - pDraw);
-    const pAway = (1 - expHome) * (1 - pDraw);
+    const adjusted = matchAdjustedProb(match);
+    const g = gapStrength(adjusted);
+    // draws get rarer as the gap widens — a huge favorite is less likely to be held, though never impossible
+    const drawProb = state.config.drawProb * (0.2 + 0.8 * (1 - g));
+    const pHome = adjusted * (1 - drawProb);
+    const pAway = (1 - adjusted) * (1 - drawProb);
     const roll = Math.random();
     let outcome;
     if(roll < pHome) outcome = 'home';
     else if(roll < pHome + pAway) outcome = 'away';
     else outcome = 'draw';
     if(!state.config.allowDraws && outcome === 'draw'){
-      outcome = Math.random() < 0.5 ? 'home' : 'away';
+      outcome = Math.random() < adjusted ? 'home' : 'away';
     }
-    return randomScoreline(outcome);
+    return goalsForOutcome(outcome, adjusted);
   }
 
   // ---------- Round robin ----------
@@ -580,10 +622,14 @@
         <div class="field"><label>Factor K (sensibilidad)</label><input type="number" id="cfgKFactor" value="${cfg.kFactor}"></div>
         <div class="field"><label>Ventaja de local (puntos ELO)</label><input type="number" id="cfgHomeAdv" value="${cfg.homeAdvantage}"></div>
       </div>
-      <div class="grid cols-2" style="margin-top:16px;">
+      <div class="grid cols-3" style="margin-top:16px;">
         <div class="field">
           <label>Probabilidad base de empate: ${Math.round(cfg.drawProb*100)}%</label>
           <input type="range" id="cfgDrawProb" min="0" max="50" value="${Math.round(cfg.drawProb*100)}">
+        </div>
+        <div class="field">
+          <label>Posibilidad de sorpresas: ${cfg.surpriseFactor}%</label>
+          <input type="range" id="cfgSurprise" min="0" max="100" value="${cfg.surpriseFactor}">
         </div>
         <div class="field">
           <label>Método de siembra para el fixture</label>
@@ -594,6 +640,7 @@
           </select>
         </div>
       </div>
+      <p class="hint" style="margin:10px 0 0;">En 0% de sorpresas el favorito gana casi siempre que la diferencia de ELO sea grande, como marca el ranking. Subiendo el valor los partidos se sienten más parejos sin dejar de respetar quién es mejor.</p>
     </div>
 
     <div class="btn-row">
@@ -647,8 +694,8 @@
   function matchProbLabel(m){
     const home = teamById(m.home), away = teamById(m.away);
     if(!home || !away) return '';
-    const exp = eloExpected(home.elo + state.config.homeAdvantage, away.elo);
-    return Math.round(exp*100) + '%';
+    const adjusted = matchAdjustedProb(m);
+    return Math.round(adjusted*100) + '%';
   }
 
   function renderMatchRow(m){
@@ -958,6 +1005,14 @@
         state.config.drawProb = Number(rangeEl.value)/100;
         const lbl = rangeEl.previousElementSibling;
         if(lbl) lbl.textContent = `Probabilidad base de empate: ${Math.round(state.config.drawProb*100)}%`;
+      });
+    }
+    const surpriseEl = document.getElementById('cfgSurprise');
+    if(surpriseEl){
+      surpriseEl.addEventListener('input', () => {
+        state.config.surpriseFactor = Number(surpriseEl.value);
+        const lbl = surpriseEl.previousElementSibling;
+        if(lbl) lbl.textContent = `Posibilidad de sorpresas: ${state.config.surpriseFactor}%`;
       });
     }
   }
