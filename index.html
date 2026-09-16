@@ -260,8 +260,108 @@
       matchCounter: 0,
       playSeq: 0,
       fixtureNav: {},
-      engine: { homeAdvantage: 40, kFactor: 24, drawProb: 0.25, surpriseFactor: 45, allowDraws: true }
+      engine: { homeAdvantage: 40, kFactor: 24, drawProb: 0.25, surpriseFactor: 45, allowDraws: true },
+      calendarDate: null        // 'YYYY-MM-DD' — fecha actual del calendario único de la carrera
     };
+  }
+
+  // ---------- Calendario único de la carrera ----------
+  function pad2(n){ return n<10 ? '0'+n : ''+n; }
+  function toISO(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+  function fromISO(s){ const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+  function addDaysISO(iso, days){ const d = fromISO(iso); d.setDate(d.getDate()+days); return toISO(d); }
+  function firstWeekdayOfMonth(year, monthIndex0, dow){
+    const d = new Date(year, monthIndex0, 1);
+    const diff = (dow - d.getDay() + 7) % 7;
+    d.setDate(1+diff);
+    return toISO(d);
+  }
+  // próxima fecha, estrictamente posterior a fromIso, que caiga en el día de semana `dow` (0=domingo...3=miércoles)
+  function nextWeekdayAfter(fromIso, dow){
+    const d = fromISO(fromIso);
+    d.setDate(d.getDate()+1);
+    while(d.getDay() !== dow) d.setDate(d.getDate()+1);
+    return toISO(d);
+  }
+  function careerSeasonStart(year, tournament){
+    // Apertura: primer domingo de febrero. Clausura: primer domingo de agosto.
+    return tournament === 'apertura' ? firstWeekdayOfMonth(year, 1, 0) : firstWeekdayOfMonth(year, 7, 0);
+  }
+  function formatCareerDate(iso){
+    if(!iso) return '—';
+    const d = fromISO(iso);
+    const s = d.toLocaleDateString('es-AR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  function careerAllUnplayedDatedMatches(){
+    const c = state.career;
+    const lists = [c.matches, c.knockout, (c.copaArgentina && c.copaArgentina.matches) || [], c.cupMatches || []];
+    let out = [];
+    lists.forEach(l => { out = out.concat(l.filter(m => !m.played && !m.bye && m.date)); });
+    return out;
+  }
+  function careerCompLabel(m){
+    const stageLabels = { octavos:'Octavos de Final', cuartos:'Cuartos de Final', semis:'Semifinales', final:'Final' };
+    if(m.comp === 'apertura' || m.comp === 'clausura'){
+      const base = m.comp === 'apertura' ? 'Copa de la Liga — Apertura' : 'Copa de la Liga — Clausura';
+      if(m.stage) return base + ' · ' + (stageLabels[m.stage] || m.stage);
+      return base + (m.interzonal ? ' · Fecha interzonal' : '');
+    }
+    if(m.comp === 'copa-argentina') return 'Copa Argentina' + (m.stage ? ' · ' + (COPA_ARG_LABELS[m.stage] || m.stage) : '');
+    if(m.comp === 'trofeo-campeones') return 'Trofeo de Campeones';
+    if(m.comp === 'supercopa-argentina') return 'Supercopa Argentina';
+    if(m.comp === 'supercopa-internacional') return 'Supercopa Internacional';
+    return m.comp;
+  }
+  // Genera automáticamente la próxima ronda/etapa de cada llave cuando la anterior ya se jugó entera,
+  // para que "Avanzar calendario" no dependa de ir tocando botones torneo por torneo.
+  function careerTryAutoAdvanceStages(){
+    const c = state.career;
+    let progressed = true, guard = 0;
+    while(progressed && guard < 25){
+      progressed = false; guard++;
+      const ligaMatches = c.matches.filter(m=>m.comp===c.tournament);
+      const ligaDone = ligaMatches.length>0 && ligaMatches.every(m=>m.played);
+      const zoneACount = c.teams.filter(t=>t.zone===0).length;
+      const zoneBCount = c.teams.filter(t=>t.zone===1).length;
+      if(ligaDone && !c.knockoutBuilt && zoneACount>=8 && zoneBCount>=8){
+        careerBuildPlayoffs(); progressed = true;
+      }
+      if(c.knockoutBuilt){
+        const stages = ['octavos','cuartos','semis','final'];
+        stages.forEach(stage => {
+          const ms = c.knockout.filter(m=>m.stage===stage);
+          if(ms.length===0) return;
+          const nextStage = stages[stages.indexOf(stage)+1];
+          if(ms.every(m=>m.played) && nextStage && c.knockout.filter(m=>m.stage===nextStage).length===0){
+            careerAdvancePlayoffs(stage); progressed = true;
+          }
+        });
+      }
+      if(c.copaArgentina && c.copaArgentina.built){
+        COPA_ARG_STAGES.forEach(stage => {
+          const ms = c.copaArgentina.matches.filter(m=>m.stage===stage);
+          if(ms.length===0) return;
+          const nextStage = COPA_ARG_STAGES[COPA_ARG_STAGES.indexOf(stage)+1];
+          if(ms.every(m=>m.played) && nextStage && c.copaArgentina.matches.filter(m=>m.stage===nextStage).length===0){
+            careerAdvanceCopaArgentina(stage); progressed = true;
+          }
+        });
+      }
+      careerMaybeBuildTrofeo();
+      careerMaybeBuildSupercopaArgentina();
+      careerMaybeBuildSupercopaInternacional();
+    }
+  }
+  // Avanza el calendario único al próximo día con partidos programados de cualquier competencia.
+  // Devuelve true si encontró una fecha nueva, false si no queda nada programado por ahora.
+  function careerAdvanceCalendar(){
+    const c = state.career;
+    careerTryAutoAdvanceStages();
+    const pending = careerAllUnplayedDatedMatches();
+    if(pending.length === 0) return false;
+    c.calendarDate = pending.map(m=>m.date).sort()[0];
+    return true;
   }
 
   const state = {
@@ -1448,6 +1548,21 @@
       return;
     }
     else if(action === 'career-set-view'){ state.career.view = btn.getAttribute('data-view'); render(); return; }
+    else if(action === 'career-advance-calendar'){ careerAdvanceCalendar(); render(); return; }
+    else if(action === 'career-simulate-day'){
+      const c = state.career;
+      const todays = careerAllUnplayedDatedMatches().filter(m=>m.date === c.calendarDate);
+      todays.forEach(m => {
+        const [h,a] = careerSimulateResult(m);
+        m.homeScore = h; m.awayScore = a; m.played = true;
+        m.playedAt = ++c.playSeq;
+        if(m.stage && h===a){ m.wentToPenalties = true; m.penaltyWinner = resolvePenaltiesWinner(m); }
+        careerApplyEloUpdate(m);
+        checkCareerChampion(m);
+      });
+      render();
+      return;
+    }
     else if(action === 'career-build-copa-argentina'){ careerBuildCopaArgentina(); render(); return; }
     else if(action === 'career-simulate-copa'){
       const stage = btn.getAttribute('data-stage');
@@ -2009,6 +2124,9 @@
     c.fixtureNav = {};
     c.champion = null;
 
+    const seasonStart = careerSeasonStart(c.year, c.tournament);
+    const dateForRound = (ri) => addDaysISO(seasonStart, (ri-1)*7);
+
     const zoneA = c.teams.filter(t=>t.zone===0).map(t=>t.id);
     const zoneB = c.teams.filter(t=>t.zone===1).map(t=>t.id);
     let maxRounds = 0;
@@ -2017,7 +2135,7 @@
       if(zoneIds.length < 2) return;
       const rounds = roundRobinRounds(zoneIds);
       rounds.forEach((round, ri) => {
-        round.forEach(mm => c.matches.push(careerMkMatch(c.tournament, zi, ri+1, mm.home, mm.away)));
+        round.forEach(mm => c.matches.push(careerMkMatch(c.tournament, zi, ri+1, mm.home, mm.away, {date: dateForRound(ri+1)})));
       });
       maxRounds = Math.max(maxRounds, rounds.length);
     });
@@ -2028,13 +2146,15 @@
       const shuffledB = shuffleArr(zoneB.slice());
       const n = Math.min(shuffledA.length, shuffledB.length);
       const interRound = maxRounds + 1;
+      const interDate = dateForRound(interRound);
       for(let i=0;i<n;i++){
         const homeIsA = Math.random() < 0.5;
         const home = homeIsA ? shuffledA[i] : shuffledB[i];
         const away = homeIsA ? shuffledB[i] : shuffledA[i];
-        c.matches.push(careerMkMatch(c.tournament, null, interRound, home, away, {interzonal:true}));
+        c.matches.push(careerMkMatch(c.tournament, null, interRound, home, away, {interzonal:true, date: interDate}));
       }
     }
+    c.calendarDate = addDaysISO(seasonStart, -1);
     c.step = 'temporada';
   }
 
@@ -2044,10 +2164,13 @@
     const zoneB = c.teams.filter(t=>t.zone===1).map(t=>t.id);
     const standA = careerComputeStandings(zoneA, m=>m.comp===c.tournament).slice(0,8).map(r=>r.id);
     const standB = careerComputeStandings(zoneB, m=>m.comp===c.tournament).slice(0,8).map(r=>r.id);
+    const ligaDates = c.matches.filter(m=>m.comp===c.tournament && m.date).map(m=>m.date).sort();
+    const lastLigaDate = ligaDates.length ? ligaDates[ligaDates.length-1] : c.calendarDate;
+    const date = addDaysISO(lastLigaDate, 14);
     const pairs = [];
     for(let i=0;i<4;i++) pairs.push({ home: standB[i], away: standA[7-i] });   // 8°A vs 1°B ... 5°A vs 4°B (local: mejor ubicado)
     for(let i=0;i<4;i++) pairs.push({ home: standA[i], away: standB[7-i] });   // 8°B vs 1°A ... 5°B vs 4°A
-    pairs.forEach(p => c.knockout.push(careerMkMatch(c.tournament, null, 1, p.home, p.away, {stage:'octavos', neutral:false})));
+    pairs.forEach(p => c.knockout.push(careerMkMatch(c.tournament, null, 1, p.home, p.away, {stage:'octavos', neutral:false, date})));
     c.knockoutBuilt = true;
     if(!c.fixtureNav) c.fixtureNav = {};
     c.fixtureNav['career-playoffs'] = 1;
@@ -2061,9 +2184,11 @@
     if(!nextStage) return;
     const matches = c.knockout.filter(m=>m.stage===fromStage);
     const winners = matches.map(m=>careerMatchWinner(m));
+    const fromDate = (matches.length && matches[0].date) ? matches[0].date : c.calendarDate;
+    const date = addDaysISO(fromDate, 14);
     const nextPairs = [];
     for(let i=0;i<winners.length;i+=2) nextPairs.push({ home: winners[i], away: winners[i+1] });
-    nextPairs.forEach(p => c.knockout.push(careerMkMatch(c.tournament, null, roundsMap[nextStage], p.home, p.away, {stage:nextStage, neutral:true})));
+    nextPairs.forEach(p => c.knockout.push(careerMkMatch(c.tournament, null, roundsMap[nextStage], p.home, p.away, {stage:nextStage, neutral:true, date})));
   }
 
   // ---------- Historial de títulos ----------
@@ -2203,7 +2328,8 @@
     const pool = primeraTop28.concat(otherTeams);
     const seeded = pool.slice().sort((a,b)=>b.elo-a.elo).map(t=>t.id);
     const pairs = buildFirstKnockoutRound(seeded);
-    pairs.forEach(p => c.copaArgentina.matches.push(careerMkMatch('copa-argentina', null, 1, p.home, p.away, {stage:'treintaidosavos', neutral:true})));
+    const date = nextWeekdayAfter(state.career.calendarDate || careerSeasonStart(state.career.year, state.career.tournament), 3);
+    pairs.forEach(p => c.copaArgentina.matches.push(careerMkMatch('copa-argentina', null, 1, p.home, p.away, {stage:'treintaidosavos', neutral:true, date})));
   }
 
   function careerAdvanceCopaArgentina(fromStage){
@@ -2213,10 +2339,12 @@
     if(!nextStage) return;
     const matches = c.matches.filter(m=>m.stage===fromStage);
     const winners = matches.map(m=>careerMatchWinner(m));
+    const fromDate = (matches.length && matches[0].date) ? matches[0].date : state.career.calendarDate;
+    const date = addDaysISO(fromDate, 14);
     const pairs = [];
     for(let i=0;i<winners.length;i+=2) pairs.push({ home: winners[i], away: winners[i+1] });
     const round = stages.indexOf(nextStage)+1;
-    pairs.forEach(p => c.matches.push(careerMkMatch('copa-argentina', null, round, p.home, p.away, {stage:nextStage, neutral:true})));
+    pairs.forEach(p => c.matches.push(careerMkMatch('copa-argentina', null, round, p.home, p.away, {stage:nextStage, neutral:true, date})));
   }
 
   // ---------- Trofeo de Campeones / Supercopas ----------
@@ -2229,7 +2357,8 @@
     const clzChamp = careerGetTitle(c.year,'clausura');
     if(!aptChamp || !clzChamp) return;
     if(aptChamp === clzChamp){ careerRecordTitle('trofeo-campeones', aptChamp); return; }
-    c.cupMatches.push(careerMkMatch('trofeo-campeones', null, 1, aptChamp, clzChamp, {stage:'final', neutral:true, year:c.year}));
+    const date = nextWeekdayAfter(c.calendarDate, 3);
+    c.cupMatches.push(careerMkMatch('trofeo-campeones', null, 1, aptChamp, clzChamp, {stage:'final', neutral:true, year:c.year, date}));
   }
   function careerMaybeBuildSupercopaArgentina(){
     const c = state.career;
@@ -2240,7 +2369,8 @@
     const copaChamp = (c.copaArgentina && c.copaArgentina.champion && c.copaArgentina.champion.year===c.year) ? c.copaArgentina.champion.teamId : null;
     if(!trofeoChamp || !copaChamp) return;
     if(trofeoChamp === copaChamp){ careerRecordTitle('supercopa-argentina', trofeoChamp); return; }
-    c.cupMatches.push(careerMkMatch('supercopa-argentina', null, 1, trofeoChamp, copaChamp, {stage:'final', neutral:true, year:c.year}));
+    const date = nextWeekdayAfter(c.calendarDate, 3);
+    c.cupMatches.push(careerMkMatch('supercopa-argentina', null, 1, trofeoChamp, copaChamp, {stage:'final', neutral:true, year:c.year, date}));
   }
   function careerMaybeBuildSupercopaInternacional(){
     const c = state.career;
@@ -2256,7 +2386,8 @@
     if(rival === trofeoChamp) rival = annual[1] ? annual[1].id : null;
     if(!rival) return;
     if(trofeoChamp === rival){ careerRecordTitle('supercopa-internacional', trofeoChamp); return; }
-    c.cupMatches.push(careerMkMatch('supercopa-internacional', null, 1, trofeoChamp, rival, {stage:'final', neutral:true, year:c.year}));
+    const date = nextWeekdayAfter(c.calendarDate, 3);
+    c.cupMatches.push(careerMkMatch('supercopa-internacional', null, 1, trofeoChamp, rival, {stage:'final', neutral:true, year:c.year, date}));
   }
 
   function careerArchiveTournament(){
@@ -2458,8 +2589,9 @@
 
   function renderCareraTemporada(){
     const c = state.career;
-    if(!c.view) c.view = 'liga';
+    if(!c.view) c.view = 'calendario';
     const tabs = [
+      { k:'calendario', label:'Calendario' },
       { k:'liga', label:'Liga' },
       { k:'copa-argentina', label:'Copa Argentina' },
       { k:'copas', label:'Tablas y Copas' }
@@ -2467,8 +2599,51 @@
     let out = `<div class="tabs" style="margin-bottom:18px;">${tabs.map(t=>`<div class="tab ${c.view===t.k?'active':''}" data-action="career-set-view" data-view="${t.k}">${t.label}</div>`).join('')}</div>`;
     if(c.view === 'copa-argentina') out += renderCareraCopaArgentina();
     else if(c.view === 'copas') out += renderCareraCopasNacionales();
-    else out += renderCareraLiga();
+    else if(c.view === 'liga') out += renderCareraLiga();
+    else out += renderCareraCalendario();
     return out;
+  }
+
+  function renderCareraCalendario(){
+    const c = state.career;
+    // Arma automáticamente octavos/cuartos/etc, rondas de Copa Argentina y copas nacionales apenas
+    // corresponde, para que el botón de avanzar no "desaparezca" entre una etapa y la siguiente.
+    careerTryAutoAdvanceStages();
+
+    let html = `<div class="panel">
+      <h2>Calendario</h2>
+      <p class="hint">Fecha actual de la carrera: <strong style="color:var(--ink);">${formatCareerDate(c.calendarDate)}</strong></p>
+    </div>`;
+
+    const todays = careerAllUnplayedDatedMatches().filter(m=>m.date === c.calendarDate);
+
+    if(todays.length === 0){
+      const hasPending = careerAllUnplayedDatedMatches().length > 0;
+      html += `<div class="panel">`;
+      if(hasPending){
+        html += `<p class="hint">No hay partidos programados para hoy.</p><div class="btn-row"><button class="btn primary" data-action="career-advance-calendar">Avanzar calendario</button></div>`;
+      } else {
+        html += `<p class="hint">No hay más partidos programados por el momento. Puede que haga falta armar algo desde las pestañas Liga o Copa Argentina (por ejemplo sortear la Copa Argentina, o pasar de temporada una vez terminado el Clausura).</p>`;
+      }
+      html += `</div>`;
+      return html;
+    }
+
+    const groups = [];
+    const groupIndex = {};
+    todays.forEach(m => {
+      const label = careerCompLabel(m);
+      if(!(label in groupIndex)){ groupIndex[label] = groups.length; groups.push({ label, matches: [] }); }
+      groups[groupIndex[label]].matches.push(m);
+    });
+    groups.forEach(g => {
+      html += `<div class="panel"><h2>${g.label}</h2>${g.matches.map(m=>renderCareerMatchRow(m, null)).join('')}</div>`;
+    });
+    html += `<div class="btn-row">
+      <button class="btn" data-action="career-simulate-day">Simular todos los partidos de hoy</button>
+      <button class="btn primary" data-action="career-advance-calendar">Avanzar calendario</button>
+    </div>`;
+    return html;
   }
 
   function renderCareraLiga(){
