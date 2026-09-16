@@ -2578,7 +2578,9 @@
   function careerComputeDescensos(){
     const annual = careerAnnualTable();
     const promedios = careerPromediosTable();
-    if(annual.length < 2 || promedios.length < 2) return { annual, promedios, relegated: [] };
+    if(annual.length < 2 || promedios.length < 2){
+      return { annual, promedios, relegated: [], relegatedAnnual: [], relegatedPromedios: [] };
+    }
     const lastAnnual = annual[annual.length-1].id;
     const lastProm = promedios[promedios.length-1].id;
     let relegated;
@@ -2590,7 +2592,9 @@
     } else {
       relegated = [lastAnnual, lastProm];
     }
-    return { annual, promedios, relegated };
+    // Para mostrar en pantalla, cada tabla marca solo a SU propio último puesto (uno por tabla),
+    // aunque el descenso real (arriba) pueda incluir un segundo equipo por la regla del empate.
+    return { annual, promedios, relegated, relegatedAnnual: [lastAnnual], relegatedPromedios: [lastProm] };
   }
 
   function renderAnnualTable(rows, relegatedIds){
@@ -4673,8 +4677,8 @@
     const c = state.career;
     const desc = careerComputeDescensos();
     let html = renderResumenMovimientos();
-    html += `<div class="panel"><h2>Tabla Anual ${c.year}</h2><p class="hint">Suma los puntos de fase regular del Apertura y el Clausura (no cuenta la fase eliminatoria). El último desciende a la Primera Nacional.</p>${renderAnnualTable(desc.annual, desc.relegated)}</div>`;
-    html += `<div class="panel"><h2>Tabla de Promedios</h2><p class="hint">Promedio de puntos por partido de las últimas hasta 3 temporadas. El último también desciende (si coincide con el último de la Tabla Anual, desciende el penúltimo de esa tabla en su lugar).</p>${renderPromediosTable(desc.promedios, desc.relegated)}</div>`;
+    html += `<div class="panel"><h2>Tabla Anual ${c.year}</h2><p class="hint">Suma los puntos de fase regular del Apertura y el Clausura (no cuenta la fase eliminatoria). El último desciende a la Primera Nacional.</p>${renderAnnualTable(desc.annual, desc.relegatedAnnual)}</div>`;
+    html += `<div class="panel"><h2>Tabla de Promedios</h2><p class="hint">Promedio de puntos por partido de las últimas hasta 3 temporadas. El último también desciende (si coincide con el último de la Tabla Anual, desciende el penúltimo de esa tabla en su lugar).</p>${renderPromediosTable(desc.promedios, desc.relegatedPromedios)}</div>`;
     html += renderClasificacionCopasBlock();
     html += renderCopaSlot('Trofeo de Campeones', 'Se define cuando estén los campeones de Apertura y Clausura de este año.', 'trofeo-campeones');
     html += renderCopaSlot('Supercopa Argentina', 'Se define cuando estén el campeón del Trofeo de Campeones y el de la Copa Argentina.', 'supercopa-argentina');
