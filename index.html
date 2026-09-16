@@ -266,6 +266,8 @@
       nacional: defaultNacional(),
       bmetro: defaultBmetro(),
       federal: defaultFederal(),
+      primerac: defaultPrimeraC(),
+      promocional: defaultPromocional(),
       calendarDate: null        // 'YYYY-MM-DD' — fecha actual del calendario único de la carrera
     };
   }
@@ -316,6 +318,34 @@
     };
   }
 
+  // Cuarta División: Primera C Metropolitana.
+  function defaultPrimeraC(){
+    return {
+      teams: [],            // {id, name, elo, zone:0|1} — 28 equipos en 2 zonas de 14
+      matches: [],          // comp:'primerac'
+      generatedYear: null,
+      champion: null,       // ganador de la final entre los dos punteros
+      promoted: [],         // los 2 ascensos a la B Metropolitana
+      desafiliado: null,    // el que pierde el partido por la permanencia
+      permanenciaWinner: null,
+      redOrder: [],         // ordenamiento del reducido
+      redBye: null          // el que pasa de instancia en la ronda de 7
+    };
+  }
+
+  // Quinta División: Torneo Promocional Amateur (Apertura y Clausura en el mismo año).
+  function defaultPromocional(){
+    return {
+      teams: [],            // {id, name, elo, zone:0|1} — 17 equipos (8 y 9)
+      matches: [],          // comp:'promocional'
+      generatedYear: null,
+      aperturaChampion: null,   // asciende directo a la Primera C
+      clausuraChampion: null,   // se gana el derecho a jugar la promoción
+      promoted: [],
+      promocionWinner: null
+    };
+  }
+
   // ---------- Calendario único de la carrera ----------
   function pad2(n){ return n<10 ? '0'+n : ''+n; }
   function toISO(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
@@ -353,7 +383,9 @@
       c.cupMatches || [],
       (c.nacional && c.nacional.matches) || [],
       (c.bmetro && c.bmetro.matches) || [],
-      (c.federal && c.federal.matches) || []
+      (c.federal && c.federal.matches) || [],
+      (c.primerac && c.primerac.matches) || [],
+      (c.promocional && c.promocional.matches) || []
     ];
   }
   // Todos los partidos con fecha asignada, jugados o no (el calendario muestra también los resultados del día).
@@ -383,6 +415,14 @@
     if(m.comp === 'federal'){
       if(m.stage) return 'Torneo Federal A · ' + (FEDERAL_STAGE_LABELS[m.stage] || m.stage);
       return 'Torneo Federal A · Fase regular';
+    }
+    if(m.comp === 'primerac'){
+      if(m.stage) return 'Primera C Metropolitana · ' + (PC_STAGE_LABELS[m.stage] || m.stage);
+      return 'Primera C Metropolitana' + (m.interzonal ? ' · Fecha interzonal' : '');
+    }
+    if(m.comp === 'promocional'){
+      if(m.stage) return 'Promocional Amateur · ' + (PROMO_STAGE_LABELS[m.stage] || m.stage);
+      return 'Promocional Amateur · ' + (m.phase === 'clausura' ? 'Clausura' : 'Apertura');
     }
     if(m.comp === 'copa-argentina') return 'Copa Argentina' + (m.stage ? ' · ' + (COPA_ARG_LABELS[m.stage] || m.stage) : '');
     if(m.comp === 'trofeo-campeones') return 'Trofeo de Campeones';
@@ -428,6 +468,8 @@
       if(careerNacionalAutoAdvance()) progressed = true;
       if(careerBmetroAutoAdvance()) progressed = true;
       if(careerFederalAutoAdvance()) progressed = true;
+      if(careerPrimeraCAutoAdvance()) progressed = true;
+      if(careerPromocionalAutoAdvance()) progressed = true;
       careerMaybeBuildTrofeo();
       careerMaybeBuildSupercopaArgentina();
       careerMaybeBuildSupercopaInternacional();
@@ -1844,6 +1886,19 @@
       } else if(scope === 'federal-round'){
         const roundNum = Number(btn.getAttribute('data-round'));
         list = careerFederal().matches.filter(m=>!m.stage && m.round===roundNum && !m.played && !m.bye);
+      } else if(scope === 'primerac-round'){
+        const roundNum = Number(btn.getAttribute('data-round'));
+        list = careerPrimeraC().matches.filter(m=>!m.stage && m.round===roundNum && !m.played && !m.bye);
+      } else if(scope === 'primerac-stage'){
+        const stage = btn.getAttribute('data-stage');
+        list = careerPrimeraC().matches.filter(m=>m.stage===stage && !m.played && !m.bye);
+      } else if(scope === 'promocional-round'){
+        const roundNum = Number(btn.getAttribute('data-round'));
+        const phase = btn.getAttribute('data-phase');
+        list = careerPromocional().matches.filter(m=>!m.stage && m.phase===phase && m.round===roundNum && !m.played && !m.bye);
+      } else if(scope === 'promocional-stage'){
+        const stage = btn.getAttribute('data-stage');
+        list = careerPromocional().matches.filter(m=>m.stage===stage && !m.played && !m.bye);
       } else if(scope === 'federal-stage'){
         const stage = btn.getAttribute('data-stage');
         const grupo = btn.getAttribute('data-group');
@@ -2175,6 +2230,14 @@
       {name:'Peñarol de Chimbas', elo:1302}, {name:'Villa Mitre de Bahía', elo:1295},
       {name:'Argentino de Rosario B', elo:1288}, {name:'Atlético Uruguay', elo:1280}
     ],
+    amateur: [
+      {name:'Atlético Lugano', elo:1240}, {name:'Deportivo Riachuelo', elo:1232},
+      {name:'Sportivo Barracas B', elo:1225}, {name:'Club Atlético Cañuelas B', elo:1218},
+      {name:'Juventud de Burzaco', elo:1210}, {name:'San Martín de Ensenada', elo:1204},
+      {name:'Atlético Dock Sud B', elo:1198}, {name:'Deportivo Escobar', elo:1192},
+      {name:'Villa Modelo', elo:1186}, {name:'Ferro de Salta', elo:1180},
+      {name:'Argentino de Castelli', elo:1174}, {name:'Once Unidos', elo:1168}
+    ],
     promocional: {
       zoneA: [
         {name:'Defensores de Glew', elo:1607}, {name:'Deportivo Metalúrgico', elo:1703}, {name:'Estrella de Berisso', elo:1467},
@@ -2198,7 +2261,9 @@
     const extras = [
       state.career.nacional && state.career.nacional.teams,
       state.career.bmetro && state.career.bmetro.teams,
-      state.career.federal && state.career.federal.teams
+      state.career.federal && state.career.federal.teams,
+      state.career.primerac && state.career.primerac.teams,
+      state.career.promocional && state.career.promocional.teams
     ];
     for(let i=0;i<extras.length;i++){
       if(!extras[i]) continue;
@@ -2632,6 +2697,10 @@
     if(b.generatedYear !== c.year || !b.matches.length){ careerGenerateBmetro(); pendientes.push(b.matches); }
     const f = careerFederal();
     if(f.generatedYear !== c.year || !f.matches.length){ careerGenerateFederal(); pendientes.push(f.matches); }
+    const pc = careerPrimeraC();
+    if(pc.generatedYear !== c.year || !pc.matches.length){ careerGeneratePrimeraC(); pendientes.push(pc.matches); }
+    const pr = careerPromocional();
+    if(pr.generatedYear !== c.year || !pr.matches.length){ careerGeneratePromocional(); pendientes.push(pr.matches); }
     pendientes.forEach(list => careerCatchUpMatches(list));
   }
   // Juega de una todo lo que haya quedado atrasado respecto de la fecha actual de la carrera.
@@ -2908,14 +2977,45 @@
     if(subenDeF.length) careerSwapDivisions(n.teams, f.teams, bajanNacional.slice(subenDeB.length, subenDeB.length + subenDeF.length), subenDeF);
     if(subenDeB.length || subenDeF.length) mov.subenANacional = subenDeB.concat(subenDeF);
 
-    // Los descensos de la tercera división se reponen desde la categoría de abajo
-    const cPool = db.primeraC.zoneA.concat(db.primeraC.zoneB);
-    careerReplaceWithPool(b, (b.relegated || []).slice(0,2), cPool, 'bt');
+    // B Metropolitana <-> Primera C: bajan el 21° y el 22°, suben el campeón y el del reducido
+    const pc = careerPrimeraC(), pr = careerPromocional();
+    const subenDeC = (pc.promoted || []).slice(0,2);
+    if(subenDeC.length){
+      careerSwapDivisions(b.teams, pc.teams, (b.relegated || []).slice(0, subenDeC.length), subenDeC);
+      mov.subenALaB = subenDeC.slice();
+    }
+
+    // Primera C <-> Promocional Amateur
+    // El desafiliado deja su lugar al campeón del Apertura del Promocional.
+    if(pc.desafiliado && pr.aperturaChampion){
+      const dIdx = pc.teams.findIndex(t=>t.id===pc.desafiliado);
+      const aIdx = pr.teams.findIndex(t=>t.id===pr.aperturaChampion);
+      if(dIdx >= 0 && aIdx >= 0){
+        const zonaC = pc.teams[dIdx].zone, zonaP = pr.teams[aIdx].zone;
+        pc.teams.splice(dIdx, 1, Object.assign({}, pr.teams[aIdx], { zone: zonaC }));
+        // el desafiliado se va del sistema: el Promocional suma un club nuevo en su lugar
+        pr.teams.splice(aIdx, 1);
+        const usadosPr = careerUsedNames();
+        const nuevoPr = db.amateur.filter(t=>!usadosPr.has(t.name)).sort((x,y)=>y.elo-x.elo)[0];
+        if(nuevoPr) pr.teams.splice(aIdx, 0, { id:'pr'+Math.random().toString(36).slice(2,9), name:nuevoPr.name, elo:nuevoPr.elo, zone: zonaP });
+        mov.desafiliado = pc.desafiliado;
+        mov.subeALaC = pr.aperturaChampion;
+      }
+    }
+    // Si el Promocional ganó la promoción, se cambian de categoría
+    if(pr.promocionWinner && pr.clausuraChampion && pr.promocionWinner === pr.clausuraChampion && pc.permanenciaWinner){
+      careerSwapDivisions(pc.teams, pr.teams, [pc.permanenciaWinner], [pr.clausuraChampion]);
+      mov.promocion = pr.clausuraChampion;
+    }
+
+    // Lo único que todavía no tiene torneo propio es el Regional Amateur
     careerReplaceWithPool(f, (f.relegated || []).slice(0,4), db.regional, 'ft');
 
     n.promoted = []; n.relegated = [];
     b.promoted = []; b.relegated = []; b.champion = null;
     f.promoted = []; f.relegated = []; f.champion = null;
+    pc.promoted = []; pc.champion = null; pc.desafiliado = null; pc.permanenciaWinner = null;
+    pr.promoted = []; pr.aperturaChampion = null; pr.clausuraChampion = null; pr.promocionWinner = null;
     c.lastMovements = mov;
   }
 
@@ -3550,6 +3650,415 @@
     return html;
   }
 
+
+  // ==================== CUARTA DIVISIÓN — PRIMERA C METROPOLITANA ====================
+  // 28 equipos en 2 zonas de 14. Todos contra todos dentro de la zona a dos ruedas más
+  // tres cruces interzonales por rueda: 32 fechas. Dos ascensos a la B Metropolitana.
+
+  const PC_STAGE_LABELS = {
+    'final-titulo': 'Final por el campeonato y el 1° ascenso',
+    'red-r1': 'Reducido · Primera ronda',
+    'red-r2': 'Reducido · Semifinales (7 equipos)',
+    'red-semis': 'Reducido · Antesala de la final',
+    'red-final': 'Reducido · Final por el 2° ascenso',
+    'permanencia': 'Partido por la permanencia'
+  };
+  const PC_STAGE_ORDER = ['final-titulo','red-r1','red-r2','red-semis','red-final','permanencia'];
+  const PC_ZONE_LEGEND = [
+    { id:'final', label:'Final por el campeonato y el 1° ascenso', from:1, to:1, color:'#C9A227' },
+    { id:'reducido', label:'Reducido por el 2° ascenso', from:2, to:7, color:'#5A8F5A' },
+    { id:'permanencia', label:'Juega la permanencia', from:14, to:14, color:'#B4433A' }
+  ];
+
+  function careerPrimeraC(){
+    const c = state.career;
+    if(!c.primerac) c.primerac = defaultPrimeraC();
+    return c.primerac;
+  }
+  function careerPcTeamsFromDb(){
+    const pc = careerPrimeraC();
+    pc.teams = [];
+    let i = 0;
+    const push = (t, zone) => pc.teams.push({ id:'pc'+(i++)+'_'+Math.random().toString(36).slice(2,7), name:t.name, elo:t.elo, zone });
+    CAREER_TEAM_DB.primeraC.zoneA.forEach(t=>push(t,0));
+    CAREER_TEAM_DB.primeraC.zoneB.forEach(t=>push(t,1));
+  }
+  function careerPcZoneIds(z){ return careerPrimeraC().teams.filter(t=>t.zone===z).map(t=>t.id); }
+  function careerPcRegular(){ return careerPrimeraC().matches.filter(m=>!m.stage); }
+  function careerPcStandings(z){ return careerComputeStandingsFrom(careerPcRegular(), careerPcZoneIds(z)); }
+  function careerPcStageMatches(stage){ return careerPrimeraC().matches.filter(m=>m.stage===stage); }
+  function careerPcHasStage(stage){ return careerPcStageMatches(stage).length > 0; }
+  function careerPcStageDone(stage){
+    const ms = careerPcStageMatches(stage);
+    return ms.length > 0 && ms.every(m=>m.played);
+  }
+
+  function careerGeneratePrimeraC(){
+    const c = state.career;
+    const pc = careerPrimeraC();
+    if(pc.teams.length === 0) careerPcTeamsFromDb();
+    pc.matches = [];
+    pc.champion = null; pc.promoted = []; pc.desafiliado = null;
+    pc.permanenciaWinner = null; pc.redOrder = []; pc.redBye = null;
+    pc.generatedYear = c.year;
+
+    // La Primera C juega los viernes.
+    const start = firstWeekdayOfMonth(c.year, 1, 5);
+    const dateFor = (r) => addDaysISO(start, (r-1)*7);
+    const zA = careerPcZoneIds(0), zB = careerPcZoneIds(1);
+    if(zA.length < 2 || zB.length < 2) return;
+
+    const rr = [roundRobinRounds(zA), roundRobinRounds(zB)];
+    const nR = Math.max(rr[0].length, rr[1].length);   // 13
+
+    // Primera rueda de zona
+    [0,1].forEach(zi => rr[zi].forEach((round, ri) => {
+      round.forEach(mm => pc.matches.push(careerMkMatch('primerac', zi, ri+1, mm.home, mm.away, {date: dateFor(ri+1)})));
+    }));
+
+    // Tres cruces interzonales por rueda, con rivales distintos en cada uno
+    const sa = shuffleArr(zA.slice()), sb = shuffleArr(zB.slice());
+    const n = Math.min(sa.length, sb.length);
+    const cruces = [0,1,2].map(k => {
+      const lista = [];
+      for(let i=0;i<n;i++) lista.push([sa[i], sb[(i+k) % n]]);
+      return lista;
+    });
+    cruces.forEach((lista, k) => {
+      const rn = nR + 1 + k;
+      lista.forEach((par, i) => pc.matches.push(careerMkMatch('primerac', null, rn, i%2===0?par[0]:par[1], i%2===0?par[1]:par[0], {interzonal:true, date: dateFor(rn)})));
+    });
+
+    // Segunda rueda de zona, con las localías invertidas
+    const off = nR + 3;
+    [0,1].forEach(zi => rr[zi].forEach((round, ri) => {
+      const rn = off + ri + 1;
+      round.forEach(mm => pc.matches.push(careerMkMatch('primerac', zi, rn, mm.away, mm.home, {date: dateFor(rn)})));
+    }));
+    // Interzonales de vuelta
+    cruces.forEach((lista, k) => {
+      const rn = off + nR + 1 + k;
+      lista.forEach((par, i) => pc.matches.push(careerMkMatch('primerac', null, rn, i%2===0?par[1]:par[0], i%2===0?par[0]:par[1], {interzonal:true, date: dateFor(rn)})));
+    });
+  }
+
+  // Tabla general de la Primera C, para ordenar el reducido.
+  function careerPcTablaGeneral(){
+    const pc = careerPrimeraC();
+    return careerComputeStandingsFrom(careerPcRegular(), pc.teams.map(t=>t.id));
+  }
+  function careerPcSeries(stage){ return careerSeriesOfList(careerPcStageMatches(stage)); }
+  // En la C ninguna llave tiene ventaja deportiva: si el global queda igualado, van a penales.
+  function careerPcOrdenar(ids, general){
+    const pos = {}; general.forEach((r,i)=>pos[r.id]=i);
+    return ids.slice().sort((a,b) => (pos[a]===undefined?999:pos[a]) - (pos[b]===undefined?999:pos[b]));
+  }
+
+  function careerPrimeraCAutoAdvance(){
+    const pc = careerPrimeraC();
+    if(!pc.teams || pc.teams.length < 8) return false;
+    const reg = careerPcRegular();
+    if(reg.length === 0 || !reg.every(m=>m.played)) return false;
+    let did = false;
+    const general = careerPcTablaGeneral();
+
+    if(!careerPcHasStage('final-titulo')){
+      const stA = careerPcStandings(0), stB = careerPcStandings(1);
+      if(stA.length < 14 || stB.length < 14) return false;
+      const base = careerMaxDate(reg);
+      // Final por el campeonato: el de mejor rendimiento general cierra de local.
+      const mejor = careerPcOrdenar([stA[0].id, stB[0].id], general);
+      careerBuildSeries(pc.matches, 'primerac', 'final-titulo', [{ better: mejor[0], worse: mejor[1] }],
+        addDaysISO(base,7), addDaysISO(base,14), { noAdvantage:true });
+      // Reducido: 2° al 7° de cada zona, los cruces se arman adentro de cada zona
+      const pares = [];
+      [stA, stB].forEach(st => {
+        pares.push({ better: st[1].id, worse: st[6].id });
+        pares.push({ better: st[2].id, worse: st[5].id });
+        pares.push({ better: st[3].id, worse: st[4].id });
+      });
+      careerBuildSeries(pc.matches, 'primerac', 'red-r1', pares, addDaysISO(base,7), addDaysISO(base,14), { noAdvantage:true });
+      // Partido por la permanencia entre los dos últimos
+      pc.matches.push(careerMkMatch('primerac', null, 1, stA[13].id, stB[13].id, {stage:'permanencia', neutral:true, date: addDaysISO(base,7)}));
+      return true;
+    }
+
+    PC_STAGE_ORDER.forEach(stage => {
+      if(careerResolveSeriePenalties(careerPcSeries(stage))) did = true;
+    });
+
+    // Campeón y primer ascenso
+    const finalSerie = careerPcSeries('final-titulo')[0];
+    const campeon = finalSerie ? careerSerieWinner(finalSerie.legs) : null;
+    if(campeon && !pc.champion){
+      pc.champion = campeon;
+      if(!pc.promoted.includes(campeon)) pc.promoted.push(campeon);
+      careerRecordTitle('primerac', campeon);
+      did = true;
+    }
+
+    // Permanencia y desafiliación
+    const perm = careerPcStageMatches('permanencia')[0];
+    if(perm && perm.played && !pc.permanenciaWinner){
+      const w = careerMatchWinner(perm);
+      if(w){
+        pc.permanenciaWinner = w;
+        pc.desafiliado = (w === perm.home) ? perm.away : perm.home;
+        did = true;
+      }
+    }
+
+    // Segunda ronda del reducido: los 6 ganadores más el perdedor de la final.
+    // Con 7 equipos, el mejor ubicado pasa de instancia sin jugar.
+    if(campeon && careerPcStageDone('red-r1') && !careerPcHasStage('red-r2')){
+      const ids = [finalSerie.legs[0].home, finalSerie.legs[0].away];
+      const perdedorFinal = ids.find(x => x !== campeon);
+      const ganadores = careerPcSeries('red-r1').map(sr=>careerSerieWinner(sr.legs)).filter(Boolean);
+      if(ganadores.length === 6 && perdedorFinal){
+        const orden = [perdedorFinal].concat(careerPcOrdenar(ganadores, general));
+        pc.redOrder = orden;
+        pc.redBye = orden[0];
+        const resto = orden.slice(1);   // 6 equipos: 2vs7, 3vs6, 4vs5
+        const base = careerMaxDate(careerPcStageMatches('red-r1').concat(careerPcStageMatches('final-titulo')));
+        careerBuildSeries(pc.matches, 'primerac', 'red-r2', careerSeedPairs(resto), addDaysISO(base,7), addDaysISO(base,14), { noAdvantage:true });
+        return true;
+      }
+    }
+    if(careerPcStageDone('red-r2') && !careerPcHasStage('red-semis')){
+      const ws = careerPcSeries('red-r2').map(sr=>careerSerieWinner(sr.legs)).filter(Boolean);
+      const orden = careerPcOrdenar([pc.redBye].concat(ws).filter(Boolean), general);
+      const base = careerMaxDate(careerPcStageMatches('red-r2'));
+      careerBuildSeries(pc.matches, 'primerac', 'red-semis', careerSeedPairs(orden), addDaysISO(base,7), addDaysISO(base,14), { noAdvantage:true });
+      return true;
+    }
+    if(careerPcStageDone('red-semis') && !careerPcHasStage('red-final')){
+      const ws = careerPcOrdenar(careerPcSeries('red-semis').map(sr=>careerSerieWinner(sr.legs)).filter(Boolean), general);
+      const base = careerMaxDate(careerPcStageMatches('red-semis'));
+      if(ws.length >= 2){
+        careerBuildSeries(pc.matches, 'primerac', 'red-final', [{ better: ws[0], worse: ws[1] }], addDaysISO(base,7), addDaysISO(base,14), { noAdvantage:true });
+        return true;
+      }
+    }
+    const redFinal = careerPcSeries('red-final')[0];
+    if(redFinal){
+      const w = careerSerieWinner(redFinal.legs);
+      if(w && !pc.promoted.includes(w)){ pc.promoted.push(w); did = true; }
+    }
+    return did;
+  }
+
+  // ==================== QUINTA DIVISIÓN — TORNEO PROMOCIONAL AMATEUR ====================
+  // 17 equipos en dos zonas. Se juegan un Apertura y un Clausura: el campeón del Apertura
+  // asciende directo a la Primera C y el del Clausura se gana una promoción.
+
+  const PROMO_STAGE_LABELS = {
+    'final-apertura': 'Final del Apertura (ascenso directo)',
+    'final-clausura': 'Final del Clausura',
+    'promocion': 'Promoción contra la Primera C'
+  };
+  const PROMO_STAGE_ORDER = ['final-apertura','final-clausura','promocion'];
+  const PROMO_ZONE_LEGEND = [{ id:'final', label:'Clasifica a la final', from:1, to:1, color:'#C9A227' }];
+
+  function careerPromocional(){
+    const c = state.career;
+    if(!c.promocional) c.promocional = defaultPromocional();
+    return c.promocional;
+  }
+  function careerPromoTeamsFromDb(){
+    const pr = careerPromocional();
+    pr.teams = [];
+    let i = 0;
+    const push = (t, zone) => pr.teams.push({ id:'pr'+(i++)+'_'+Math.random().toString(36).slice(2,7), name:t.name, elo:t.elo, zone });
+    CAREER_TEAM_DB.promocional.zoneA.forEach(t=>push(t,0));
+    CAREER_TEAM_DB.promocional.zoneB.forEach(t=>push(t,1));
+  }
+  function careerPromoZoneIds(z){ return careerPromocional().teams.filter(t=>t.zone===z).map(t=>t.id); }
+  function careerPromoRegular(phase){ return careerPromocional().matches.filter(m=>!m.stage && m.phase===phase); }
+  function careerPromoStandings(phase, z){
+    return careerComputeStandingsFrom(careerPromoRegular(phase), careerPromoZoneIds(z));
+  }
+  function careerPromoStageMatches(stage){ return careerPromocional().matches.filter(m=>m.stage===stage); }
+  function careerPromoHasStage(stage){ return careerPromoStageMatches(stage).length > 0; }
+
+  function careerGeneratePromocional(){
+    const c = state.career;
+    const pr = careerPromocional();
+    if(pr.teams.length === 0) careerPromoTeamsFromDb();
+    pr.matches = [];
+    pr.aperturaChampion = null; pr.clausuraChampion = null;
+    pr.promoted = []; pr.promocionWinner = null;
+    pr.generatedYear = c.year;
+
+    // El Promocional juega los martes.
+    const start = firstWeekdayOfMonth(c.year, 1, 2);
+    const zA = careerPromoZoneIds(0), zB = careerPromoZoneIds(1);
+    if(zA.length < 2 || zB.length < 2) return;
+    const rr = [roundRobinRounds(zA), roundRobinRounds(zB)];
+    const nR = Math.max(rr[0].length, rr[1].length);
+
+    const armar = (phase, base) => {
+      [0,1].forEach(zi => {
+        rr[zi].forEach((round, ri) => {
+          round.forEach(mm => pr.matches.push(careerMkMatch('promocional', zi, ri+1, mm.home, mm.away, {phase, date: addDaysISO(base, ri*7)})));
+        });
+        rr[zi].forEach((round, ri) => {
+          const rn = rr[zi].length + ri + 1;
+          round.forEach(mm => pr.matches.push(careerMkMatch('promocional', zi, rn, mm.away, mm.home, {phase, date: addDaysISO(base, (rr[zi].length+ri)*7)})));
+        });
+      });
+    };
+    armar('apertura', start);
+    // El Clausura arranca tres semanas después de la última fecha del Apertura
+    armar('clausura', addDaysISO(start, (2*nR + 2) * 7));
+  }
+
+  function careerPromocionalAutoAdvance(){
+    const pr = careerPromocional();
+    const pc = careerPrimeraC();
+    if(!pr.teams || pr.teams.length < 4) return false;
+    let did = false;
+
+    [['apertura','final-apertura'], ['clausura','final-clausura']].forEach(([phase, stage]) => {
+      const reg = careerPromoRegular(phase);
+      if(reg.length === 0 || !reg.every(m=>m.played)) return;
+      if(careerPromoHasStage(stage)) return;
+      const stA = careerPromoStandings(phase, 0), stB = careerPromoStandings(phase, 1);
+      if(!stA.length || !stB.length) return;
+      const base = careerMaxDate(reg);
+      // Final a partido único en cancha neutral: si hay empate, penales.
+      pr.matches.push(careerMkMatch('promocional', null, 1, stA[0].id, stB[0].id, {stage, neutral:true, date: addDaysISO(base,7)}));
+      did = true;
+    });
+
+    const fa = careerPromoStageMatches('final-apertura')[0];
+    if(fa && fa.played && !pr.aperturaChampion){
+      const w = careerMatchWinner(fa);
+      if(w){
+        pr.aperturaChampion = w;
+        if(!pr.promoted.includes(w)) pr.promoted.push(w);
+        careerRecordTitle('promocional-apertura', w);
+        did = true;
+      }
+    }
+    const fc = careerPromoStageMatches('final-clausura')[0];
+    if(fc && fc.played && !pr.clausuraChampion){
+      const w = careerMatchWinner(fc);
+      if(w){
+        pr.clausuraChampion = w;
+        careerRecordTitle('promocional-clausura', w);
+        did = true;
+      }
+    }
+
+    // Promoción: el campeón del Clausura contra el ganador de la permanencia de la Primera C.
+    if(pr.clausuraChampion && pc.permanenciaWinner && !careerPromoHasStage('promocion')){
+      if(pr.clausuraChampion !== pr.aperturaChampion){
+        const base = careerMaxDate(careerPromoStageMatches('final-clausura').concat(careerPcStageMatches('permanencia')));
+        pr.matches.push(careerMkMatch('promocional', null, 1, pc.permanenciaWinner, pr.clausuraChampion, {stage:'promocion', date: addDaysISO(base,7)}));
+        return true;
+      }
+    }
+    const pm = careerPromoStageMatches('promocion')[0];
+    if(pm && pm.played && !pr.promocionWinner){
+      const w = careerMatchWinner(pm);
+      if(w){ pr.promocionWinner = w; did = true; }
+    }
+    return did;
+  }
+
+  // ---- Vistas ----
+  function renderCareraPrimeraC(){
+    const c = state.career;
+    careerEnsureDivisions();
+    careerTryAutoAdvanceStages();
+    const pc = careerPrimeraC();
+
+    let html = `<div class="panel">
+      <h2>Primera C Metropolitana ${c.year}</h2>
+      <p class="hint">28 equipos en dos zonas de 14. Todos contra todos dentro de la zona a dos ruedas más tres cruces interzonales por rueda: 32 fechas. Los dos punteros se enfrentan en una final por el campeonato y el primer ascenso a la B Metropolitana; el perdedor entra directo a las semifinales del reducido. Los dos últimos juegan un partido por la permanencia y el que pierde queda desafiliado.</p>
+    </div>`;
+
+    html += renderDivisionFixture('career-primerac', careerPcRegular(), 'primerac-round');
+
+    html += `<div class="group-block"><h3>Zona A</h3>${renderStandingsTable(careerPcStandings(0), false, PC_ZONE_LEGEND, careerTeamById)}</div>`;
+    html += `<div class="group-block"><h3>Zona B</h3>${renderStandingsTable(careerPcStandings(1), false, PC_ZONE_LEGEND, careerTeamById)}</div>`;
+
+    if(PC_STAGE_ORDER.some(st => careerPcHasStage(st))){
+      html += `<div class="panel"><h2>Definición</h2>`;
+      PC_STAGE_ORDER.forEach(stage => {
+        const ms = careerPcStageMatches(stage);
+        if(!ms.length) return;
+        html += `<div class="round-header"><h3>${PC_STAGE_LABELS[stage]}</h3></div>`;
+        if(stage === 'permanencia') html += ms.map(m=>renderCareerMatchRow(m, null)).join('');
+        else careerSeriesOfList(ms).forEach(sr => { html += renderSerieBlock(sr); });
+        if(stage === 'red-r2' && pc.redBye){
+          html += `<p class="hint" style="margin:-4px 0 16px;">${careerNombre(pc.redBye)} pasa de instancia sin jugar por ser el mejor ubicado de los siete.</p>`;
+        }
+        if(ms.some(m=>!m.played)){
+          html += `<div class="btn-row"><button class="btn small" data-action="career-simulate-round" data-scope="primerac-stage" data-stage="${stage}">Simular</button></div>`;
+        }
+      });
+      html += `</div>`;
+    }
+
+    if(pc.champion || (pc.promoted && pc.promoted.length) || pc.desafiliado){
+      let resumen = '';
+      if(pc.champion) resumen += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Primera C ${c.year}: <strong>${careerNombre(pc.champion)}</strong></div>`;
+      if(pc.promoted && pc.promoted.length) resumen += `<p class="hint">Ascienden a la B Metropolitana: <strong style="color:var(--ink);">${pc.promoted.map(careerNombre).join(', ')}</strong>${pc.promoted.length<2?' (falta el ganador del reducido)':''}</p>`;
+      if(pc.permanenciaWinner) resumen += `<p class="hint">Mantiene la categoría y juega la promoción: <strong style="color:var(--ink);">${careerNombre(pc.permanenciaWinner)}</strong></p>`;
+      if(pc.desafiliado) resumen += `<p class="hint">Queda desafiliado: <strong style="color:var(--ink);">${careerNombre(pc.desafiliado)}</strong></p>`;
+      html += `<div class="panel"><h2>Temporada ${c.year}</h2>${resumen}</div>`;
+    }
+    return html;
+  }
+
+  function renderCareraPromocional(){
+    const c = state.career;
+    careerEnsureDivisions();
+    careerTryAutoAdvanceStages();
+    const pr = careerPromocional();
+
+    let html = `<div class="panel">
+      <h2>Torneo Promocional Amateur ${c.year}</h2>
+      <p class="hint">17 equipos en dos zonas (8 y 9). Se juegan un Apertura y un Clausura, cada uno todos contra todos ida y vuelta. El campeón del Apertura asciende directo a la Primera C. El del Clausura no asciende: se gana el derecho a jugar una promoción contra el equipo que ganó el partido por la permanencia de la Primera C.</p>
+    </div>`;
+
+    [['apertura','Apertura'], ['clausura','Clausura']].forEach(([phase, titulo]) => {
+      const reg = careerPromoRegular(phase);
+      if(!reg.length) return;
+      html += `<div class="panel"><h2>${titulo}</h2></div>`;
+      html += renderDivisionFixture('career-promo-'+phase, reg, 'promocional-round', ` data-phase="${phase}"`);
+      html += `<div class="group-block"><h3>${titulo} &middot; Zona A</h3>${renderStandingsTable(careerPromoStandings(phase,0), false, PROMO_ZONE_LEGEND, careerTeamById)}</div>`;
+      html += `<div class="group-block"><h3>${titulo} &middot; Zona B</h3>${renderStandingsTable(careerPromoStandings(phase,1), false, PROMO_ZONE_LEGEND, careerTeamById)}</div>`;
+    });
+
+    if(PROMO_STAGE_ORDER.some(st => careerPromoHasStage(st))){
+      html += `<div class="panel"><h2>Definiciones</h2>`;
+      PROMO_STAGE_ORDER.forEach(stage => {
+        const ms = careerPromoStageMatches(stage);
+        if(!ms.length) return;
+        html += `<div class="round-header"><h3>${PROMO_STAGE_LABELS[stage]}</h3></div>`;
+        html += ms.map(m=>renderCareerMatchRow(m, null)).join('');
+        if(ms.some(m=>!m.played)){
+          html += `<div class="btn-row"><button class="btn small" data-action="career-simulate-round" data-scope="promocional-stage" data-stage="${stage}">Simular</button></div>`;
+        }
+      });
+      html += `</div>`;
+    }
+
+    if(pr.aperturaChampion || pr.clausuraChampion){
+      let resumen = '';
+      if(pr.aperturaChampion) resumen += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón del Apertura ${c.year}: <strong>${careerNombre(pr.aperturaChampion)}</strong> &mdash; asciende a la Primera C.</div>`;
+      if(pr.clausuraChampion) resumen += `<p class="hint">Campeón del Clausura: <strong style="color:var(--ink);">${careerNombre(pr.clausuraChampion)}</strong> &mdash; juega la promoción.</p>`;
+      if(pr.promocionWinner){
+        const subio = pr.promocionWinner === pr.clausuraChampion;
+        resumen += `<p class="hint">Promoción: ganó <strong style="color:var(--ink);">${careerNombre(pr.promocionWinner)}</strong>. ${subio ? 'Asciende a la Primera C y el equipo de la C baja al Promocional.' : 'El equipo de la Primera C mantiene la categoría y el del Promocional también.'}</p>`;
+      }
+      html += `<div class="panel"><h2>Temporada ${c.year}</h2>${resumen}</div>`;
+    }
+    return html;
+  }
+
   // ---------- Copa Argentina ----------
   function careerBuildCopaArgentina(){
     const c = state.career;
@@ -3672,6 +4181,8 @@
     careerGenerateNacional();
     careerGenerateBmetro();
     careerGenerateFederal();
+    careerGeneratePrimeraC();
+    careerGeneratePromocional();
   }
 
   function ensureCareerRoundPointer(ctx, total){
@@ -3691,7 +4202,9 @@
       || (c.cupMatches && c.cupMatches.find(m=>m.id===id))
       || (c.nacional && c.nacional.matches.find(m=>m.id===id))
       || (c.bmetro && c.bmetro.matches.find(m=>m.id===id))
-      || (c.federal && c.federal.matches.find(m=>m.id===id));
+      || (c.federal && c.federal.matches.find(m=>m.id===id))
+      || (c.primerac && c.primerac.matches.find(m=>m.id===id))
+      || (c.promocional && c.promocional.matches.find(m=>m.id===id));
   }
 
   function careerMatchProbLabel(m){
@@ -3869,6 +4382,8 @@
       { k:'nacional', label:'Nacional' },
       { k:'bmetro', label:'B Metro' },
       { k:'federal', label:'Federal A' },
+      { k:'primerac', label:'Primera C' },
+      { k:'promocional', label:'Promocional' },
       { k:'copa-argentina', label:'Copa Argentina' },
       { k:'copas', label:'Tablas y Copas' }
     ];
@@ -3877,6 +4392,8 @@
     if(c.view === 'nacional') out += renderCareraNacional();
     else if(c.view === 'bmetro') out += renderCareraBmetro();
     else if(c.view === 'federal') out += renderCareraFederal();
+    else if(c.view === 'primerac') out += renderCareraPrimeraC();
+    else if(c.view === 'promocional') out += renderCareraPromocional();
     else if(c.view === 'copa-argentina') out += renderCareraCopaArgentina();
     else if(c.view === 'copas') out += renderCareraCopasNacionales();
     else if(c.view === 'liga') out += renderCareraLiga();
