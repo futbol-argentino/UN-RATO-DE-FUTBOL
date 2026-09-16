@@ -242,7 +242,9 @@
 
   function defaultCareer(){
     return {
-      step: 'inicio',            // 'inicio' | 'equipos' | 'elegir' | 'temporada'
+      id: null,                  // cada carrera guardada tiene su propio id
+      name: '',                  // nombre que le pone el usuario
+      step: 'menu',              // 'menu' | 'equipos' | 'elegir' | 'temporada'
       view: 'liga',               // 'liga' | 'copa-argentina' | 'copas'
       teams: [],                 // {id, name, elo, zone:0|1}
       myTeamId: null,
@@ -262,6 +264,8 @@
       fixtureNav: {},
       engine: { homeAdvantage: 40, kFactor: 24, drawProb: 0.25, surpriseFactor: 45, allowDraws: true },
       nacional: defaultNacional(),
+      bmetro: defaultBmetro(),
+      federal: defaultFederal(),
       calendarDate: null        // 'YYYY-MM-DD' — fecha actual del calendario único de la carrera
     };
   }
@@ -277,6 +281,38 @@
       relegated: [],       // los 4 descensos del año
       seedOrder: [],       // ordenamiento del 2° al 8° de ambas zonas para el reducido
       redSeeds: []         // ordenamiento de la segunda fase del reducido
+    };
+  }
+
+  // Tercera División A: Primera B Metropolitana (clubes afiliados directos a la AFA).
+  function defaultBmetro(){
+    return {
+      teams: [],           // {id, name, elo} — 22 equipos, zona única
+      matches: [],         // comp:'bmetro'
+      generatedYear: null,
+      champion: null,
+      promoted: [],
+      relegated: [],
+      seedOrder: []        // ordenamiento del 2° al 9° para el reducido
+    };
+  }
+
+  // Tercera División B: Torneo Federal A (clubes afiliados indirectos).
+  function defaultFederal(){
+    return {
+      teams: [],           // {id, name, elo, zone:0..3} — 37 equipos
+      matches: [],         // comp:'federal'
+      generatedYear: null,
+      champion: null,
+      promoted: [],
+      relegated: [],
+      f2Groups: [],        // zonas de la Segunda Fase
+      f2Seeds: [],         // los 8 de la Tercera Fase ordenados
+      rev1Groups: [],      // zonas de la Primera Etapa de la Reválida
+      rev2Rank: [],        // ordenamiento 1-24 de la Segunda Etapa
+      rev3Rank: [],
+      rev4Rank: [],
+      rev5Rank: []
     };
   }
 
@@ -315,7 +351,9 @@
       c.knockout,
       (c.copaArgentina && c.copaArgentina.matches) || [],
       c.cupMatches || [],
-      (c.nacional && c.nacional.matches) || []
+      (c.nacional && c.nacional.matches) || [],
+      (c.bmetro && c.bmetro.matches) || [],
+      (c.federal && c.federal.matches) || []
     ];
   }
   // Todos los partidos con fecha asignada, jugados o no (el calendario muestra también los resultados del día).
@@ -337,6 +375,14 @@
     if(m.comp === 'nacional'){
       if(m.stage) return 'Primera Nacional · ' + (NAC_STAGE_LABELS[m.stage] || m.stage);
       return 'Primera Nacional' + (m.interzonal ? ' · Fecha interzonal' : '');
+    }
+    if(m.comp === 'bmetro'){
+      if(m.stage) return 'Primera B Metropolitana · ' + (BMETRO_STAGE_LABELS[m.stage] || m.stage);
+      return 'Primera B Metropolitana';
+    }
+    if(m.comp === 'federal'){
+      if(m.stage) return 'Torneo Federal A · ' + (FEDERAL_STAGE_LABELS[m.stage] || m.stage);
+      return 'Torneo Federal A · Fase regular';
     }
     if(m.comp === 'copa-argentina') return 'Copa Argentina' + (m.stage ? ' · ' + (COPA_ARG_LABELS[m.stage] || m.stage) : '');
     if(m.comp === 'trofeo-campeones') return 'Trofeo de Campeones';
@@ -380,6 +426,8 @@
         });
       }
       if(careerNacionalAutoAdvance()) progressed = true;
+      if(careerBmetroAutoAdvance()) progressed = true;
+      if(careerFederalAutoAdvance()) progressed = true;
       careerMaybeBuildTrofeo();
       careerMaybeBuildSupercopaArgentina();
       careerMaybeBuildSupercopaInternacional();
@@ -416,19 +464,75 @@
 
   const els = { app: document.getElementById('app') };
 
-  // ---------- Persistencia Modo Carrera (localStorage) ----------
-  const CAREER_STORAGE_KEY = 'carreraElo_v1';
-  function careerPersist(){
-    try{ localStorage.setItem(CAREER_STORAGE_KEY, JSON.stringify(state.career)); }catch(e){}
-  }
-  function careerLoad(){
+  // ---------- Persistencia Modo Carrera: varias carreras a la vez ----------
+  const CAREER_LEGACY_KEY = 'carreraElo_v1';          // guardado viejo, de una sola carrera
+  const CAREER_INDEX_KEY = 'carreraElo_index_v1';
+  const CAREER_DATA_PREFIX = 'carreraElo_save_v1_';
+
+  function careerLoadIndex(){
     try{
-      const raw = localStorage.getItem(CAREER_STORAGE_KEY);
+      const raw = localStorage.getItem(CAREER_INDEX_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    }catch(e){ return []; }
+  }
+  function careerSaveIndex(idx){
+    try{ localStorage.setItem(CAREER_INDEX_KEY, JSON.stringify(idx)); }catch(e){}
+  }
+  function careerNewId(){ return 'car' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+  function careerSummary(){
+    const c = state.career;
+    const t = c.myTeamId ? careerTeamById(c.myTeamId) : null;
+    return {
+      teamName: t ? t.name : 'Sin equipo elegido',
+      elo: t ? t.elo : null,
+      year: c.year,
+      tournament: c.tournament,
+      date: c.calendarDate,
+      titles: (c.titles || []).filter(x => x.teamId === c.myTeamId).length
+    };
+  }
+  function careerPersist(){
+    const c = state.career;
+    if(!c.id) return;
+    try{
+      localStorage.setItem(CAREER_DATA_PREFIX + c.id, JSON.stringify(c));
+      const idx = careerLoadIndex();
+      const entry = { id: c.id, name: c.name || '', updatedAt: Date.now(), summary: careerSummary() };
+      const i = idx.findIndex(x => x.id === c.id);
+      if(i >= 0) idx[i] = entry; else idx.push(entry);
+      careerSaveIndex(idx);
+    }catch(e){}
+  }
+  function careerOpen(id){
+    try{
+      const raw = localStorage.getItem(CAREER_DATA_PREFIX + id);
       if(!raw) return false;
-      const data = JSON.parse(raw);
-      state.career = Object.assign(defaultCareer(), data);
+      state.career = Object.assign(defaultCareer(), JSON.parse(raw));
+      state.career.id = id;
       return true;
     }catch(e){ return false; }
+  }
+  function careerDeleteSave(id){
+    try{ localStorage.removeItem(CAREER_DATA_PREFIX + id); }catch(e){}
+    careerSaveIndex(careerLoadIndex().filter(x => x.id !== id));
+  }
+  // Si había una carrera del formato viejo (una sola), se convierte en la primera de la lista.
+  function careerMigrateLegacy(){
+    let raw = null;
+    try{ raw = localStorage.getItem(CAREER_LEGACY_KEY); }catch(e){ return; }
+    if(!raw) return;
+    try{ localStorage.removeItem(CAREER_LEGACY_KEY); }catch(e){}
+    try{
+      const data = JSON.parse(raw);
+      if(!data || !data.teams || !data.teams.length) return;
+      const actual = state.career;
+      state.career = Object.assign(defaultCareer(), data);
+      state.career.id = careerNewId();
+      state.career.name = state.career.name || 'Carrera anterior';
+      careerPersist();
+      state.career = actual;
+    }catch(e){}
   }
 
   // ---------- Persistencia (localStorage) ----------
@@ -1564,16 +1668,46 @@
     // ---- Modo Carrera ----
     if(action === 'go-carrera'){
       state.mode = 'carrera';
-      if(!careerLoad()) state.career = defaultCareer();
+      state.career = defaultCareer();
+      careerMigrateLegacy();
       render();
       return;
     }
+    else if(action === 'career-goto-menu'){ state.career = defaultCareer(); render(); return; }
+    else if(action === 'career-new'){
+      const input = document.getElementById('careerName');
+      const nombre = input && input.value.trim() ? input.value.trim() : '';
+      state.career = defaultCareer();
+      state.career.id = careerNewId();
+      state.career.name = nombre;
+      careerLoadDefaultPrimera();
+      state.career.step = 'elegir';
+      render();
+      return;
+    }
+    else if(action === 'career-open'){
+      if(careerOpen(btn.getAttribute('data-id'))){
+        state.career.step = state.career.myTeamId ? 'temporada' : 'elegir';
+        render();
+      }
+      return;
+    }
+    else if(action === 'career-delete'){
+      const id = btn.getAttribute('data-id');
+      if(confirm('¿Borrar esta carrera para siempre?')){
+        careerDeleteSave(id);
+        if(state.career.id === id) state.career = defaultCareer();
+        render();
+      }
+      return;
+    }
     else if(action === 'go-torneos'){ state.mode = 'torneos'; render(); return; }
-    else if(action === 'career-goto-inicio'){ state.career.step='inicio'; render(); return; }
+    else if(action === 'career-goto-inicio'){ state.career.step='menu'; render(); return; }
     else if(action === 'career-goto-equipos'){ state.career.step='equipos'; render(); return; }
     else if(action === 'career-goto-elegir'){ state.career.step='elegir'; render(); return; }
     else if(action === 'career-goto-temporada'){ state.career.step='temporada'; render(); return; }
     else if(action === 'career-start-new'){
+      if(!state.career.id) state.career.id = careerNewId();
       if(state.career.teams.length === 0) careerLoadDefaultPrimera();
       state.career.step = 'elegir';
       render();
@@ -1588,7 +1722,7 @@
         const [h,a] = careerSimulateResult(m);
         m.homeScore = h; m.awayScore = a; m.played = true;
         m.playedAt = ++c.playSeq;
-        if(m.stage && h===a){ m.wentToPenalties = true; m.penaltyWinner = resolvePenaltiesWinner(m); }
+        if(h===a && careerMatchNeedsPenalties(m)){ m.wentToPenalties = true; m.penaltyWinner = resolvePenaltiesWinner(m); }
         careerApplyEloUpdate(m);
         checkCareerChampion(m);
       });
@@ -1612,7 +1746,8 @@
     }
     else if(action === 'career-advance-copa'){ careerAdvanceCopaArgentina(btn.getAttribute('data-stage')); render(); return; }
     else if(action === 'career-reset'){
-      if(confirm('Esto borra tu carrera actual (equipos, resultados, todo). ¿Continuar?')){
+      if(confirm('Esto borra esta carrera (equipos, resultados, todo). ¿Continuar?')){
+        if(state.career.id) careerDeleteSave(state.career.id);
         state.career = defaultCareer();
         render();
       }
@@ -1667,7 +1802,7 @@
       m.homeScore = Number(h); m.awayScore = Number(a);
       m.played = true;
       m.playedAt = ++state.career.playSeq;
-      if(m.stage && m.homeScore === m.awayScore){
+      if(m.homeScore === m.awayScore && careerMatchNeedsPenalties(m)){
         m.wentToPenalties = true;
         m.penaltyWinner = resolvePenaltiesWinner(m);
       }
@@ -1682,7 +1817,7 @@
       const [h,a] = careerSimulateResult(m);
       m.homeScore = h; m.awayScore = a; m.played = true;
       m.playedAt = ++state.career.playSeq;
-      if(m.stage && h===a){ m.wentToPenalties = true; m.penaltyWinner = resolvePenaltiesWinner(m); }
+      if(h===a && careerMatchNeedsPenalties(m)){ m.wentToPenalties = true; m.penaltyWinner = resolvePenaltiesWinner(m); }
       careerApplyEloUpdate(m);
       checkCareerChampion(m);
       render();
@@ -1700,6 +1835,19 @@
       } else if(scope === 'nacional-stage'){
         const stage = btn.getAttribute('data-stage');
         list = careerNacional().matches.filter(m=>m.stage===stage && !m.played && !m.bye);
+      } else if(scope === 'bmetro-round'){
+        const roundNum = Number(btn.getAttribute('data-round'));
+        list = careerBmetro().matches.filter(m=>!m.stage && m.round===roundNum && !m.played && !m.bye);
+      } else if(scope === 'bmetro-stage'){
+        const stage = btn.getAttribute('data-stage');
+        list = careerBmetro().matches.filter(m=>m.stage===stage && !m.played && !m.bye);
+      } else if(scope === 'federal-round'){
+        const roundNum = Number(btn.getAttribute('data-round'));
+        list = careerFederal().matches.filter(m=>!m.stage && m.round===roundNum && !m.played && !m.bye);
+      } else if(scope === 'federal-stage'){
+        const stage = btn.getAttribute('data-stage');
+        const grupo = btn.getAttribute('data-group');
+        list = careerFederal().matches.filter(m=>m.stage===stage && !m.played && !m.bye && (grupo===null || String(m.group)===grupo));
       } else {
         list = state.career.knockout.filter(m=>m.stage===scope && !m.played && !m.bye);
       }
@@ -1707,7 +1855,7 @@
         const [h,a] = careerSimulateResult(m);
         m.homeScore = h; m.awayScore = a; m.played = true;
         m.playedAt = ++state.career.playSeq;
-        if(m.stage && h===a){ m.wentToPenalties = true; m.penaltyWinner = resolvePenaltiesWinner(m); }
+        if(h===a && careerMatchNeedsPenalties(m)){ m.wentToPenalties = true; m.penaltyWinner = resolvePenaltiesWinner(m); }
         careerApplyEloUpdate(m);
         checkCareerChampion(m);
       });
@@ -2017,6 +2165,16 @@
         {name:'Sportivo Barracas', elo:1416}, {name:'Yupanqui', elo:1391}
       ]
     },
+    regional: [
+      {name:'Ferro de General Pico', elo:1420}, {name:'Juventud Unida de Gualeguaychú', elo:1398},
+      {name:'Atlético Paraná', elo:1385}, {name:'Sansinena', elo:1372},
+      {name:'Pacífico de Neuquén', elo:1360}, {name:'Unión Aconquija', elo:1352},
+      {name:'Camioneros de Salta', elo:1345}, {name:'Central Argentino Olímpico', elo:1338},
+      {name:'Sportivo Rivadavia', elo:1330}, {name:'Independiente de Neuquén', elo:1325},
+      {name:'Juventud Unida de San Luis', elo:1318}, {name:'Deportivo Mandiyú', elo:1310},
+      {name:'Peñarol de Chimbas', elo:1302}, {name:'Villa Mitre de Bahía', elo:1295},
+      {name:'Argentino de Rosario B', elo:1288}, {name:'Atlético Uruguay', elo:1280}
+    ],
     promocional: {
       zoneA: [
         {name:'Defensores de Glew', elo:1607}, {name:'Deportivo Metalúrgico', elo:1703}, {name:'Estrella de Berisso', elo:1467},
@@ -2037,8 +2195,14 @@
   function careerTeamById(id){
     let t = state.career.teams.find(t=>t.id===id);
     if(t) return t;
-    if(state.career.nacional && state.career.nacional.teams){
-      t = state.career.nacional.teams.find(t=>t.id===id);
+    const extras = [
+      state.career.nacional && state.career.nacional.teams,
+      state.career.bmetro && state.career.bmetro.teams,
+      state.career.federal && state.career.federal.teams
+    ];
+    for(let i=0;i<extras.length;i++){
+      if(!extras[i]) continue;
+      t = extras[i].find(x=>x.id===id);
       if(t) return t;
     }
     if(state.career.copaArgentina && state.career.copaArgentina.otherTeams){
@@ -2105,6 +2269,14 @@
     const adjusted = careerMatchAdjustedProb(m);
     const tilted = 0.5 + (adjusted-0.5) * 0.3; // los penales son casi un cara o ceca
     return Math.random() < tilted ? m.home : m.away;
+  }
+  // Los penales solo se patean en partido único sin ventaja deportiva.
+  // Una serie de ida y vuelta se define por el global, nunca por un empate suelto.
+  function careerMatchNeedsPenalties(m){
+    if(!m.stage) return false;
+    if(m.leg) return false;
+    if(m.advantage) return false;
+    return true;
   }
   function careerMatchWinner(m){
     if(m.homeScore > m.awayScore) return m.home;
@@ -2449,18 +2621,24 @@
     interPairs.forEach(p => n.matches.push(careerMkMatch('nacional', null, interVta, p[1], p[0], {interzonal:true, date: dateFor(interVta)})));
   }
 
-  // Si la carrera venía de antes (o de un guardado viejo), arma la Nacional y la pone al día.
-  function careerEnsureNacional(){
+  // Si la carrera venía de antes (o de un guardado viejo), arma las otras categorías y las pone al día.
+  function careerEnsureNacional(){ careerEnsureDivisions(); }
+  function careerEnsureDivisions(){
     const c = state.career;
+    const pendientes = [];
     const n = careerNacional();
-    if(n.generatedYear === c.year && n.matches.length) return;
-    careerGenerateNacional();
-    careerNacionalCatchUp();
+    if(n.generatedYear !== c.year || !n.matches.length){ careerGenerateNacional(); pendientes.push(n.matches); }
+    const b = careerBmetro();
+    if(b.generatedYear !== c.year || !b.matches.length){ careerGenerateBmetro(); pendientes.push(b.matches); }
+    const f = careerFederal();
+    if(f.generatedYear !== c.year || !f.matches.length){ careerGenerateFederal(); pendientes.push(f.matches); }
+    pendientes.forEach(list => careerCatchUpMatches(list));
   }
-  function careerNacionalCatchUp(){
+  // Juega de una todo lo que haya quedado atrasado respecto de la fecha actual de la carrera.
+  function careerCatchUpMatches(list){
     const c = state.career;
     if(!c.calendarDate) return;
-    careerNacional().matches.forEach(m => {
+    list.forEach(m => {
       if(m.played || m.bye || !m.date || m.date >= c.calendarDate) return;
       const [h,a] = careerSimulateResult(m);
       m.homeScore = h; m.awayScore = a; m.played = true;
@@ -2469,9 +2647,8 @@
     });
   }
 
-  // ---- Series ida y vuelta con ventaja deportiva ----
-  function careerNacionalSeriesOf(stage){
-    const ms = careerNacionalStageMatches(stage);
+  // ---- Series ida y vuelta con ventaja deportiva (genérico para todas las categorías) ----
+  function careerSeriesOfList(ms){
     const series = [], idx = {};
     ms.forEach(m => {
       const key = m.serie || m.id;
@@ -2481,6 +2658,7 @@
     series.forEach(s => s.legs.sort((a,b)=>(a.leg||1)-(b.leg||1)));
     return series;
   }
+  function careerNacionalSeriesOf(stage){ return careerSeriesOfList(careerNacionalStageMatches(stage)); }
   function careerSerieAggregate(legs){
     const agg = {};
     legs.forEach(m => {
@@ -2497,16 +2675,50 @@
     const a = legs[0].home, b = legs[0].away;
     if((agg[a]||0) > (agg[b]||0)) return a;
     if((agg[b]||0) > (agg[a]||0)) return b;
-    return legs[0].advantage || null;
+    if(legs[0].advantage) return legs[0].advantage;
+    const pen = legs.find(m => m.penaltyWinner);
+    return pen ? pen.penaltyWinner : null;
+  }
+  // Series sin ventaja deportiva (la final del Federal A): global empatado, penales.
+  function careerResolveSeriePenalties(series){
+    let did = false;
+    series.forEach(sr => {
+      const legs = sr.legs;
+      if(legs.length < 2 || !legs.every(m=>m.played)) return;
+      if(legs[0].advantage || legs.some(m=>m.penaltyWinner)) return;
+      const agg = careerSerieAggregate(legs);
+      const a = legs[0].home, b = legs[0].away;
+      if((agg[a]||0) !== (agg[b]||0)) return;
+      const last = legs[legs.length-1];
+      last.wentToPenalties = true;
+      last.penaltyWinner = resolvePenaltiesWinner(last);
+      did = true;
+    });
+    return did;
+  }
+  // Construye una llave ida y vuelta. El mejor ubicado cierra de local y pasa ante igualdad.
+  function careerBuildSeries(arr, comp, stage, pairs, dIda, dVta, opts){
+    opts = opts || {};
+    pairs.forEach((pr, i) => {
+      const serie = stage + '-' + (i+1);
+      const adv = opts.noAdvantage ? null : pr.better;
+      arr.push(careerMkMatch(comp, null, 1, pr.worse, pr.better, {stage, serie, leg:1, advantage:adv, date:dIda}));
+      arr.push(careerMkMatch(comp, null, 2, pr.better, pr.worse, {stage, serie, leg:2, advantage:adv, date:dVta}));
+    });
+  }
+  // Cruces clásicos 1 vs N, 2 vs N-1, ... a partir de un ordenamiento.
+  function careerSeedPairs(order){
+    const pairs = [];
+    for(let i=0;i<Math.floor(order.length/2);i++) pairs.push({ better: order[i], worse: order[order.length-1-i] });
+    return pairs;
+  }
+  function careerMaxDate(list){
+    const ds = list.map(m=>m.date).filter(Boolean).sort();
+    return ds.length ? ds[ds.length-1] : null;
   }
   // El mejor ubicado define de local (juega la vuelta en casa) y pasa ante igualdad.
   function careerNacionalBuildTwoLeg(stage, pairs, dateIda, dateVta){
-    const n = careerNacional();
-    pairs.forEach((p, i) => {
-      const serie = stage + '-' + (i+1);
-      n.matches.push(careerMkMatch('nacional', null, 1, p.worse, p.better, {stage, serie, leg:1, advantage:p.better, date:dateIda}));
-      n.matches.push(careerMkMatch('nacional', null, 2, p.better, p.worse, {stage, serie, leg:2, advantage:p.better, date:dateVta}));
-    });
+    careerBuildSeries(careerNacional().matches, 'nacional', stage, pairs, dateIda, dateVta);
   }
 
   // ---- Definición: final por el título, reducido y descensos ----
@@ -2632,49 +2844,79 @@
     return did;
   }
 
-  // ---- Ascensos y descensos entre Primera y Nacional al cerrar el año ----
-  function careerApplyPromotionsRelegations(){
-    const c = state.career, n = careerNacional();
-    const desc = careerComputeDescensos();
-    const down = (desc.relegated || []).slice(0,2);
-    const up = (n.promoted || []).slice(0,2);
-    if(down.length === 2 && up.length === 2){
-      for(let i=0;i<2;i++){
-        const dIdx = c.teams.findIndex(t=>t.id===down[i]);
-        const uIdx = n.teams.findIndex(t=>t.id===up[i]);
-        if(dIdx < 0 || uIdx < 0) continue;
-        const bajando = c.teams[dIdx], subiendo = n.teams[uIdx];
-        const zonaPrimera = bajando.zone, zonaNacional = subiendo.zone;
-        c.teams.splice(dIdx, 1, Object.assign({}, subiendo, { zone: zonaPrimera }));
-        n.teams.splice(uIdx, 1, Object.assign({}, bajando, { zone: zonaNacional }));
-        if(c.seasonLog) delete c.seasonLog[subiendo.id];
-      }
-      c.lastMovements = { year: c.year, subenAPrimera: up.slice(), bajanANacional: down.slice() };
+  // ---- Ascensos y descensos encadenados entre las cuatro categorías ----
+  // El que baja ocupa el lugar exacto (y la zona) del que sube, así ninguna categoría se descuadra.
+  function careerSwapDivisions(arriba, abajo, bajanIds, subenIds){
+    const cant = Math.min(bajanIds.length, subenIds.length);
+    for(let i=0;i<cant;i++){
+      const dIdx = arriba.findIndex(t=>t.id===bajanIds[i]);
+      const uIdx = abajo.findIndex(t=>t.id===subenIds[i]);
+      if(dIdx < 0 || uIdx < 0) continue;
+      const bajando = arriba[dIdx], subiendo = abajo[uIdx];
+      const zArriba = bajando.zone, zAbajo = subiendo.zone;
+      arriba.splice(dIdx, 1, Object.assign({}, subiendo, { zone: zArriba }));
+      abajo.splice(uIdx, 1, Object.assign({}, bajando, { zone: zAbajo }));
     }
-    careerNacionalReplaceRelegated();
+  }
+  function careerUsedNames(){
+    const c = state.career;
+    return new Set(
+      c.teams.map(t=>t.name)
+        .concat(careerNacional().teams.map(t=>t.name))
+        .concat(careerBmetro().teams.map(t=>t.name))
+        .concat(careerFederal().teams.map(t=>t.name))
+    );
+  }
+  // Los que se van al fondo se reemplazan con clubes de la categoría de abajo que todavía no estén en juego.
+  function careerReplaceWithPool(div, ids, pool, prefix){
+    const usados = careerUsedNames();
+    const libres = pool.filter(t => !usados.has(t.name)).sort((a,b)=>b.elo-a.elo);
+    let pi = 0;
+    ids.forEach(id => {
+      const idx = div.teams.findIndex(t=>t.id===id);
+      if(idx < 0) return;
+      const rep = libres[pi++];
+      if(!rep) return;
+      const zone = div.teams[idx].zone;
+      div.teams.splice(idx, 1, { id:prefix+Math.random().toString(36).slice(2,9), name:rep.name, elo:rep.elo, zone });
+    });
   }
 
-  // Los que bajan de la Nacional se reemplazan con equipos de la tercera categoría.
-  function careerNacionalReplaceRelegated(){
-    const c = state.career, n = careerNacional();
-    const rel = (n.relegated || []).slice(0,4);
-    if(!rel.length) return;
+  function careerApplyPromotionsRelegations(){
+    const c = state.career;
+    const n = careerNacional(), b = careerBmetro(), f = careerFederal();
     const db = CAREER_TEAM_DB;
-    const usados = new Set(c.teams.map(t=>t.name).concat(n.teams.map(t=>t.name)));
-    const pool = db.bmetro
-      .concat(db.federalA.zoneA, db.federalA.zoneB, db.federalA.zoneC, db.federalA.zoneD)
-      .filter(t => !usados.has(t.name))
-      .sort((a,b)=>b.elo-a.elo);
-    let pi = 0;
-    rel.forEach(id => {
-      const idx = n.teams.findIndex(t=>t.id===id);
-      if(idx < 0) return;
-      const rep = pool[pi++];
-      if(!rep) return;
-      const zone = n.teams[idx].zone;
-      n.teams.splice(idx, 1, { id:'nt'+Math.random().toString(36).slice(2,9), name:rep.name, elo:rep.elo, zone });
-    });
-    n.relegated = [];
+    const mov = { year: c.year };
+
+    // Primera <-> Primera Nacional
+    const desc = careerComputeDescensos();
+    const bajanPrimera = (desc.relegated || []).slice(0,2);
+    const subenDeNacional = (n.promoted || []).slice(0,2);
+    if(bajanPrimera.length === 2 && subenDeNacional.length === 2){
+      careerSwapDivisions(c.teams, n.teams, bajanPrimera, subenDeNacional);
+      subenDeNacional.forEach(id => { if(c.seasonLog) delete c.seasonLog[id]; });
+      mov.subenAPrimera = subenDeNacional.slice();
+      mov.bajanANacional = bajanPrimera.slice();
+    }
+
+    // Primera Nacional <-> tercera división: suben 2 de la B Metro y 2 del Federal A,
+    // y los 4 que bajan de la Nacional se reparten entre esas dos categorías.
+    const bajanNacional = (n.relegated || []).slice(0,4);
+    const subenDeB = (b.promoted || []).slice(0,2);
+    const subenDeF = (f.promoted || []).slice(0,2);
+    if(subenDeB.length) careerSwapDivisions(n.teams, b.teams, bajanNacional.slice(0, subenDeB.length), subenDeB);
+    if(subenDeF.length) careerSwapDivisions(n.teams, f.teams, bajanNacional.slice(subenDeB.length, subenDeB.length + subenDeF.length), subenDeF);
+    if(subenDeB.length || subenDeF.length) mov.subenANacional = subenDeB.concat(subenDeF);
+
+    // Los descensos de la tercera división se reponen desde la categoría de abajo
+    const cPool = db.primeraC.zoneA.concat(db.primeraC.zoneB);
+    careerReplaceWithPool(b, (b.relegated || []).slice(0,2), cPool, 'bt');
+    careerReplaceWithPool(f, (f.relegated || []).slice(0,4), db.regional, 'ft');
+
+    n.promoted = []; n.relegated = [];
+    b.promoted = []; b.relegated = []; b.champion = null;
+    f.promoted = []; f.relegated = []; f.champion = null;
+    c.lastMovements = mov;
   }
 
   // ---- Vista ----
@@ -2744,14 +2986,566 @@
     return html;
   }
 
-  function renderNacionalSerie(s){
-    let html = s.legs.map(m=>renderCareerMatchRow(m, null)).join('');
-    if(s.legs.length > 1 && s.legs.every(m=>m.played)){
-      const agg = careerSerieAggregate(s.legs);
-      const a = s.legs[0].home, b = s.legs[0].away;
-      const w = careerSerieWinner(s.legs);
-      const nombre = id => { const t = careerTeamById(id); return t ? escapeHtml(t.name) : '—'; };
-      html += `<p class="hint" style="margin:-4px 0 16px;">Global: ${nombre(a)} ${agg[a]||0} &ndash; ${agg[b]||0} ${nombre(b)} &middot; avanza <strong style="color:var(--ink);">${w?nombre(w):'—'}</strong></p>`;
+  function renderNacionalSerie(s){ return renderSerieBlock(s); }
+
+
+  // ==================== TERCERA DIVISIÓN A — PRIMERA B METROPOLITANA ====================
+  // 22 equipos, todos contra todos a dos ruedas (42 fechas). El 1° es campeón y asciende
+  // directo; el segundo ascenso sale de un reducido del 2° al 9°. Bajan el 21° y el 22°.
+
+  const BMETRO_STAGE_LABELS = {
+    'cuartos': 'Reducido · Cuartos de final',
+    'semis': 'Reducido · Semifinales',
+    'final': 'Reducido · Final por el 2° ascenso'
+  };
+  const BMETRO_STAGE_ORDER = ['cuartos','semis','final'];
+  const BMETRO_ZONE_LEGEND = [
+    { id:'campeon', label:'Campeón y ascenso directo', from:1, to:1, color:'#C9A227' },
+    { id:'reducido', label:'Reducido por el 2° ascenso', from:2, to:9, color:'#5A8F5A' },
+    { id:'descenso', label:'Desciende a la Primera C', from:21, to:22, color:'#B4433A' }
+  ];
+
+  function careerBmetro(){
+    const c = state.career;
+    if(!c.bmetro) c.bmetro = defaultBmetro();
+    return c.bmetro;
+  }
+  function careerBmetroTeamsFromDb(){
+    const b = careerBmetro();
+    b.teams = CAREER_TEAM_DB.bmetro.map((t,i) => ({ id:'bt'+i+'_'+Math.random().toString(36).slice(2,7), name:t.name, elo:t.elo }));
+  }
+  function careerBmetroRegular(){ return careerBmetro().matches.filter(m=>!m.stage); }
+  function careerBmetroStageMatches(stage){ return careerBmetro().matches.filter(m=>m.stage===stage); }
+  function careerBmetroHasStage(stage){ return careerBmetroStageMatches(stage).length > 0; }
+  function careerBmetroStageDone(stage){
+    const ms = careerBmetroStageMatches(stage);
+    return ms.length > 0 && ms.every(m=>m.played);
+  }
+  function careerBmetroStandings(){
+    const b = careerBmetro();
+    return careerComputeStandingsFrom(careerBmetroRegular(), b.teams.map(t=>t.id));
+  }
+
+  function careerGenerateBmetro(){
+    const c = state.career;
+    const b = careerBmetro();
+    if(b.teams.length === 0) careerBmetroTeamsFromDb();
+    b.matches = [];
+    b.champion = null; b.promoted = []; b.relegated = []; b.seedOrder = [];
+    b.generatedYear = c.year;
+
+    // La B Metropolitana juega los lunes.
+    const start = firstWeekdayOfMonth(c.year, 1, 1);
+    const dateFor = (r) => addDaysISO(start, (r-1)*7);
+    const ids = b.teams.map(t=>t.id);
+    if(ids.length < 2) return;
+    const rounds = roundRobinRounds(ids);
+    rounds.forEach((round, ri) => {
+      round.forEach(mm => b.matches.push(careerMkMatch('bmetro', null, ri+1, mm.home, mm.away, {date: dateFor(ri+1)})));
+    });
+    rounds.forEach((round, ri) => {
+      const rn = rounds.length + ri + 1;
+      round.forEach(mm => b.matches.push(careerMkMatch('bmetro', null, rn, mm.away, mm.home, {date: dateFor(rn)})));
+    });
+  }
+
+  function careerBmetroAutoAdvance(){
+    const b = careerBmetro();
+    if(!b.teams || b.teams.length < 4) return false;
+    const reg = careerBmetroRegular();
+    if(reg.length === 0 || !reg.every(m=>m.played)) return false;
+    let did = false;
+    const tabla = careerBmetroStandings();
+
+    // Campeón, ascenso directo y descensos
+    if(!b.champion && tabla.length){
+      b.champion = tabla[0].id;
+      if(!b.promoted.includes(b.champion)) b.promoted.push(b.champion);
+      careerRecordTitle('bmetro', b.champion);
+      b.relegated = tabla.slice(-2).map(r=>r.id);
+      did = true;
+    }
+
+    // Reducido: cuartos con el 2° al 9°
+    if(!careerBmetroHasStage('cuartos') && tabla.length >= 9){
+      const clasificados = tabla.slice(1,9).map(r=>r.id);
+      b.seedOrder = clasificados.slice();
+      const base = careerMaxDate(reg);
+      careerBuildSeries(b.matches, 'bmetro', 'cuartos', careerSeedPairs(clasificados), addDaysISO(base,7), addDaysISO(base,14));
+      return true;
+    }
+    if(careerBmetroStageDone('cuartos') && !careerBmetroHasStage('semis')){
+      const ws = careerSeriesOfList(careerBmetroStageMatches('cuartos')).map(sr=>careerSerieWinner(sr.legs)).filter(Boolean);
+      ws.sort((x,y) => b.seedOrder.indexOf(x) - b.seedOrder.indexOf(y));
+      const base = careerMaxDate(careerBmetroStageMatches('cuartos'));
+      careerBuildSeries(b.matches, 'bmetro', 'semis', careerSeedPairs(ws), addDaysISO(base,7), addDaysISO(base,14));
+      return true;
+    }
+    if(careerBmetroStageDone('semis') && !careerBmetroHasStage('final')){
+      const ws = careerSeriesOfList(careerBmetroStageMatches('semis')).map(sr=>careerSerieWinner(sr.legs)).filter(Boolean);
+      ws.sort((x,y) => b.seedOrder.indexOf(x) - b.seedOrder.indexOf(y));
+      const base = careerMaxDate(careerBmetroStageMatches('semis'));
+      if(ws.length >= 2){
+        // Final a partido único en cancha neutral: empate, alargue y penales.
+        b.matches.push(careerMkMatch('bmetro', null, 1, ws[0], ws[1], {stage:'final', neutral:true, date: addDaysISO(base,7)}));
+        return true;
+      }
+    }
+    const fin = careerBmetroStageMatches('final')[0];
+    if(fin && fin.played){
+      const w = careerMatchWinner(fin);
+      if(w && !b.promoted.includes(w)){ b.promoted.push(w); did = true; }
+    }
+    return did;
+  }
+
+  // ==================== TERCERA DIVISIÓN B — TORNEO FEDERAL A ====================
+  // 37 equipos. Fase regular en 4 zonas, un camino principal de 5 fases por el primer
+  // ascenso y una Reválida de 6 fases por el segundo, con 4 descensos al Regional Amateur.
+
+  const FEDERAL_STAGE_LABELS = {
+    'f2': 'Segunda Fase',
+    'f3': 'Tercera Fase',
+    'f4': 'Cuarta Fase',
+    'f5': 'Final por el 1° ascenso',
+    'rev1': 'Reválida · Primera Etapa',
+    'rev2': 'Reválida · Segunda Etapa',
+    'rev3': 'Reválida · Tercera Fase',
+    'rev4': 'Reválida · Cuarta Fase',
+    'rev5': 'Reválida · Quinta Fase',
+    'rev6': 'Reválida · Final por el 2° ascenso'
+  };
+  const FEDERAL_STAGE_ORDER = ['f2','f3','f4','f5','rev1','rev2','rev3','rev4','rev5','rev6'];
+
+  function careerFederal(){
+    const c = state.career;
+    if(!c.federal) c.federal = defaultFederal();
+    return c.federal;
+  }
+  function careerFederalTeamsFromDb(){
+    const f = careerFederal();
+    f.teams = [];
+    let i = 0;
+    const push = (t, zone) => f.teams.push({ id:'ft'+(i++)+'_'+Math.random().toString(36).slice(2,7), name:t.name, elo:t.elo, zone });
+    CAREER_TEAM_DB.federalA.zoneA.forEach(t=>push(t,0));
+    CAREER_TEAM_DB.federalA.zoneB.forEach(t=>push(t,1));
+    CAREER_TEAM_DB.federalA.zoneC.forEach(t=>push(t,2));
+    CAREER_TEAM_DB.federalA.zoneD.forEach(t=>push(t,3));
+  }
+  function careerFederalRegular(){ return careerFederal().matches.filter(m=>!m.stage); }
+  function careerFederalStageMatches(stage){ return careerFederal().matches.filter(m=>m.stage===stage); }
+  function careerFederalHasStage(stage){ return careerFederalStageMatches(stage).length > 0; }
+  function careerFederalStageDone(stage){
+    const ms = careerFederalStageMatches(stage);
+    return ms.length > 0 && ms.every(m=>m.played);
+  }
+  function careerFederalZoneIds(z){ return careerFederal().teams.filter(t=>t.zone===z).map(t=>t.id); }
+  function careerFederalStandings(z){
+    return careerComputeStandingsFrom(careerFederalRegular(), careerFederalZoneIds(z));
+  }
+  function careerFederalGroupStandings(stage, gi, ids){
+    return careerComputeStandingsFrom(careerFederalStageMatches(stage).filter(m=>m.group===gi), ids);
+  }
+
+  function careerGenerateFederal(){
+    const c = state.career;
+    const f = careerFederal();
+    if(f.teams.length === 0) careerFederalTeamsFromDb();
+    f.matches = [];
+    f.champion = null; f.promoted = []; f.relegated = [];
+    f.f2Groups = []; f.f2Seeds = []; f.rev1Groups = [];
+    f.rev2Rank = []; f.rev3Rank = []; f.rev4Rank = []; f.rev5Rank = [];
+    f.generatedYear = c.year;
+
+    // El Federal A juega los miércoles.
+    const start = firstWeekdayOfMonth(c.year, 1, 3);
+    const dateFor = (r) => addDaysISO(start, (r-1)*7);
+    let maxR = 0;
+    [0,1,2,3].forEach(z => {
+      const ids = careerFederalZoneIds(z);
+      if(ids.length < 2) return;
+      const rounds = roundRobinRounds(ids);
+      maxR = Math.max(maxR, rounds.length);
+      rounds.forEach((round, ri) => {
+        round.forEach(mm => f.matches.push(careerMkMatch('federal', z, ri+1, mm.home, mm.away, {date: dateFor(ri+1)})));
+      });
+      rounds.forEach((round, ri) => {
+        const rn = rounds.length + ri + 1;
+        round.forEach(mm => f.matches.push(careerMkMatch('federal', z, rn, mm.away, mm.home, {date: dateFor(rn)})));
+      });
+    });
+  }
+
+  // Reparte una lista ordenada en dos zonas parejas (serpentina).
+  function careerSerpentine(ordered, groups){
+    const out = Array.from({length:groups}, ()=>[]);
+    ordered.forEach((id, i) => {
+      const ciclo = Math.floor(i/groups), pos = i % groups;
+      out[(ciclo % 2 === 0) ? pos : (groups-1-pos)].push(id);
+    });
+    return out;
+  }
+  function careerFederalBuildGroupStage(stage, groups, startDate){
+    const f = careerFederal();
+    let maxR = 0;
+    groups.forEach((ids, gi) => {
+      if(ids.length < 2) return;
+      const rounds = roundRobinRounds(ids);
+      maxR = Math.max(maxR, rounds.length);
+      rounds.forEach((round, ri) => {
+        round.forEach(mm => f.matches.push(careerMkMatch('federal', null, ri+1, mm.home, mm.away, {stage, group:gi, date: addDaysISO(startDate, ri*7)})));
+      });
+    });
+    return maxR;
+  }
+
+  // Puntos y partidos de un equipo a lo largo de toda la fase regular más la Reválida.
+  function careerFederalPromedio(id){
+    const f = careerFederal();
+    const list = f.matches.filter(m => !m.stage || m.stage === 'rev1');
+    const row = careerMatchPointsRow(list, id);
+    return { id, pts: row.pts, pj: row.pj, avg: row.pj > 0 ? row.pts / row.pj : 0 };
+  }
+
+  function careerFederalBuildSegundaFaseYRevalida(){
+    const f = careerFederal();
+    const st = [0,1,2,3].map(z => careerFederalStandings(z));
+    if(st.some(x => x.length < 5)) return false;
+
+    // Clasifican 18: los 5 primeros de la zona de 10, los 4 primeros de cada zona de 9
+    // y el mejor 5° entre esas tres zonas.
+    const clasif = st[0].slice(0,5).map(r=>r.id);
+    [1,2,3].forEach(z => st[z].slice(0,4).forEach(r => clasif.push(r.id)));
+    const quintos = [1,2,3].map(z => st[z][4]).filter(Boolean)
+      .sort((x,y) => y.pts-x.pts || y.dg-x.dg || y.gf-x.gf || careerTeamById(y.id).elo-careerTeamById(x.id).elo);
+    if(quintos[0]) clasif.push(quintos[0].id);
+
+    const todos = f.teams.map(t=>t.id);
+    const resto = todos.filter(id => !clasif.includes(id));
+
+    const ordenados = clasif.slice().sort((a,b) => careerTeamById(b).elo - careerTeamById(a).elo);
+    f.f2Groups = careerSerpentine(ordenados, 2);
+    const restoOrden = resto.slice().sort((a,b) => careerTeamById(b).elo - careerTeamById(a).elo);
+    f.rev1Groups = careerSerpentine(restoOrden, 2);
+
+    const base = addDaysISO(careerMaxDate(careerFederalRegular()), 7);
+    careerFederalBuildGroupStage('f2', f.f2Groups, base);
+    careerFederalBuildGroupStage('rev1', f.rev1Groups, base);
+    return true;
+  }
+
+  function careerFederalResolveDescensos(){
+    const f = careerFederal();
+    if(f.relegated && f.relegated.length) return false;
+    if(!careerFederalStageDone('rev1')) return false;
+    f.relegated = [];
+    // En cada zona de la Reválida se arma una tabla de promedios y bajan los dos peores.
+    f.rev1Groups.forEach(ids => {
+      const filas = ids.map(id => careerFederalPromedio(id))
+        .sort((x,y) => y.avg - x.avg || careerTeamById(y.id).elo - careerTeamById(x.id).elo);
+      filas.slice(-2).forEach(r => f.relegated.push(r.id));
+    });
+    return true;
+  }
+
+  function careerFederalAutoAdvance(){
+    const f = careerFederal();
+    if(!f.teams || f.teams.length < 8) return false;
+    const reg = careerFederalRegular();
+    if(reg.length === 0 || !reg.every(m=>m.played)) return false;
+    let did = false;
+
+    if(!careerFederalHasStage('f2')){
+      return careerFederalBuildSegundaFaseYRevalida();
+    }
+    if(careerFederalResolveDescensos()) did = true;
+
+    const f2Stand = f.f2Groups.map((ids, gi) => careerFederalGroupStandings('f2', gi, ids));
+
+    // Tercera Fase: 1°A-4°B, 1°B-4°A, 2°A-3°B, 2°B-3°A
+    if(careerFederalStageDone('f2') && !careerFederalHasStage('f3')){
+      const seeds = [];
+      for(let pos=0; pos<4; pos++){
+        const par = [f2Stand[0][pos], f2Stand[1][pos]].filter(Boolean)
+          .sort((x,y) => y.pts-x.pts || y.dg-x.dg || y.gf-x.gf);
+        par.forEach(r => seeds.push(r.id));
+      }
+      f.f2Seeds = seeds;
+      const A = f2Stand[0].map(r=>r.id), B = f2Stand[1].map(r=>r.id);
+      const crudos = [[A[0],B[3]], [B[0],A[3]], [A[1],B[2]], [B[1],A[2]]];
+      const pairs = crudos.map(([x,y]) => {
+        const mejor = seeds.indexOf(x) <= seeds.indexOf(y) ? x : y;
+        return { better: mejor, worse: mejor === x ? y : x };
+      });
+      const base = careerMaxDate(careerFederalStageMatches('f2'));
+      careerBuildSeries(f.matches, 'federal', 'f3', pairs, addDaysISO(base,7), addDaysISO(base,14));
+      return true;
+    }
+
+    const f3Series = careerSeriesOfList(careerFederalStageMatches('f3'));
+    const ordenarPorSeed = arr => arr.slice().sort((x,y) => f.f2Seeds.indexOf(x) - f.f2Seeds.indexOf(y));
+
+    // Cuarta Fase: los 4 ganadores, cruces según la Segunda Fase
+    if(careerFederalStageDone('f3') && !careerFederalHasStage('f4')){
+      const ws = ordenarPorSeed(f3Series.map(sr=>careerSerieWinner(sr.legs)).filter(Boolean));
+      const base = careerMaxDate(careerFederalStageMatches('f3'));
+      careerBuildSeries(f.matches, 'federal', 'f4', careerSeedPairs(ws), addDaysISO(base,7), addDaysISO(base,14));
+      return true;
+    }
+
+    // Final por el primer ascenso: partido único en cancha neutral
+    if(careerFederalStageDone('f4') && !careerFederalHasStage('f5')){
+      const ws = ordenarPorSeed(careerSeriesOfList(careerFederalStageMatches('f4')).map(sr=>careerSerieWinner(sr.legs)).filter(Boolean));
+      const base = careerMaxDate(careerFederalStageMatches('f4'));
+      if(ws.length >= 2){
+        f.matches.push(careerMkMatch('federal', null, 1, ws[0], ws[1], {stage:'f5', neutral:true, date: addDaysISO(base,7)}));
+        return true;
+      }
+    }
+    const f5 = careerFederalStageMatches('f5')[0];
+    if(f5 && f5.played && !f.champion){
+      const w = careerMatchWinner(f5);
+      if(w){
+        f.champion = w;
+        if(!f.promoted.includes(w)) f.promoted.push(w);
+        careerRecordTitle('federal', w);
+        did = true;
+      }
+    }
+
+    // ---- Reválida ----
+    // Segunda Etapa: 24 equipos con un ordenamiento del 1 al 24.
+    if(careerFederalStageDone('f3') && careerFederalStageDone('rev1') && !careerFederalHasStage('rev2')){
+      const perdedoresF3 = ordenarPorSeed(f3Series.map(sr => {
+        const w = careerSerieWinner(sr.legs);
+        const ids = [sr.legs[0].home, sr.legs[0].away];
+        return ids.find(x => x !== w);
+      }).filter(Boolean));
+
+      // Puestos 5° a 14°: los que quedaron del 5° al 9° en cada zona de la Segunda Fase
+      const desdeF2 = [];
+      for(let pos=4; pos<9; pos++){
+        const par = [f2Stand[0][pos], f2Stand[1][pos]].filter(Boolean)
+          .sort((x,y) => y.pts-x.pts || y.dg-x.dg || y.gf-x.gf);
+        par.forEach(r => desdeF2.push(r.id));
+      }
+      // Puestos 15° a 24°: del 1° al 5° de cada zona de la Primera Etapa, por promedio
+      const rev1Stand = f.rev1Groups.map((ids, gi) => careerFederalGroupStandings('rev1', gi, ids));
+      const desdeRev1 = [];
+      for(let pos=0; pos<5; pos++){
+        const par = [rev1Stand[0][pos], rev1Stand[1][pos]].filter(Boolean)
+          .map(r => careerFederalPromedio(r.id))
+          .sort((x,y) => y.avg - x.avg || y.pts - x.pts);
+        par.forEach(r => desdeRev1.push(r.id));
+      }
+      const rank = perdedoresF3.concat(desdeF2, desdeRev1);
+      f.rev2Rank = rank;
+      const base = addDaysISO(careerMaxDate(careerFederalStageMatches('rev1').concat(careerFederalStageMatches('f3'))), 7);
+      careerBuildSeries(f.matches, 'federal', 'rev2', careerSeedPairs(rank), base, addDaysISO(base,7));
+      return true;
+    }
+
+    // Tercera Fase de la Reválida: 12 ganadores + los 2 perdedores de la Cuarta Fase (1° y 2°)
+    if(careerFederalStageDone('rev2') && careerFederalStageDone('f4') && !careerFederalHasStage('rev3')){
+      const ws = careerSeriesOfList(careerFederalStageMatches('rev2')).map(sr=>careerSerieWinner(sr.legs)).filter(Boolean)
+        .sort((x,y) => f.rev2Rank.indexOf(x) - f.rev2Rank.indexOf(y));
+      const perdedoresF4 = ordenarPorSeed(careerSeriesOfList(careerFederalStageMatches('f4')).map(sr => {
+        const w = careerSerieWinner(sr.legs);
+        const ids = [sr.legs[0].home, sr.legs[0].away];
+        return ids.find(x => x !== w);
+      }).filter(Boolean));
+      const rank = perdedoresF4.concat(ws);
+      f.rev3Rank = rank;
+      const base = addDaysISO(careerMaxDate(careerFederalStageMatches('rev2').concat(careerFederalStageMatches('f4'))), 7);
+      careerBuildSeries(f.matches, 'federal', 'rev3', careerSeedPairs(rank), base, addDaysISO(base,7));
+      return true;
+    }
+
+    // Cuarta Fase de la Reválida: 7 ganadores + el perdedor de la final, que entra como 1°
+    if(careerFederalStageDone('rev3') && f5 && f5.played && !careerFederalHasStage('rev4')){
+      const ws = careerSeriesOfList(careerFederalStageMatches('rev3')).map(sr=>careerSerieWinner(sr.legs)).filter(Boolean)
+        .sort((x,y) => f.rev3Rank.indexOf(x) - f.rev3Rank.indexOf(y));
+      const wF5 = careerMatchWinner(f5);
+      const perdedorFinal = (wF5 === f5.home) ? f5.away : f5.home;
+      const rank = [perdedorFinal].concat(ws);
+      f.rev4Rank = rank;
+      const base = addDaysISO(careerMaxDate(careerFederalStageMatches('rev3').concat([f5])), 7);
+      careerBuildSeries(f.matches, 'federal', 'rev4', careerSeedPairs(rank), base, addDaysISO(base,7));
+      return true;
+    }
+
+    if(careerFederalStageDone('rev4') && !careerFederalHasStage('rev5')){
+      const ws = careerSeriesOfList(careerFederalStageMatches('rev4')).map(sr=>careerSerieWinner(sr.legs)).filter(Boolean)
+        .sort((x,y) => f.rev4Rank.indexOf(x) - f.rev4Rank.indexOf(y));
+      f.rev5Rank = ws.slice();
+      const base = addDaysISO(careerMaxDate(careerFederalStageMatches('rev4')), 7);
+      careerBuildSeries(f.matches, 'federal', 'rev5', careerSeedPairs(ws), base, addDaysISO(base,7));
+      return true;
+    }
+
+    // Final por el segundo ascenso: la ida en cancha del 2° y la vuelta en la del 1°.
+    // Si el global termina igualado se va directo a los penales, sin ventaja deportiva.
+    if(careerFederalStageDone('rev5') && !careerFederalHasStage('rev6')){
+      const ws = careerSeriesOfList(careerFederalStageMatches('rev5')).map(sr=>careerSerieWinner(sr.legs)).filter(Boolean)
+        .sort((x,y) => f.rev5Rank.indexOf(x) - f.rev5Rank.indexOf(y));
+      const base = addDaysISO(careerMaxDate(careerFederalStageMatches('rev5')), 7);
+      if(ws.length >= 2){
+        careerBuildSeries(f.matches, 'federal', 'rev6', [{ better: ws[0], worse: ws[1] }], base, addDaysISO(base,7), { noAdvantage:true });
+        return true;
+      }
+    }
+    if(careerFederalHasStage('rev6')){
+      const series = careerSeriesOfList(careerFederalStageMatches('rev6'));
+      if(careerResolveSeriePenalties(series)) did = true;
+      const w = careerSerieWinner(series[0].legs);
+      if(w && !f.promoted.includes(w)){ f.promoted.push(w); did = true; }
+    }
+
+    return did;
+  }
+
+
+  // ---- Vistas de la tercera división ----
+  function careerNombre(id){
+    const t = careerTeamById(id);
+    return t ? escapeHtml(t.name) : '&mdash;';
+  }
+  // Bloque de una llave ida y vuelta, con el global y quién avanza.
+  function renderSerieBlock(sr){
+    let html = sr.legs.map(m=>renderCareerMatchRow(m, null)).join('');
+    if(sr.legs.length > 1 && sr.legs.every(m=>m.played)){
+      const agg = careerSerieAggregate(sr.legs);
+      const a = sr.legs[0].home, b = sr.legs[0].away;
+      const w = careerSerieWinner(sr.legs);
+      const pen = sr.legs.some(m=>m.wentToPenalties) ? ' (por penales)' : '';
+      html += `<p class="hint" style="margin:-4px 0 16px;">Global: ${careerNombre(a)} ${agg[a]||0} &ndash; ${agg[b]||0} ${careerNombre(b)} &middot; avanza <strong style="color:var(--ink);">${w?careerNombre(w):'&mdash;'}</strong>${pen}</p>`;
+    }
+    return html;
+  }
+  // Fixture navegable de una fase de todos contra todos.
+  function renderDivisionFixture(ctx, matches, scope, extra){
+    if(!matches.length) return '';
+    extra = extra || '';
+    const rounds = [...new Set(matches.map(m=>m.round))].sort((a,b)=>a-b);
+    const total = rounds.length;
+    const cur = ensureCareerRoundPointer(ctx, total);
+    const curMatches = matches.filter(m=>m.round===cur);
+    let html = `<div class="panel"><h2>Fixture</h2>`;
+    html += `<div class="round-header"><h3>Fecha ${cur} de ${total}</h3></div>`;
+    html += renderRoundNav(ctx, cur, total, 'Fecha', 'career-nav-round');
+    html += curMatches.map(m=>renderCareerMatchRow(m, null)).join('');
+    if(curMatches.some(m=>!m.played && !m.bye)){
+      html += `<div class="btn-row"><button class="btn primary" data-action="career-simulate-round" data-scope="${scope}" data-round="${cur}"${extra}>Simular esta fecha</button></div>`;
+    }
+    html += `</div>`;
+    return html;
+  }
+
+  function renderCareraBmetro(){
+    const c = state.career;
+    careerEnsureDivisions();
+    careerTryAutoAdvanceStages();
+    const b = careerBmetro();
+
+    let html = `<div class="panel">
+      <h2>Primera B Metropolitana ${c.year}</h2>
+      <p class="hint">Tercera división de los clubes afiliados directamente a la AFA. 22 equipos, todos contra todos a dos ruedas: 42 fechas. El 1° sale campeón y asciende directo a la Primera Nacional; el segundo ascenso se define en un reducido del 2° al 9°. El 21° y el 22° se van a la Primera C.</p>
+    </div>`;
+
+    html += renderDivisionFixture('career-bmetro', careerBmetroRegular(), 'bmetro-round');
+
+    const tabla = careerBmetroStandings();
+    html += `<div class="group-block"><h3>Tabla de posiciones</h3>${renderStandingsTable(tabla, false, BMETRO_ZONE_LEGEND, careerTeamById)}</div>`;
+
+    if(BMETRO_STAGE_ORDER.some(st => careerBmetroHasStage(st))){
+      html += `<div class="panel"><h2>Reducido por el segundo ascenso</h2>`;
+      BMETRO_STAGE_ORDER.forEach(stage => {
+        const ms = careerBmetroStageMatches(stage);
+        if(!ms.length) return;
+        html += `<div class="round-header"><h3>${BMETRO_STAGE_LABELS[stage]}</h3></div>`;
+        if(stage === 'final') html += ms.map(m=>renderCareerMatchRow(m, null)).join('');
+        else careerSeriesOfList(ms).forEach(sr => { html += renderSerieBlock(sr); });
+        if(ms.some(m=>!m.played)){
+          html += `<div class="btn-row"><button class="btn small" data-action="career-simulate-round" data-scope="bmetro-stage" data-stage="${stage}">Simular</button></div>`;
+        }
+      });
+      html += `</div>`;
+    }
+
+    if(b.champion || (b.promoted && b.promoted.length) || (b.relegated && b.relegated.length)){
+      let resumen = '';
+      if(b.champion) resumen += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Primera B Metropolitana ${c.year}: <strong>${careerNombre(b.champion)}</strong></div>`;
+      if(b.promoted && b.promoted.length) resumen += `<p class="hint">Ascienden a la Primera Nacional: <strong style="color:var(--ink);">${b.promoted.map(careerNombre).join(', ')}</strong>${b.promoted.length<2?' (falta el ganador del reducido)':''}</p>`;
+      if(b.relegated && b.relegated.length) resumen += `<p class="hint">Descienden a la Primera C: <strong style="color:var(--ink);">${b.relegated.map(careerNombre).join(', ')}</strong></p>`;
+      html += `<div class="panel"><h2>Temporada ${c.year}</h2>${resumen}</div>`;
+    }
+    return html;
+  }
+
+  function renderCareraFederal(){
+    const c = state.career;
+    careerEnsureDivisions();
+    careerTryAutoAdvanceStages();
+    const f = careerFederal();
+    const zonaNombres = ['Zona A','Zona B','Zona C','Zona D'];
+
+    let html = `<div class="panel">
+      <h2>Torneo Federal A ${c.year}</h2>
+      <p class="hint">Tercera división de los clubes del interior, afiliados indirectamente a la AFA. 37 equipos: una zona de 10 y tres de 9, todos contra todos a dos ruedas. Los 18 mejores siguen por el camino principal hasta la final por el primer ascenso; los otros 19 van a la Reválida, que reparte el segundo ascenso y define los cuatro descensos al Regional Amateur.</p>
+    </div>`;
+
+    html += renderDivisionFixture('career-federal', careerFederalRegular(), 'federal-round');
+
+    [0,1,2,3].forEach(z => {
+      const ids = careerFederalZoneIds(z);
+      if(!ids.length) return;
+      const clasifican = (z === 0) ? 5 : 4;
+      const legend = [{ id:'clasifica', label:'Clasifica a la Segunda Fase', from:1, to:clasifican, color:'#5A8F5A' }];
+      if(z !== 0) legend.push({ id:'repechaje', label:'Entra si es el mejor 5°', from:5, to:5, color:'#8A7A2E' });
+      html += `<div class="group-block"><h3>${zonaNombres[z]}</h3>${renderStandingsTable(careerFederalStandings(z), false, legend, careerTeamById)}</div>`;
+    });
+
+    // Segunda Fase y Primera Etapa de la Reválida
+    [['f2', f.f2Groups, 'Segunda Fase', 4, 'Clasifica a la Tercera Fase'],
+     ['rev1', f.rev1Groups, 'Reválida · Primera Etapa', 5, 'Pasa a la Segunda Etapa']].forEach(([stage, groups, titulo, corte, etiqueta]) => {
+      if(!careerFederalHasStage(stage)) return;
+      html += `<div class="panel"><h2>${titulo}</h2>`;
+      (groups || []).forEach((ids, gi) => {
+        const legend = [{ id:'pasa', label:etiqueta, from:1, to:corte, color:'#5A8F5A' }];
+        html += `<div class="group-block"><h3>Zona ${gi===0?'1':'2'}</h3>${renderStandingsTable(careerFederalGroupStandings(stage, gi, ids), false, legend, careerTeamById)}</div>`;
+      });
+      const ms = careerFederalStageMatches(stage);
+      if(ms.some(m=>!m.played)){
+        html += `<div class="btn-row"><button class="btn small" data-action="career-simulate-round" data-scope="federal-stage" data-stage="${stage}">Simular ${titulo.toLowerCase()} completa</button></div>`;
+      }
+      if(stage === 'rev1' && f.relegated && f.relegated.length){
+        html += `<p class="hint">Descienden al Regional Amateur (tabla de promedios): <strong style="color:var(--ink);">${f.relegated.map(careerNombre).join(', ')}</strong></p>`;
+      }
+      html += `</div>`;
+    });
+
+    // Llaves
+    const llaves = FEDERAL_STAGE_ORDER.filter(st => st !== 'f2' && st !== 'rev1' && careerFederalHasStage(st));
+    if(llaves.length){
+      html += `<div class="panel"><h2>Fases eliminatorias</h2>`;
+      llaves.forEach(stage => {
+        const ms = careerFederalStageMatches(stage);
+        html += `<div class="round-header"><h3>${FEDERAL_STAGE_LABELS[stage]}</h3></div>`;
+        if(stage === 'f5') html += ms.map(m=>renderCareerMatchRow(m, null)).join('');
+        else careerSeriesOfList(ms).forEach(sr => { html += renderSerieBlock(sr); });
+        if(ms.some(m=>!m.played)){
+          html += `<div class="btn-row"><button class="btn small" data-action="career-simulate-round" data-scope="federal-stage" data-stage="${stage}">Simular</button></div>`;
+        }
+      });
+      html += `</div>`;
+    }
+
+    if(f.champion || (f.promoted && f.promoted.length) || (f.relegated && f.relegated.length)){
+      let resumen = '';
+      if(f.champion) resumen += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Ganador de la final por el primer ascenso ${c.year}: <strong>${careerNombre(f.champion)}</strong></div>`;
+      if(f.promoted && f.promoted.length) resumen += `<p class="hint">Ascienden a la Primera Nacional: <strong style="color:var(--ink);">${f.promoted.map(careerNombre).join(', ')}</strong>${f.promoted.length<2?' (falta el ganador de la Reválida)':''}</p>`;
+      if(f.relegated && f.relegated.length) resumen += `<p class="hint">Descienden al Regional Amateur: <strong style="color:var(--ink);">${f.relegated.map(careerNombre).join(', ')}</strong></p>`;
+      html += `<div class="panel"><h2>Temporada ${c.year}</h2>${resumen}</div>`;
     }
     return html;
   }
@@ -2768,17 +3562,20 @@
     const federalAll = db.federalA.zoneA.concat(db.federalA.zoneB, db.federalA.zoneC, db.federalA.zoneD);
     const bmetroAll = db.bmetro;
     const cAll = db.primeraC.zoneA.concat(db.primeraC.zoneB);
-    const nacionalReal = (c.nacional && c.nacional.teams && c.nacional.teams.length)
-      ? topN(c.nacional.teams, 15).map(t=>({ id:t.id, name:t.name, elo:t.elo, division:'nacional' }))
+    const real = (list, n, division) => (list && list.length)
+      ? topN(list, n).map(t=>({ id:t.id, name:t.name, elo:t.elo, division }))
       : null;
+    const nacionalReal = real(c.nacional && c.nacional.teams, 15, 'nacional');
+    const federalReal = real(c.federal && c.federal.teams, 10, 'federalA');
+    const bmetroReal = real(c.bmetro && c.bmetro.teams, 6, 'bmetro');
     const otherTeams = [
       ...(nacionalReal ? [] : topN(nacionalAll,15).map(t=>mkOther(t,'nacional'))),
-      ...topN(federalAll,10).map(t=>mkOther(t,'federalA')),
-      ...topN(bmetroAll,6).map(t=>mkOther(t,'bmetro')),
+      ...(federalReal ? [] : topN(federalAll,10).map(t=>mkOther(t,'federalA'))),
+      ...(bmetroReal ? [] : topN(bmetroAll,6).map(t=>mkOther(t,'bmetro'))),
       ...topN(cAll,5).map(t=>mkOther(t,'primeraC'))
     ];
     c.copaArgentina = { otherTeams, matches: [], built: true, champion: null };
-    const pool = primeraTop28.concat(nacionalReal || [], otherTeams);
+    const pool = primeraTop28.concat(nacionalReal || [], federalReal || [], bmetroReal || [], otherTeams);
     const seeded = pool.slice().sort((a,b)=>b.elo-a.elo).map(t=>t.id);
     const pairs = buildFirstKnockoutRound(seeded);
     const date = nextWeekdayAfter(state.career.calendarDate || careerSeasonStart(state.career.year, state.career.tournament), 3);
@@ -2873,6 +3670,8 @@
     c.tournament = 'apertura';
     careerGenerateTournament();
     careerGenerateNacional();
+    careerGenerateBmetro();
+    careerGenerateFederal();
   }
 
   function ensureCareerRoundPointer(ctx, total){
@@ -2890,7 +3689,9 @@
       || c.knockout.find(m=>m.id===id)
       || (c.copaArgentina && c.copaArgentina.matches.find(m=>m.id===id))
       || (c.cupMatches && c.cupMatches.find(m=>m.id===id))
-      || (c.nacional && c.nacional.matches.find(m=>m.id===id));
+      || (c.nacional && c.nacional.matches.find(m=>m.id===id))
+      || (c.bmetro && c.bmetro.matches.find(m=>m.id===id))
+      || (c.federal && c.federal.matches.find(m=>m.id===id));
   }
 
   function careerMatchProbLabel(m){
@@ -2911,7 +3712,7 @@
     }
     const home = careerTeamById(m.home), away = careerTeamById(m.away);
     if(!home || !away) return '';
-    const winnerId = m.stage ? careerMatchWinner(m) : null;
+    const winnerId = (m.stage && !m.leg) ? careerMatchWinner(m) : null;
     const winnerHome = m.played && (m.stage ? winnerId===m.home : m.homeScore > m.awayScore);
     const winnerAway = m.played && (m.stage ? winnerId===m.away : m.awayScore > m.homeScore);
     const penTag = m.wentToPenalties ? ` <span style="color:var(--gold-bright);font-size:11px;">(pen.)</span>` : '';
@@ -2937,7 +3738,10 @@
           <h1>Modo Carrera <span>&middot; ${myTeam ? escapeHtml(myTeam.name) : 'Primera División'}</span></h1>
           <p class="sub">Fútbol argentino día a día, simulado con ELO.</p>
         </div>
-        <button class="btn ghost small" data-action="go-torneos">&larr; Generador de Torneos</button>
+        <div class="btn-row" style="margin:0;">
+          ${c.id ? `<button class="btn ghost small" data-action="career-goto-menu">Mis carreras</button>` : ''}
+          <button class="btn ghost small" data-action="go-torneos">&larr; Generador de Torneos</button>
+        </div>
       </div>
     </div>`;
   }
@@ -2947,7 +3751,7 @@
     if(c.step === 'equipos') return renderCareraEquipos();
     if(c.step === 'elegir') return renderCareraElegir();
     if(c.step === 'temporada') return renderCareraTemporada();
-    return renderCareraInicio();
+    return renderCareraMenu();
   }
 
   function careerLoadDefaultPrimera(){
@@ -2959,23 +3763,36 @@
     CAREER_TEAM_DB.primera.zoneB.forEach(t=>push(t,1));
   }
 
-  function renderCareraInicio(){
-    const c = state.career;
-    if(c.myTeamId && c.teams.length){
-      const t = careerTeamById(c.myTeamId);
-      return `<div class="panel">
-        <h2>Modo Carrera</h2>
-        <p class="hint">Seguís al mando de <strong style="color:var(--ink);">${t?escapeHtml(t.name):'tu equipo'}</strong>, temporada ${c.year}.</p>
-        <div class="btn-row">
-          <button class="btn primary" data-action="career-goto-temporada">Continuar carrera</button>
-          <button class="btn ghost" data-action="career-reset">Empezar una carrera nueva</button>
+  function renderCareraMenu(){
+    const idx = careerLoadIndex().sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+    const torneoLabel = { apertura:'Apertura', clausura:'Clausura' };
+    const guardadas = idx.map(entry => {
+      const sum = entry.summary || {};
+      const d = entry.updatedAt ? new Date(entry.updatedAt) : null;
+      const cuando = d ? d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}) : '';
+      const titulo = entry.name ? escapeHtml(entry.name) : escapeHtml(sum.teamName || 'Carrera');
+      return `<div class="menu-row">
+        <div class="info">
+          <strong>${titulo}</strong>
+          <div class="meta">${escapeHtml(sum.teamName || '—')} &middot; ${torneoLabel[sum.tournament] || ''} ${sum.year || ''}${sum.titles ? ' &middot; ' + sum.titles + ' título' + (sum.titles===1?'':'s') : ''} &middot; última vez ${cuando}</div>
+        </div>
+        <div class="actions">
+          <button class="btn small primary" data-action="career-open" data-id="${entry.id}">Abrir</button>
+          <button class="btn small ghost" data-action="career-delete" data-id="${entry.id}">Borrar</button>
         </div>
       </div>`;
-    }
+    }).join('');
+
     return `<div class="panel">
-      <h2>Modo Carrera &mdash; Primera División</h2>
-      <p class="hint">Elegí un equipo y dirigilo día a día: Copa de la Liga Apertura y Clausura (dos zonas de 15, con los 30 equipos reales ya cargados), fecha interzonal sorteada, fase eliminatoria en octavos/cuartos/semis/final, Tabla Anual, Tabla de Promedios con sus descensos, Copa Argentina de 64 equipos, Trofeo de Campeones y las dos Supercopas. En paralelo corre la Primera Nacional completa, con sus 36 equipos, su final por el título, su reducido y sus ascensos y descensos conectados con la Primera. Todo se simula según el ELO de cada equipo.</p>
-      <div class="btn-row"><button class="btn primary" data-action="career-start-new">Arrancar con los 30 equipos de Primera</button></div>
+      <h2>Tus carreras</h2>
+      <p class="hint">Podés tener todas las carreras que quieras guardadas al mismo tiempo, cada una con su equipo, su temporada y su historial.</p>
+      ${guardadas || '<div class="empty">Todavía no tenés ninguna carrera guardada.</div>'}
+    </div>
+    <div class="panel">
+      <h2>Nueva carrera</h2>
+      <p class="hint">Elegí un equipo y dirigilo día a día: Copa de la Liga Apertura y Clausura (dos zonas de 15 con los 30 equipos reales), fecha interzonal, octavos/cuartos/semis/final, Tabla Anual, Tabla de Promedios con sus descensos, Copa Argentina de 64 equipos, Trofeo de Campeones y las dos Supercopas. En paralelo corren la Primera Nacional, la Primera B Metropolitana y el Torneo Federal A completos, con sus ascensos y descensos encadenados. Todo se simula según el ELO de cada equipo.</p>
+      <div class="field"><label>Nombre de la carrera (opcional)</label><input type="text" id="careerName" placeholder="Mi carrera con Boca"></div>
+      <div class="btn-row"><button class="btn primary" data-action="career-new">Crear carrera nueva</button></div>
     </div>`;
   }
 
@@ -3015,7 +3832,7 @@
     </div>
     ${!canContinue ? `<div class="msg warn">Cargá equipos en ambas zonas, con la misma cantidad en cada una (idealmente 15 y 15).</div>` : ''}
     <div class="btn-row">
-      <button class="btn ghost" data-action="career-goto-inicio">Volver</button>
+      <button class="btn ghost" data-action="career-goto-menu">Volver</button>
       <button class="btn primary" data-action="career-goto-elegir" ${canContinue?'':'disabled'}>Continuar</button>
     </div>`;
   }
@@ -3048,14 +3865,18 @@
     if(!c.view) c.view = 'calendario';
     const tabs = [
       { k:'calendario', label:'Calendario' },
-      { k:'liga', label:'Primera División' },
-      { k:'nacional', label:'Primera Nacional' },
+      { k:'liga', label:'Primera' },
+      { k:'nacional', label:'Nacional' },
+      { k:'bmetro', label:'B Metro' },
+      { k:'federal', label:'Federal A' },
       { k:'copa-argentina', label:'Copa Argentina' },
       { k:'copas', label:'Tablas y Copas' }
     ];
     let out = `<div class="tabs" style="margin-bottom:18px;">${tabs.map(t=>`<div class="tab ${c.view===t.k?'active':''}" data-action="career-set-view" data-view="${t.k}">${t.label}</div>`).join('')}</div>`;
-    careerEnsureNacional();
+    careerEnsureDivisions();
     if(c.view === 'nacional') out += renderCareraNacional();
+    else if(c.view === 'bmetro') out += renderCareraBmetro();
+    else if(c.view === 'federal') out += renderCareraFederal();
     else if(c.view === 'copa-argentina') out += renderCareraCopaArgentina();
     else if(c.view === 'copas') out += renderCareraCopasNacionales();
     else if(c.view === 'liga') out += renderCareraLiga();
