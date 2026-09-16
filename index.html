@@ -2397,6 +2397,15 @@
     return arr;
   }
 
+  // Cruces interzonales que se jugaron en el Apertura de este año (ya archivado), para
+  // repetirlos en el Clausura con la localía invertida.
+  function careerAperturaInterzonalPairs(){
+    const c = state.career;
+    const apertura = (c.history || []).find(h => h.year === c.year && h.tournament === 'apertura');
+    if(!apertura) return null;
+    return apertura.matches.filter(m => m.interzonal && !m.bye).map(m => ({ home: m.home, away: m.away }));
+  }
+
   function careerGenerateTournament(){
     const c = state.career;
     c.matches = [];
@@ -2414,27 +2423,42 @@
     const zoneB = c.teams.filter(t=>t.zone===1).map(t=>t.id);
     let maxRounds = 0;
 
+    // El fixture del Clausura usa el mismo cruce de partidos que el Apertura, pero con las
+    // localías invertidas: quien jugó de local en el Apertura visita en el Clausura.
+    const esClausura = c.tournament === 'clausura';
     [zoneA, zoneB].forEach((zoneIds, zi) => {
       if(zoneIds.length < 2) return;
       const rounds = roundRobinRounds(zoneIds);
       rounds.forEach((round, ri) => {
-        round.forEach(mm => c.matches.push(careerMkMatch(c.tournament, zi, ri+1, mm.home, mm.away, {date: dateForRound(ri+1)})));
+        round.forEach(mm => {
+          const home = esClausura ? mm.away : mm.home;
+          const away = esClausura ? mm.home : mm.away;
+          c.matches.push(careerMkMatch(c.tournament, zi, ri+1, home, away, {date: dateForRound(ri+1)}));
+        });
       });
       maxRounds = Math.max(maxRounds, rounds.length);
     });
 
-    // Fecha interzonal: sorteo al azar de un rival de la otra zona
+    // Fecha interzonal: en el Apertura se sortea un rival de la otra zona; en el Clausura
+    // se repiten esos mismos cruces con la localía invertida.
     if(zoneA.length && zoneB.length){
-      const shuffledA = shuffleArr(zoneA.slice());
-      const shuffledB = shuffleArr(zoneB.slice());
-      const n = Math.min(shuffledA.length, shuffledB.length);
       const interRound = maxRounds + 1;
       const interDate = dateForRound(interRound);
-      for(let i=0;i<n;i++){
-        const homeIsA = Math.random() < 0.5;
-        const home = homeIsA ? shuffledA[i] : shuffledB[i];
-        const away = homeIsA ? shuffledB[i] : shuffledA[i];
-        c.matches.push(careerMkMatch(c.tournament, null, interRound, home, away, {interzonal:true, date: interDate}));
+      const aperturaInter = esClausura ? careerAperturaInterzonalPairs() : null;
+      if(aperturaInter && aperturaInter.length){
+        aperturaInter.forEach(p => {
+          c.matches.push(careerMkMatch(c.tournament, null, interRound, p.away, p.home, {interzonal:true, date: interDate}));
+        });
+      } else {
+        const shuffledA = shuffleArr(zoneA.slice());
+        const shuffledB = shuffleArr(zoneB.slice());
+        const n = Math.min(shuffledA.length, shuffledB.length);
+        for(let i=0;i<n;i++){
+          const homeIsA = Math.random() < 0.5;
+          const home = homeIsA ? shuffledA[i] : shuffledB[i];
+          const away = homeIsA ? shuffledB[i] : shuffledA[i];
+          c.matches.push(careerMkMatch(c.tournament, null, interRound, home, away, {interzonal:true, date: interDate}));
+        }
       }
     }
     c.calendarDate = addDaysISO(seasonStart, -1);
@@ -2554,13 +2578,15 @@
   function careerComputeDescensos(){
     const annual = careerAnnualTable();
     const promedios = careerPromediosTable();
-    if(annual.length < 2) return { annual, promedios, relegated: [] };
+    if(annual.length < 2 || promedios.length < 2) return { annual, promedios, relegated: [] };
     const lastAnnual = annual[annual.length-1].id;
     const lastProm = promedios[promedios.length-1].id;
     let relegated;
+    // Si el último de la Tabla Anual y el último de la Tabla de Promedios son el mismo equipo,
+    // ese desciende por la Anual, y el segundo descenso pasa a ser el penúltimo de Promedios.
     if(lastAnnual === lastProm){
-      const secondLastAnnual = annual[annual.length-2].id;
-      relegated = [lastProm, secondLastAnnual];
+      const secondLastProm = promedios[promedios.length-2].id;
+      relegated = [lastAnnual, secondLastProm];
     } else {
       relegated = [lastAnnual, lastProm];
     }
@@ -2976,14 +3002,17 @@
     if(subenDeB.length) careerSwapDivisions(n.teams, b.teams, bajanNacional.slice(0, subenDeB.length), subenDeB);
     if(subenDeF.length) careerSwapDivisions(n.teams, f.teams, bajanNacional.slice(subenDeB.length, subenDeB.length + subenDeF.length), subenDeF);
     if(subenDeB.length || subenDeF.length) mov.subenANacional = subenDeB.concat(subenDeF);
+    if(bajanNacional.length) mov.bajanDeNacional = bajanNacional.slice();
 
     // B Metropolitana <-> Primera C: bajan el 21° y el 22°, suben el campeón y el del reducido
     const pc = careerPrimeraC(), pr = careerPromocional();
     const subenDeC = (pc.promoted || []).slice(0,2);
+    const bajanDeB = (b.relegated || []).slice(0,2);
     if(subenDeC.length){
-      careerSwapDivisions(b.teams, pc.teams, (b.relegated || []).slice(0, subenDeC.length), subenDeC);
+      careerSwapDivisions(b.teams, pc.teams, bajanDeB.slice(0, subenDeC.length), subenDeC);
       mov.subenALaB = subenDeC.slice();
     }
+    if(bajanDeB.length) mov.bajanDeB = bajanDeB.slice();
 
     // Primera C <-> Promocional Amateur
     // El desafiliado deja su lugar al campeón del Apertura del Promocional.
@@ -3009,6 +3038,7 @@
     }
 
     // Lo único que todavía no tiene torneo propio es el Regional Amateur
+    if((f.relegated||[]).length) mov.bajanDeFederal = f.relegated.slice(0,4);
     careerReplaceWithPool(f, (f.relegated || []).slice(0,4), db.regional, 'ft');
 
     n.promoted = []; n.relegated = [];
@@ -4613,10 +4643,37 @@
     return `<div class="panel"><h2>${title} ${c.year}</h2>${inner}</div>`;
   }
 
+  // Ascensos y descensos de todas las categorías al cerrar la temporada anterior.
+  function renderResumenMovimientos(){
+    const c = state.career;
+    const mov = c.lastMovements;
+    if(!mov) return '';
+    const nombres = ids => (ids || []).map(careerNombre).join(', ');
+    const filas = [];
+    if(mov.subenAPrimera && mov.subenAPrimera.length) filas.push(['Primera División', 'Ascienden', nombres(mov.subenAPrimera)]);
+    if(mov.bajanANacional && mov.bajanANacional.length) filas.push(['Primera División', 'Descienden', nombres(mov.bajanANacional)]);
+    if(mov.subenANacional && mov.subenANacional.length) filas.push(['Primera Nacional', 'Ascienden', nombres(mov.subenANacional)]);
+    if(mov.bajanDeNacional && mov.bajanDeNacional.length) filas.push(['Primera Nacional', 'Descienden', nombres(mov.bajanDeNacional)]);
+    if(mov.subenALaB && mov.subenALaB.length) filas.push(['Primera B Metropolitana', 'Ascienden', nombres(mov.subenALaB)]);
+    if(mov.bajanDeB && mov.bajanDeB.length) filas.push(['Primera B Metropolitana', 'Descienden', nombres(mov.bajanDeB)]);
+    if(mov.bajanDeFederal && mov.bajanDeFederal.length) filas.push(['Torneo Federal A', 'Descienden', nombres(mov.bajanDeFederal)]);
+    if(mov.subeALaC) filas.push(['Primera C Metropolitana', 'Asciende (campeón del Promocional Apertura)', careerNombre(mov.subeALaC)]);
+    if(mov.desafiliado) filas.push(['Primera C Metropolitana', 'Desafiliado', careerNombre(mov.desafiliado)]);
+    if(mov.promocion) filas.push(['Promoción C / Promocional', 'Asciende a la Primera C', careerNombre(mov.promocion)]);
+    if(!filas.length) return '';
+    const rows = filas.map(([cat, tipo, quien]) => `<tr><td>${escapeHtml(cat)}</td><td>${escapeHtml(tipo)}</td><td>${quien}</td></tr>`).join('');
+    return `<div class="panel">
+      <h2>Movimientos de fin de temporada ${mov.year}</h2>
+      <p class="hint">Ascensos y descensos entre las seis categorías al pasar del Clausura ${mov.year} al Apertura ${mov.year+1}.</p>
+      <table><thead><tr><th>Categoría</th><th>Movimiento</th><th>Equipos</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+  }
+
   function renderCareraCopasNacionales(){
     const c = state.career;
     const desc = careerComputeDescensos();
-    let html = `<div class="panel"><h2>Tabla Anual ${c.year}</h2><p class="hint">Suma los puntos de fase regular del Apertura y el Clausura (no cuenta la fase eliminatoria). El último desciende a la Primera Nacional.</p>${renderAnnualTable(desc.annual, desc.relegated)}</div>`;
+    let html = renderResumenMovimientos();
+    html += `<div class="panel"><h2>Tabla Anual ${c.year}</h2><p class="hint">Suma los puntos de fase regular del Apertura y el Clausura (no cuenta la fase eliminatoria). El último desciende a la Primera Nacional.</p>${renderAnnualTable(desc.annual, desc.relegated)}</div>`;
     html += `<div class="panel"><h2>Tabla de Promedios</h2><p class="hint">Promedio de puntos por partido de las últimas hasta 3 temporadas. El último también desciende (si coincide con el último de la Tabla Anual, desciende el penúltimo de esa tabla en su lugar).</p>${renderPromediosTable(desc.promedios, desc.relegated)}</div>`;
     html += renderClasificacionCopasBlock();
     html += renderCopaSlot('Trofeo de Campeones', 'Se define cuando estén los campeones de Apertura y Clausura de este año.', 'trofeo-campeones');
