@@ -2583,18 +2583,19 @@
     }
     const lastAnnual = annual[annual.length-1].id;
     const lastProm = promedios[promedios.length-1].id;
-    let relegated;
-    // Si el último de la Tabla Anual y el último de la Tabla de Promedios son el mismo equipo,
-    // ese desciende por la Anual, y el segundo descenso pasa a ser el penúltimo de Promedios.
+    let relegated, relegatedPromedios;
     if(lastAnnual === lastProm){
+      // Mismo equipo último en las dos tablas: ese desciende por la Tabla Anual, y el segundo
+      // descenso pasa a ser el penúltimo de la Tabla de Promedios (se marca ahí, además del último).
       const secondLastProm = promedios[promedios.length-2].id;
       relegated = [lastAnnual, secondLastProm];
+      relegatedPromedios = [lastProm, secondLastProm];
     } else {
+      // Caso normal: uno por tabla, cada una marca solo su propio último puesto.
       relegated = [lastAnnual, lastProm];
+      relegatedPromedios = [lastProm];
     }
-    // Para mostrar en pantalla, cada tabla marca solo a SU propio último puesto (uno por tabla),
-    // aunque el descenso real (arriba) pueda incluir un segundo equipo por la regla del empate.
-    return { annual, promedios, relegated, relegatedAnnual: [lastAnnual], relegatedPromedios: [lastProm] };
+    return { annual, promedios, relegated, relegatedAnnual: [lastAnnual], relegatedPromedios };
   }
 
   function renderAnnualTable(rows, relegatedIds){
@@ -4119,7 +4120,9 @@
     ];
     c.copaArgentina = { otherTeams, matches: [], built: true, champion: null };
     const pool = primeraTop28.concat(nacionalReal || [], federalReal || [], bmetroReal || [], otherTeams);
-    const seeded = pool.slice().sort((a,b)=>b.elo-a.elo).map(t=>t.id);
+    // La Copa Argentina se define por sorteo, no por el ranking de ELO: los cruces tienen que
+    // salir distintos cada temporada, así que el orden del cuadro se mezcla al azar.
+    const seeded = shuffleArr(pool.map(t=>t.id));
     const pairs = buildFirstKnockoutRound(seeded);
     const date = nextWeekdayAfter(state.career.calendarDate || careerSeasonStart(state.career.year, state.career.tournament), 3);
     pairs.forEach(p => c.copaArgentina.matches.push(careerMkMatch('copa-argentina', null, 1, p.home, p.away, {stage:'treintaidosavos', neutral:true, date})));
