@@ -402,6 +402,7 @@
       federal: defaultFederal(),
       primerac: defaultPrimeraC(),
       promocional: defaultPromocional(),
+      worldLeagues: {},         // ligas y copas de otros países — se juegan solas en segundo plano (ver careerEnsureWorldLeagues)
       calendarDate: null        // 'YYYY-MM-DD' — fecha actual del calendario único de la carrera
     };
   }
@@ -3071,6 +3072,7 @@
     const pr = careerPromocional();
     if(pr.generatedYear !== c.year || !pr.matches.length){ careerGeneratePromocional(); pendientes.push(pr.matches); }
     pendientes.forEach(list => careerCatchUpMatches(list));
+    careerEnsureWorldLeagues();
   }
   // Juega de una todo lo que haya quedado atrasado respecto de la fecha actual de la carrera.
   function careerCatchUpMatches(list){
@@ -4886,6 +4888,7 @@
       ${item('copas','&#128202;','Tablas y Copas')}
       <div class="cs-navgroup-label">Internacional</div>
       ${item('internacionales','&#127758;','Copas Internacionales')}
+      ${item('ligas-mundo','&#127760;','Ligas del Mundo')}
       <div class="cs-navgroup-label">General</div>
       ${item('estadisticas','&#128200;','Estadísticas')}
       ${item('equipos-list','&#9917;','Equipos')}
@@ -5024,6 +5027,7 @@
     if(c.view === 'promocional') return renderCareraPromocional();
     if(c.view === 'copa-argentina') return renderCareraCopaArgentina();
     if(c.view === 'internacionales') return renderCareraCopasInternacionales();
+    if(c.view === 'ligas-mundo') return renderCareraLigasMundo();
     if(c.view === 'copas') return renderCareraCopasNacionales();
     if(c.view === 'campeones') return renderCareraHistorialCampeones();
     if(c.view === 'liga') return renderCareraLiga();
@@ -5075,6 +5079,7 @@
     html += `<div class="cs-section-title">Internacional</div><div class="cs-comp-grid">`;
     html += competitionCard('&#127758;','Copa Libertadores', cupStatus('libertadores'), 'internacionales');
     html += competitionCard('&#127758;','Copa Sudamericana', cupStatus('sudamericana'), 'internacionales');
+    html += competitionCard('&#127760;','Ligas del Mundo', WORLD_LEAGUES_REGISTRY.length ? 'Se juegan solas en segundo plano' : 'Todavía no hay ligas cargadas', 'ligas-mundo');
     html += `</div>`;
     return html;
   }
@@ -5482,6 +5487,249 @@
   function renderCareraCopaLibertadores(){ return renderContinentalCup('libertadores', 'Copa Libertadores'); }
   function renderCareraCopaSudamericana(){ return renderContinentalCup('sudamericana', 'Copa Sudamericana'); }
   function renderCareraCopasInternacionales(){ return renderCareraCopaLibertadores() + renderCareraCopaSudamericana(); }
+
+  // ==================== LIGAS DEL MUNDO (fútbol no argentino) ====================
+  // A diferencia de todo lo argentino (que el usuario juega fecha a fecha, con calendario y
+  // botón de "avanzar"), las ligas y copas de otros países corren SOLAS en segundo plano: se
+  // arma el fixture completo del año una sola vez, con fechas repartidas a lo largo de la
+  // temporada, y cada partido se juega automáticamente en cuanto el calendario único de la
+  // carrera pasa esa fecha — exactamente el mismo mecanismo de "catch up" que ya usan Primera
+  // Nacional, B Metropolitana, etc. Por eso, si en junio entrás a ver el Brasileirão, vas a ver
+  // la tabla tal cual está a esa altura del año, no la del campeón final. Nunca hay que
+  // "simular a mano" nada de esta sección.
+  //
+  // Cómo se van a ir sumando ligas reales: cada país es una entrada de WORLD_LEAGUES_REGISTRY.
+  // Formato de cada entrada:
+  //
+  // {
+  //   key: 'brasileirao',                 // identificador único, sin espacios
+  //   country: 'Brasil',
+  //   name: 'Brasileirão Série A',
+  //   format: 'liga-ida-vuelta',          // 'liga-ida-vuelta' (todos-contra-todos x2) o 'liga-una-vuelta'
+  //   descensos: 4,                       // cuántos últimos puestos descienden (0 si no aplica todavía)
+  //   teams: [ { name:'Flamengo', elo:2109 }, { name:'Palmeiras', elo:1997 }, ... ]
+  // }
+  //
+  // Los formatos con grupos, playoffs, fases, etc. de otras divisiones/países (Serie B, Serie C,
+  // Serie D, Copa de Brasil, y las demás ligas que se vayan pasando) se agregan como nuevas
+  // funciones de armado a medida que el usuario las pasa; el resto del sistema (calendario
+  // propio, persistencia entre años, pantalla, historial de campeones) ya queda listo.
+  const WORLD_LEAGUES_REGISTRY = [
+    {
+      key: 'brasileirao',
+      country: 'Brasil',
+      name: 'Brasileirão Série A',
+      format: 'liga-ida-vuelta',
+      descensos: 4,
+      // Clasificación a copas continentales (todavía informativo: el sorteo de Libertadores /
+      // Sudamericana de la carrera sigue usando el pool aleatorio hasta que integremos esto).
+      libertadoresGrupos: [1,2,3,4],
+      libertadoresFase2: [5],
+      sudamericanaGrupos: [6,7,8,9,10,11],
+      teams: [
+        { name:'Flamengo', elo:2109 }, { name:'Palmeiras', elo:1997 }, { name:'Cruzeiro', elo:1946 },
+        { name:'Bahia', elo:1928 }, { name:'RB Bragantino', elo:1925 }, { name:'Fluminense', elo:1917 },
+        { name:'Athletico Paranaense', elo:1914 }, { name:'Vasco Da Gama', elo:1911 },
+        { name:'Atletico Mineiro', elo:1906 }, { name:'Sao Paulo', elo:1904 }, { name:'Botafogo', elo:1885 },
+        { name:'Corinthians', elo:1876 }, { name:'Internacional', elo:1875 }, { name:'Santos FC', elo:1867 },
+        { name:'Mirassol', elo:1846 }, { name:'Vitoria', elo:1813 }, { name:'Coritiba', elo:1777 },
+        { name:'Gremio', elo:1771 }, { name:'Remo', elo:1769 }, { name:'Chapecoense', elo:1706 }
+      ]
+    }
+  ];
+
+  function careerWorldLeagues(){
+    const c = state.career;
+    if(!c.worldLeagues) c.worldLeagues = {};
+    return c.worldLeagues;
+  }
+
+  // Resultado de un partido usando el mismo modelo de ELO que el resto del juego (goleadas más
+  // probables cuanto más grande el favorito, empates que se achican con la diferencia), pero
+  // desacoplado de state.career/state.config para poder usarlo con equipos de cualquier país.
+  function worldLeagueMatchResult(eloHome, eloAway, opts){
+    opts = opts || {};
+    const adv = opts.neutral ? 0 : (opts.homeAdvantage != null ? opts.homeAdvantage : 40);
+    const surpriseFactor = opts.surpriseFactor != null ? opts.surpriseFactor : 45;
+    const drawProbBase = opts.drawProb != null ? opts.drawProb : 0.25;
+    const exp = eloExpected(eloHome + adv, eloAway);
+    const adjusted = adjustedProbability(exp, surpriseFactor);
+    const g = gapStrength(adjusted);
+    const drawProb = drawProbBase * (0.2 + 0.8 * (1 - g));
+    const pHome = adjusted * (1 - drawProb);
+    const pAway = (1 - adjusted) * (1 - drawProb);
+    const roll = Math.random();
+    const outcome = roll < pHome ? 'home' : (roll < pHome + pAway ? 'away' : 'draw');
+    const [homeScore, awayScore] = goalsForOutcome(outcome, adjusted);
+    return { homeScore, awayScore };
+  }
+  function worldLeagueEloUpdate(eloHome, eloAway, homeScore, awayScore, opts){
+    opts = opts || {};
+    const adv = opts.neutral ? 0 : (opts.homeAdvantage != null ? opts.homeAdvantage : 40);
+    const k = opts.kFactor != null ? opts.kFactor : 24;
+    const expHome = eloExpected(eloHome + adv, eloAway);
+    const sHome = homeScore > awayScore ? 1 : (homeScore < awayScore ? 0 : 0.5);
+    const dHome = Math.round(k * (sHome - expHome));
+    const dAway = Math.round(k * ((1 - sHome) - (1 - expHome)));
+    return [eloHome + dHome, eloAway + dAway];
+  }
+  // Tabla de posiciones genérica a partir de una lista de partidos {home,away,homeScore,awayScore,played}
+  // y un array de equipos {id,elo,...} — no depende de careerTeamById, así sirve para cualquier país.
+  function computeGenericStandings(matches, teams){
+    const rows = {};
+    teams.forEach(t => { rows[t.id] = { id:t.id, pj:0, pg:0, pe:0, pp:0, gf:0, gc:0, pts:0 }; });
+    matches.forEach(m => {
+      if(!m.played) return;
+      if(rows[m.home]){
+        const r = rows[m.home];
+        r.pj++; r.gf += m.homeScore; r.gc += m.awayScore;
+        if(m.homeScore > m.awayScore){ r.pg++; r.pts += 3; }
+        else if(m.homeScore < m.awayScore){ r.pp++; }
+        else { r.pe++; r.pts += 1; }
+      }
+      if(rows[m.away]){
+        const r = rows[m.away];
+        r.pj++; r.gf += m.awayScore; r.gc += m.homeScore;
+        if(m.awayScore > m.homeScore){ r.pg++; r.pts += 3; }
+        else if(m.awayScore < m.homeScore){ r.pp++; }
+        else { r.pe++; r.pts += 1; }
+      }
+    });
+    const byId = {}; teams.forEach(t => byId[t.id] = t);
+    const arr = Object.values(rows);
+    arr.forEach(r => r.dg = r.gf - r.gc);
+    arr.sort((x,y) => y.pts - x.pts || y.dg - x.dg || y.gf - x.gf || (byId[y.id].elo - byId[x.id].elo));
+    return arr;
+  }
+  // Arma el fixture completo de la temporada de una liga del exterior (por ahora, todos-contra-
+  // todos a una o dos ruedas) con fechas repartidas semana a semana a lo largo del año, pero sin
+  // jugar ningún partido todavía — eso lo hace careerWorldLeagueCatchUp a medida que el calendario
+  // avanza. Los equipos persisten de un año a otro (con su ELO ya actualizado); si es la primera
+  // vez que se arma esta liga, se cargan desde el registro.
+  function careerWorldLeagueBuildSeason(def){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const prev = wl[def.key];
+    const teams = (prev && prev.teams && prev.teams.length)
+      ? prev.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+      : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    const ids = teams.map(t=>t.id);
+    let rounds = roundRobinRounds(ids);
+    if(def.format !== 'liga-una-vuelta'){
+      rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+    }
+    // Arranca la misma semana que el Apertura argentino y juega una fecha por semana; así una
+    // liga de ~38 fechas queda repartida a lo largo de todo el año, en paralelo al torneo local.
+    const startDate = careerSeasonStart(c.year, 'apertura');
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home === null || m.away === null) return;
+        matches.push({ id:'wl_'+def.key+'_'+c.year+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    const history = (prev && prev.history) ? prev.history.slice() : [];
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format, descensos: def.descensos || 0,
+      year: c.year, teams, matches, table: [], championId: null, relegatedIds: [], history
+    };
+  }
+  // Juega, de la liga dada, todos los partidos cuya fecha ya pasó según el calendario único de
+  // la carrera (mismo criterio que careerCatchUpMatches), y recalcula la tabla. Se llama en cada
+  // entrada a la pantalla de temporada, así que el resultado siempre está al día sin que el
+  // usuario tenga que hacer nada.
+  function careerWorldLeagueCatchUp(league){
+    const c = state.career;
+    if(!c.calendarDate) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    let jugoAlguno = false;
+    league.matches.forEach(m => {
+      if(m.played || !m.date || m.date >= c.calendarDate) return;
+      const home = byId[m.home], away = byId[m.away];
+      const res = worldLeagueMatchResult(home.elo, away.elo, {});
+      m.homeScore = res.homeScore; m.awayScore = res.awayScore; m.played = true;
+      const [nh, na] = worldLeagueEloUpdate(home.elo, away.elo, m.homeScore, m.awayScore, {});
+      home.elo = nh; away.elo = na;
+      jugoAlguno = true;
+    });
+    if(jugoAlguno || !league.table.length) league.table = computeGenericStandings(league.matches, league.teams);
+    const allPlayed = league.matches.length > 0 && league.matches.every(m => m.played);
+    if(allPlayed && !league.championId){
+      league.championId = league.table[0] ? league.table[0].id : null;
+      if(league.descensos > 0) league.relegatedIds = league.table.slice(-league.descensos).map(r => r.id);
+      if(league.championId){
+        league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
+        if(league.history.length > 10) league.history.length = 10;
+      }
+    }
+  }
+  // Punto de entrada: se llama junto con careerEnsureDivisions cada vez que se entra a la
+  // temporada. Arma el fixture del año una sola vez (cuando cambia el año de carrera) y después,
+  // en cada llamada, pone al día los resultados según la fecha del calendario — nunca todo junto.
+  function careerEnsureWorldLeagues(){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    WORLD_LEAGUES_REGISTRY.forEach(def => {
+      let league = wl[def.key];
+      if(!league || league.year !== c.year){ careerWorldLeagueBuildSeason(def); league = wl[def.key]; }
+      careerWorldLeagueCatchUp(league);
+    });
+  }
+  function renderWorldLeagueTable(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+    ${league.table.map((r,i) => {
+      const t = byId[r.id];
+      const isChamp = r.id === league.championId;
+      const isRel = league.relegatedIds && league.relegatedIds.includes(r.id);
+      const style = isRel ? 'border-left:4px solid var(--red);' : '';
+      return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${isChamp?' <span style="color:var(--gold-bright);font-size:11px;">&#127942; campeón</span>':''}${isRel?' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>':''}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+    }).join('')}
+    </tbody></table>`;
+  }
+  function renderCareraLigasMundo(){
+    const c = state.career;
+    careerEnsureWorldLeagues();
+    const wl = careerWorldLeagues();
+    let html = `<div class="panel"><h2>Ligas del Mundo</h2><p class="hint">Las ligas que no son de Argentina se juegan solas en segundo plano, fecha a fecha, en paralelo al torneo local. Lo que ves acá es el estado real a la altura del calendario en la que estás ahora, no un resultado final adelantado.</p></div>`;
+    if(WORLD_LEAGUES_REGISTRY.length === 0){
+      html += `<div class="panel cs-stub"><div class="big">&#127758;</div><h2>Todavía no hay ligas cargadas</h2><p class="hint">A medida que se sumen los formatos de cada país, sus ligas y copas van a aparecer acá.</p></div>`;
+      return html;
+    }
+    const byCountry = {};
+    WORLD_LEAGUES_REGISTRY.forEach(def => {
+      if(!byCountry[def.country]) byCountry[def.country] = [];
+      byCountry[def.country].push(def);
+    });
+    Object.keys(byCountry).forEach(country => {
+      html += `<div class="cs-section-title">${escapeHtml(country)}</div>`;
+      byCountry[country].forEach(def => {
+        const league = wl[def.key];
+        if(!league) return;
+        const jugados = league.matches.filter(m=>m.played).length;
+        const total = league.matches.length;
+        const totalRounds = total ? Math.max(...league.matches.map(m=>m.round)) : 0;
+        const roundsWithPlay = league.matches.filter(m=>m.played).map(m=>m.round);
+        const currentRound = roundsWithPlay.length ? Math.max(...roundsWithPlay) : 0;
+        let estado;
+        if(league.championId){
+          const champTeam = league.teams.find(t=>t.id===league.championId);
+          estado = `Campeón: <strong style="color:var(--ink);">${escapeHtml(champTeam ? champTeam.name : '')}</strong>`;
+        } else if(jugados === 0){
+          estado = `Todavía no arrancó &middot; ${totalRounds} fechas en total`;
+        } else {
+          estado = `Fecha ${currentRound} de ${totalRounds} &middot; ${jugados}/${total} partidos jugados`;
+        }
+        html += `<div class="panel"><h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${estado}</p>${renderWorldLeagueTable(league)}</div>`;
+        if(league.history && league.history.length > 1){
+          const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
+          html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        }
+      });
+    });
+    return html;
+  }
 
   // ---------- Historial de Campeones ----------
   const COMPETITION_LABELS = {
