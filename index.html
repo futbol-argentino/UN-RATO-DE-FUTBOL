@@ -38,6 +38,134 @@
   ::selection{ background:var(--gold); color:#0F1B14; }
 
   #app{ max-width:1040px; margin:0 auto; padding:0 20px 60px; }
+  body.carrera-mode #app{ max-width:none; padding:0; margin:0; }
+
+  /* ---------- Modo Carrera: tema propio (azul petróleo / celeste) ---------- */
+  /* Redefine las mismas variables que ya usan .panel/.match/tablas/botones, así
+     todo lo que ya existe se reskinea solo, sin tocar ninguna función de render. */
+  .carrera-shell{
+    --bg:#0A1622;
+    --panel:#0F2130;
+    --panel-alt:#15293C;
+    --line:#204158;
+    --ink:#EAF3FB;
+    --ink-dim:#7E97AE;
+    --gold:#38BDF0;
+    --gold-bright:#6BD6FF;
+    --red:#EF4E4E;
+    --green-win:#34D399;
+    background-color:var(--bg);
+    background-image:
+      radial-gradient(1100px 560px at 12% -8%, rgba(56,189,240,0.12), transparent 60%),
+      radial-gradient(800px 460px at 100% 0%, rgba(56,189,240,0.07), transparent 55%);
+    color:var(--ink);
+    min-height:100vh;
+    display:flex;
+    align-items:flex-start;
+  }
+  .cs-sidebar{
+    position:sticky; top:0; height:100vh; width:240px; flex:0 0 auto;
+    background:var(--panel); border-right:1px solid var(--line);
+    padding:18px 12px; display:flex; flex-direction:column; gap:2px; overflow-y:auto;
+  }
+  .cs-brand{ display:flex; align-items:center; gap:10px; padding:4px 8px 18px; }
+  .cs-brand .dot{ width:10px; height:10px; border-radius:50%; background:var(--gold); box-shadow:0 0 10px var(--gold); }
+  .cs-brand .txt{ font-family:'Oswald',sans-serif; font-size:15px; color:var(--ink); letter-spacing:.02em; }
+  .cs-brand .txt span{ color:var(--gold-bright); }
+  .cs-navgroup-label{ font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-dim); margin:16px 10px 6px; }
+  .cs-nav-item{
+    display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px;
+    color:var(--ink-dim); text-decoration:none; font-size:13.5px; cursor:pointer;
+    transition:background .15s ease,color .15s ease; border:none; background:none; width:100%; text-align:left;
+    font-family:'Work Sans',sans-serif;
+  }
+  .cs-nav-item:hover{ background:var(--panel-alt); color:var(--ink); }
+  .cs-nav-item.active{ background:var(--panel-alt); color:var(--gold-bright); box-shadow:inset 2px 0 0 var(--gold); }
+  .cs-nav-item .ic{ width:18px; text-align:center; font-size:14.5px; flex:0 0 auto; }
+  .cs-nav-item.disabled{ opacity:.4; cursor:default; }
+  .cs-nav-item.disabled:hover{ background:none; color:var(--ink-dim); }
+  .cs-main{ flex:1 1 auto; min-width:0; }
+  .cs-topbar{
+    position:sticky; top:0; z-index:5; background:rgba(15,33,48,.86); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line); padding:14px 26px; display:flex; align-items:center;
+    justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .cs-topbar .cs-tb-left{ display:flex; flex-direction:column; gap:2px; }
+  .cs-topbar .cs-tb-left .team{ font-family:'Oswald',sans-serif; font-size:17px; color:var(--ink); }
+  .cs-topbar .cs-tb-left .season{ font-size:12px; color:var(--ink-dim); }
+  .cs-topbar .cs-tb-right{ display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--ink-dim); }
+  .cs-content{ padding:22px 26px 70px; max-width:1180px; }
+  .cs-hero{
+    background:linear-gradient(135deg, var(--panel-alt), var(--panel));
+    border:1px solid var(--line); border-radius:16px; padding:22px 24px; margin-bottom:20px;
+  }
+  .cs-hero .season-tag{ color:var(--gold-bright); font-size:12px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:12px; }
+  .cs-hero .matchup{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; font-family:'Oswald',sans-serif; font-size:19px; margin:6px 0 10px; }
+  .cs-hero .matchup > span{ display:flex; align-items:center; gap:10px; }
+  .cs-hero .vs-sep{ color:var(--ink-dim); font-size:13px; }
+  .cs-hero .meta{ color:var(--ink-dim); font-size:13px; margin-bottom:14px; }
+  .cs-cards-row{ display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); gap:10px; margin-bottom:24px; }
+  .cs-stat-card{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:13px 14px 11px; }
+  .cs-stat-card .label{ font-size:10.5px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
+  .cs-stat-card .value{ font-family:'Oswald',sans-serif; font-size:22px; color:var(--ink); }
+  .cs-section-title{ font-size:12.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-dim); margin:24px 0 10px; }
+  .cs-fixture-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:11px 14px;
+    margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+    transition:border-color .15s ease;
+  }
+  .cs-fixture-card:hover{ border-color:var(--gold); }
+  .cs-badge{ border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-weight:600; color:#06121C; flex:0 0 auto; font-family:'Work Sans',sans-serif; }
+  .cs-result-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .cs-result-row:last-child{ border-bottom:none; }
+  .cs-result-dot{ width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+  .cs-result-dot.win{ background:var(--green-win); }
+  .cs-result-dot.draw{ background:var(--ink-dim); }
+  .cs-result-dot.loss{ background:var(--red); }
+  .cs-empty-hint{ color:var(--ink-dim); font-size:13px; padding:16px 0; }
+  .cs-stub{ text-align:center; padding:60px 20px; color:var(--ink-dim); }
+  .cs-stub .big{ font-size:34px; margin-bottom:10px; }
+  .cs-comp-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px; margin-bottom:8px; }
+  .cs-comp-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px;
+    cursor:pointer; transition:border-color .15s ease, transform .15s ease;
+  }
+  .cs-comp-card:hover{ border-color:var(--gold); transform:translateY(-2px); }
+  .cs-comp-card .cc-icon{ font-size:21px; margin-bottom:8px; }
+  .cs-comp-card .cc-title{ font-family:'Oswald',sans-serif; font-size:15.5px; color:var(--ink); margin-bottom:4px; }
+  .cs-comp-card .cc-sub{ font-size:12px; color:var(--ink-dim); margin-bottom:14px; min-height:30px; }
+  .cs-comp-card .cc-cta{ font-size:11.5px; color:var(--gold-bright); }
+  .cs-stage-rail{ display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin:12px 0 18px; }
+  .cs-stage-pip{ padding:5px 11px; border-radius:20px; border:1px solid var(--line); background:var(--panel); font-size:11px; color:var(--ink-dim); }
+  .cs-stage-pip.active{ color:var(--gold-bright); border-color:var(--gold); background:var(--panel-alt); }
+  .cs-stage-pip.done{ color:var(--ink); }
+  .cs-stage-sep{ color:var(--ink-dim); font-size:11px; }
+  .cs-team-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-bottom:6px; }
+  .cs-team-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px 14px;
+    text-align:center; cursor:pointer; transition:border-color .15s ease, transform .15s ease;
+  }
+  .cs-team-card:hover{ border-color:var(--gold); transform:translateY(-2px); }
+  .cs-team-card .cs-badge{ margin:0 auto 10px; }
+  .ctc-name{ font-size:13px; color:var(--ink); margin-bottom:4px; min-height:34px; }
+  .ctc-tag{ display:block; font-size:9.5px; letter-spacing:.04em; color:var(--gold-bright); margin-top:3px; }
+  .ctc-elo{ font-family:'Oswald',sans-serif; font-size:15px; color:var(--ink-dim); }
+  .cs-elo-chart{ width:100%; height:140px; display:block; }
+  @media (max-width:860px){
+    .carrera-shell{ flex-direction:column; }
+    .cs-sidebar{
+      position:fixed; left:0; right:0; bottom:0; top:auto; width:100%; height:auto;
+      flex-direction:row; overflow-x:auto; padding:6px 8px; z-index:20;
+      border-right:none; border-top:1px solid var(--line); gap:0;
+    }
+    .cs-brand, .cs-navgroup-label{ display:none; }
+    .cs-nav-item{ flex-direction:column; gap:2px; font-size:9.5px; padding:7px 9px; white-space:nowrap; border-radius:6px; }
+    .cs-nav-item .ic{ font-size:16px; }
+    .cs-main{ width:100%; padding-bottom:64px; }
+    .cs-content{ padding:16px 14px 24px; }
+    .cs-topbar{ padding:12px 14px; }
+    .cs-hero .matchup{ font-size:16px; }
+  }
 
   .topbar{
     padding:28px 0 18px;
@@ -199,6 +327,8 @@
   .zone-chip{ display:flex; align-items:center; gap:6px; }
   .zone-chip i{ width:10px; height:10px; border-radius:2px; display:inline-block; }
   .zone-swatch{ display:inline-block; width:14px; height:14px; border-radius:3px; margin-right:8px; vertical-align:middle; border:1px solid rgba(255,255,255,0.15); }
+  .table-scroll{ overflow-x:auto; }
+  .pos-pill{ display:inline-flex; align-items:center; justify-content:center; min-width:24px; height:22px; padding:0 6px; border-radius:6px; border:1px solid var(--line); font-family:'Oswald',sans-serif; font-size:12px; color:var(--ink-dim); }
 
   .round-nav{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:14px 0 10px; flex-wrap:wrap; }
   .round-nav select{ width:auto; max-width:240px; }
@@ -248,6 +378,7 @@
       view: 'liga',               // 'liga' | 'copa-argentina' | 'copas'
       teams: [],                 // {id, name, elo, zone:0|1}
       myTeamId: null,
+      selectedTeamId: null,  // equipo elegido en la galería de "Equipos" (solo UI, no afecta la simulación)
       year: 2026,
       tournament: 'apertura',    // 'apertura' | 'clausura'
       matches: [],               // liga: {id, comp, zone, round, home, away, homeScore, awayScore, played, bye, interzonal, playedAt}
@@ -257,6 +388,7 @@
       titles: [],                // historial completo: {year, competition, teamId}
       seasonLog: {},             // {teamId: [{year, pts, pj}, ...]} últimas hasta 3 temporadas, para la Tabla de Promedios
       copaArgentina: { otherTeams: [], matches: [], built: false, champion: null },
+      seasonDraws: null,     // sorteo de zonas (Primera/Nacional) pendiente al arrancar el año
       libertadores: { foreignTeams: [], matches: [], built: false, champion: null },
       sudamericana: { foreignTeams: [], matches: [], built: false, champion: null },
       cupMatches: [],            // Trofeo de Campeones / Supercopa Argentina / Supercopa Internacional
@@ -1005,14 +1137,31 @@
   // ---------- Rendering ----------
   function render(){
     if(state.mode === 'carrera'){
-      let chtml = renderCarreraTopbar();
-      chtml += '<div id="stepContent">' + renderCarreraStep() + '</div>';
-      chtml += '<footer>Modo Carrera &middot; se simula y se guarda en tu navegador.</footer>';
-      els.app.innerHTML = chtml;
+      document.body.classList.add('carrera-mode');
+      const c = state.career;
+      const stepHtml = renderCarreraStep();
+      const footer = `<footer style="text-align:center;color:var(--ink-dim);font-size:12px;padding:20px 0 30px;">Modo Carrera &middot; se simula y se guarda en tu navegador.</footer>`;
+      let shellHtml;
+      if(c.step === 'temporada'){
+        shellHtml = `<div class="carrera-shell">
+          ${renderCarreraSidebar()}
+          <div class="cs-main">
+            ${renderCarreraTopbar()}
+            <div class="cs-content" id="stepContent">${stepHtml}${footer}</div>
+          </div>
+        </div>`;
+      } else {
+        shellHtml = `<div class="carrera-shell" style="display:block;">
+          ${renderCarreraTopbar()}
+          <div class="cs-content" id="stepContent" style="max-width:900px;margin:0 auto;">${stepHtml}${footer}</div>
+        </div>`;
+      }
+      els.app.innerHTML = shellHtml;
       bindEvents();
       careerPersist();
       return;
     }
+    document.body.classList.remove('carrera-mode');
     if(state.step !== 'menu') state.lastContentStep = state.step;
     let html = '';
     html += renderTopbar();
@@ -1642,13 +1791,17 @@
     const rows = standings.map((r,i)=>{
       const t = resolver(r.id);
       const zone = zoneForPosition(i+1, zones);
-      const posStyle = zone ? `border-left:4px solid ${zone.color};` : '';
-      return `<tr class="${(i<3 && !zone)?'top3':''}"><td style="${posStyle}">${i+1}</td><td>${escapeHtml(t.name)}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td><td class="num">${t.elo}</td></tr>`;
+      const zoneColor = zone ? zone.color : null;
+      return `<tr class="${(i<3 && !zone)?'top3':''}">
+        <td><span class="pos-pill" style="${zoneColor?`background:${zoneColor}22;color:${zoneColor};border-color:${zoneColor};`:''}">${i+1}</span></td>
+        <td><div style="display:flex;align-items:center;gap:8px;">${teamBadgeHtml(t,20)}<span>${escapeHtml(t.name)}</span></div></td>
+        <td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td><td class="num">${t.elo}</td>
+      </tr>`;
     }).join('');
     const legend = zones.length ? `<div class="zone-legend">${zones.map(z=>`<span class="zone-chip"><i style="background:${z.color};"></i>${escapeHtml(z.label)} (${z.from}${z.to!==z.from?'–'+z.to:''})</span>`).join('')}</div>` : '';
-    return `<table><thead><tr>
+    return `<div class="table-scroll"><table><thead><tr>
       <th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th>Pts</th><th>ELO</th>
-      </tr></thead><tbody>${rows}</tbody></table>${legend}`;
+      </tr></thead><tbody>${rows}</tbody></table></div>${legend}`;
   }
 
   function escapeHtml(s){
@@ -1781,7 +1934,14 @@
       render();
       return;
     }
-    else if(action === 'career-set-view'){ state.career.view = btn.getAttribute('data-view'); render(); return; }
+    else if(action === 'career-set-view'){
+      const view = btn.getAttribute('data-view');
+      state.career.view = view;
+      if(view === 'equipos-list') state.career.selectedTeamId = null;
+      render();
+      return;
+    }
+    else if(action === 'career-view-team'){ state.career.selectedTeamId = btn.getAttribute('data-id') || null; render(); return; }
     else if(action === 'career-advance-calendar'){ careerAdvanceCalendar(); render(); return; }
     else if(action === 'career-simulate-day'){
       const c = state.career;
@@ -1798,6 +1958,7 @@
       return;
     }
     else if(action === 'career-build-copa-argentina'){ careerBuildCopaArgentina(); render(); return; }
+    else if(action === 'career-draw-next-copa'){ careerCopaArgentinaRevealNext(); render(); return; }
     else if(action === 'career-simulate-copa'){
       const stage = btn.getAttribute('data-stage');
       const list = state.career.copaArgentina.matches.filter(m=>m.stage===stage && !m.played && !m.bye);
@@ -1813,6 +1974,8 @@
       return;
     }
     else if(action === 'career-advance-copa'){ careerAdvanceCopaArgentina(btn.getAttribute('data-stage')); render(); return; }
+    else if(action === 'career-draw-zone'){ careerZoneDrawReveal(btn.getAttribute('data-kind')); render(); return; }
+    else if(action === 'career-finish-season-draws'){ careerFinishSeasonDraws(); render(); return; }
     else if(action === 'career-build-continental'){
       const cup = btn.getAttribute('data-cup');
       if(cup === 'libertadores') careerBuildLibertadores(); else if(cup === 'sudamericana') careerBuildSudamericana();
@@ -2669,7 +2832,8 @@
   function careerRecordTitle(competition, teamId){
     const c = state.career;
     if(!c.titles) c.titles = [];
-    c.titles.push({ year: c.year, competition, teamId });
+    const team = careerTeamById(teamId);
+    c.titles.push({ year: c.year, competition, teamId, teamName: team ? team.name : null });
   }
   function careerGetTitle(year, competition){
     const c = state.career;
@@ -4292,14 +4456,26 @@
       ...(bmetroReal ? [] : topN(bmetroAll,6).map(t=>mkOther(t,'bmetro'))),
       ...topN(cAll,5).map(t=>mkOther(t,'primeraC'))
     ];
-    c.copaArgentina = { otherTeams, matches: [], built: true, champion: null };
     const pool = primeraTop28.concat(nacionalReal || [], federalReal || [], bmetroReal || [], otherTeams);
     // La Copa Argentina se define por sorteo, no por el ranking de ELO: los cruces tienen que
-    // salir distintos cada temporada, así que el orden del cuadro se mezcla al azar.
+    // salir distintos cada temporada, así que el orden del cuadro se mezcla al azar. El sorteo
+    // queda armado (el resultado ya está decidido) pero se revela cruce por cruce con
+    // careerCopaArgentinaRevealNext, para que se pueda "hacer a mano" en vez de verse de una.
     const seeded = shuffleArr(pool.map(t=>t.id));
     const pairs = buildFirstKnockoutRound(seeded);
     const date = nextWeekdayAfter(state.career.calendarDate || careerSeasonStart(state.career.year, state.career.tournament), 3);
-    pairs.forEach(p => c.copaArgentina.matches.push(careerMkMatch('copa-argentina', null, 1, p.home, p.away, {stage:'treintaidosavos', neutral:true, date})));
+    c.copaArgentina = { otherTeams, matches: [], built: false, champion: null, draw: { pairs, revealed: 0, date } };
+  }
+  function careerCopaArgentinaRevealNext(){
+    const c = state.career;
+    const ca = c.copaArgentina;
+    if(!ca || !ca.draw) return;
+    const draw = ca.draw;
+    if(draw.revealed >= draw.pairs.length) return;
+    const p = draw.pairs[draw.revealed];
+    ca.matches.push(careerMkMatch('copa-argentina', null, 1, p.home, p.away, {stage:'treintaidosavos', neutral:true, date: draw.date}));
+    draw.revealed++;
+    if(draw.revealed >= draw.pairs.length) ca.built = true;
   }
 
   function careerAdvanceCopaArgentina(fromStage){
@@ -4388,12 +4564,57 @@
     careerApplyPromotionsRelegations();
     c.year += 1;
     c.tournament = 'apertura';
-    careerGenerateTournament();
-    careerGenerateNacional();
     careerGenerateBmetro();
     careerGenerateFederal();
     careerGeneratePrimeraC();
     careerGeneratePromocional();
+    careerBeginSeasonDraws();
+  }
+
+  // ---------- Sorteos de arranque de temporada ----------
+  // Antes de armar el fixture de cada año, hay que sortear las zonas de la Primera División
+  // y de la Primera Nacional, y el cuadro de la Copa Argentina. Los tres sorteos se hacen "a
+  // mano" (revelando de a uno) y hasta que no están los tres completos no arranca la temporada.
+  function careerBeginSeasonDraws(){
+    const c = state.career;
+    c.matches = []; c.knockout = []; c.knockoutBuilt = false; c.champion = null; c.calendarDate = null;
+    c.teams.forEach(t=>{ t.zone = null; });
+    const n = careerNacional();
+    n.matches = []; n.champion = null;
+    n.teams.forEach(t=>{ t.zone = null; });
+    c.seasonDraws = {
+      year: c.year,
+      primera: { order: shuffleArr(c.teams.map(t=>t.id)), revealed: 0 },
+      nacional: { order: shuffleArr(n.teams.map(t=>t.id)), revealed: 0 }
+    };
+    c.copaArgentina = { otherTeams: [], matches: [], built: false, champion: null, draw: null };
+    c.view = 'sorteos';
+  }
+  function careerZoneDrawReveal(kind){
+    const c = state.career;
+    const draw = c.seasonDraws && c.seasonDraws[kind];
+    if(!draw || draw.revealed >= draw.order.length) return;
+    const id = draw.order[draw.revealed];
+    const zone = draw.revealed % 2 === 0 ? 0 : 1;
+    const teamsArr = kind === 'primera' ? c.teams : careerNacional().teams;
+    const team = teamsArr.find(t=>t.id===id);
+    if(team) team.zone = zone;
+    draw.revealed++;
+  }
+  function careerSeasonDrawsComplete(){
+    const c = state.career;
+    const sd = c.seasonDraws;
+    if(!sd) return false;
+    const zonesDone = sd.primera.revealed >= sd.primera.order.length && sd.nacional.revealed >= sd.nacional.order.length;
+    const copaDone = !!(c.copaArgentina && c.copaArgentina.built);
+    return zonesDone && copaDone;
+  }
+  function careerFinishSeasonDraws(){
+    const c = state.career;
+    if(!careerSeasonDrawsComplete()) return;
+    careerGenerateTournament();
+    c.seasonDraws = null;
+    c.view = 'calendario';
   }
 
   function ensureCareerRoundPointer(ctx, total){
@@ -4451,23 +4672,6 @@
       <div class="match-actions" style="grid-column:1/-1;justify-content:flex-end;">
         ${!m.played ? `<button class="btn small" data-action="career-simulate-match" data-id="${m.id}">Simular</button>
         <button class="btn small primary" data-action="career-confirm-match" data-id="${m.id}">Confirmar resultado</button>` : ''}
-      </div>
-    </div>`;
-  }
-
-  function renderCarreraTopbar(){
-    const c = state.career;
-    const myTeam = c.myTeamId ? careerTeamById(c.myTeamId) : null;
-    return `<div class="topbar">
-      <div class="topbar-head">
-        <div>
-          <h1>Modo Carrera <span>&middot; ${myTeam ? escapeHtml(myTeam.name) : 'Primera División'}</span></h1>
-          <p class="sub">Fútbol argentino día a día, simulado con ELO.</p>
-        </div>
-        <div class="btn-row" style="margin:0;">
-          ${c.id ? `<button class="btn ghost small" data-action="career-goto-menu">Mis carreras</button>` : ''}
-          <button class="btn ghost small" data-action="go-torneos">&larr; Generador de Torneos</button>
-        </div>
       </div>
     </div>`;
   }
@@ -4586,34 +4790,437 @@
 
   const CAREER_ZONE_LEGEND = [{ id:'octavos', label:'Clasifica a Octavos', from:1, to:8, color:'#5A8F5A' }];
 
+  function renderZoneDrawPanel(kind, label, teamsArr){
+    const c = state.career;
+    const draw = c.seasonDraws[kind];
+    const total = draw.order.length;
+    const zoneA = teamsArr.filter(t=>t.zone===0);
+    const zoneB = teamsArr.filter(t=>t.zone===1);
+    let html = `<div class="panel"><h3>Sorteo de zonas &mdash; ${label}</h3>`;
+    if(draw.revealed < total){
+      html += `<p class="hint">Se van sacando los equipos de a uno y se reparten alternadamente entre la Zona A y la Zona B (${draw.revealed} de ${total}).</p>`;
+      html += `<div class="btn-row"><button class="btn small" data-action="career-draw-zone" data-kind="${kind}">Sacar el próximo equipo</button></div>`;
+    } else {
+      html += `<p class="hint">Sorteo completo.</p>`;
+    }
+    html += `<div class="grid cols-2">
+      <div><strong style="color:var(--ink);">Zona A</strong><ul style="margin:8px 0 0 18px;color:var(--ink-dim);">${zoneA.map(t=>`<li>${escapeHtml(t.name)}</li>`).join('')}</ul></div>
+      <div><strong style="color:var(--ink);">Zona B</strong><ul style="margin:8px 0 0 18px;color:var(--ink-dim);">${zoneB.map(t=>`<li>${escapeHtml(t.name)}</li>`).join('')}</ul></div>
+    </div></div>`;
+    return html;
+  }
+  function renderCopaArgentinaDrawPanel(){
+    const c = state.career;
+    const ca = c.copaArgentina;
+    let html = `<div class="panel"><h3>Sorteo de la Copa Argentina</h3>`;
+    if(!ca || (!ca.draw && !ca.built)){
+      html += `<p class="hint">64 equipos: tus 28 mejores de Primera (por ELO) + 15 de la Nacional + 10 del Federal A + 6 de la B Metro + 5 de la Primera C.</p>`;
+      html += `<div class="btn-row"><button class="btn primary" data-action="career-build-copa-argentina">Armar el bombo</button></div>`;
+    } else if(ca.draw && !ca.built){
+      html += `<p class="hint">Se van sacando los cruces de a uno (${ca.draw.revealed} de ${ca.draw.pairs.length}).</p>`;
+      html += `<div class="btn-row"><button class="btn small" data-action="career-draw-next-copa">Sacar el próximo cruce</button></div>`;
+      if(ca.matches.length) html += ca.matches.map(m=>renderCareerMatchRow(m, null)).join('');
+    } else {
+      html += `<p class="hint">Sorteo completo &mdash; 32avos de Final armados.</p>`;
+    }
+    html += `</div>`;
+    return html;
+  }
+  function renderCareraSorteos(){
+    const c = state.career;
+    if(!c.seasonDraws) return `<div class="panel"><p class="hint">No hay sorteos pendientes.</p></div>`;
+    let html = `<div class="panel"><h2>Sorteos de la Temporada ${c.year}</h2><p class="hint">Antes de arrancar el Apertura hay que sortear las zonas de la Primera División y de la Primera Nacional, y el cuadro de la Copa Argentina.</p></div>`;
+    html += renderZoneDrawPanel('primera', 'Primera División', c.teams);
+    html += renderZoneDrawPanel('nacional', 'Primera Nacional', careerNacional().teams);
+    html += renderCopaArgentinaDrawPanel();
+    if(careerSeasonDrawsComplete()){
+      html += `<div class="panel"><div class="btn-row"><button class="btn primary" data-action="career-finish-season-draws">Confirmar sorteos e iniciar la temporada ${c.year}</button></div></div>`;
+    }
+    return html;
+  }
+
+  function renderCarreraTopbar(){
+    const c = state.career;
+    const myTeam = c.myTeamId ? careerTeamById(c.myTeamId) : null;
+    const inSeason = c.step === 'temporada';
+    return `<div class="cs-topbar">
+      <div class="cs-tb-left">
+        <div class="team">${myTeam ? escapeHtml(myTeam.name) : 'Modo Carrera'}</div>
+        <div class="season">${inSeason ? `Temporada ${c.year} &middot; ${c.tournament==='apertura'?'Apertura':'Clausura'}` : 'Fútbol argentino día a día, simulado con ELO.'}</div>
+      </div>
+      <div class="cs-tb-right">
+        ${inSeason && !c.seasonDraws ? `<span>&#128197; ${formatCareerDate(c.calendarDate)}</span>` : ''}
+        <span>&#128190; Guardado</span>
+        ${c.id ? `<button class="btn ghost small" data-action="career-goto-menu">Mis carreras</button>` : ''}
+        <button class="btn ghost small" data-action="go-torneos">&larr; Generador de Torneos</button>
+      </div>
+    </div>`;
+  }
+
+  function renderCarreraSidebar(){
+    const c = state.career;
+    if(!c.view) c.view = 'inicio';
+    const locked = !!c.seasonDraws;
+    const item = (view, icon, label, opts) => {
+      opts = opts || {};
+      const disabled = opts.disabled || locked;
+      const active = !disabled && c.view === view;
+      if(disabled){
+        return `<div class="cs-nav-item disabled"><span class="ic">${icon}</span><span>${label}</span></div>`;
+      }
+      return `<div class="cs-nav-item ${active?'active':''}" data-action="career-set-view" data-view="${view}"><span class="ic">${icon}</span><span>${label}</span></div>`;
+    };
+    return `<aside class="cs-sidebar">
+      <div class="cs-brand"><span class="dot"></span><span class="txt">Modo <span>Carrera</span></span></div>
+      ${item('inicio','&#127968;','Inicio')}
+      ${item('calendario','&#128197;','Calendario')}
+      ${item('competiciones','&#127942;','Competiciones')}
+      <div class="cs-navgroup-label">Fútbol Argentino</div>
+      ${item('liga','&#127942;','Primera División')}
+      ${item('nacional','&#9917;','Primera Nacional')}
+      ${item('bmetro','&#9917;','B Metropolitana')}
+      ${item('federal','&#9917;','Federal A')}
+      ${item('primerac','&#9917;','Primera C')}
+      ${item('promocional','&#9917;','Promocional')}
+      ${item('copa-argentina','&#127942;','Copa Argentina')}
+      ${item('copas','&#128202;','Tablas y Copas')}
+      <div class="cs-navgroup-label">Internacional</div>
+      ${item('internacionales','&#127758;','Copas Internacionales')}
+      <div class="cs-navgroup-label">General</div>
+      ${item('estadisticas','&#128200;','Estadísticas')}
+      ${item('equipos-list','&#9917;','Equipos')}
+      ${item('jugadores','&#128100;','Jugadores', {disabled:true})}
+      ${item('campeones','&#127942;','Historia')}
+      ${item('configuracion','&#9881;','Configuración')}
+    </aside>`;
+  }
+
+  // ---------- Insignias de equipo (iniciales + color derivado del nombre) ----------
+  // No hay escudos reales cargados: se genera una insignia estable a partir del nombre.
+  function teamInitials(name){
+    if(!name) return '?';
+    const stop = new Set(['de','del','la','los','las','el','y']);
+    const words = name.split(/\s+/).filter(w=>w && !stop.has(w.toLowerCase()));
+    const src = words.length ? words : name.split(/\s+/);
+    if(src.length === 1) return src[0].slice(0,2).toUpperCase();
+    return (src[0][0] + src[1][0]).toUpperCase();
+  }
+  function teamHue(name){
+    let h = 0;
+    for(let i=0;i<(name||'').length;i++) h = (h*31 + name.charCodeAt(i)) % 360;
+    return h;
+  }
+  function teamBadgeHtml(team, size){
+    size = size || 26;
+    if(!team) return `<div class="cs-badge" style="width:${size}px;height:${size}px;background:var(--line);"></div>`;
+    const hue = teamHue(team.name);
+    return `<div class="cs-badge" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.4)}px;background:hsl(${hue},58%,50%);">${escapeHtml(teamInitials(team.name))}</div>`;
+  }
+
+  // ---------- Próximo partido / últimos resultados (para el dashboard de Inicio) ----------
+  function careerNextMatchFor(teamId){
+    if(!teamId) return null;
+    const list = careerAllUnplayedDatedMatches().filter(m=>m.home===teamId||m.away===teamId);
+    list.sort((a,b)=> (a.date||'').localeCompare(b.date||''));
+    return list[0] || null;
+  }
+  function careerLastResultsFor(teamId, n){
+    if(!teamId) return [];
+    const list = careerAllDatedMatches().filter(m=>m.played && (m.home===teamId||m.away===teamId));
+    list.sort((a,b)=>(b.playedAt||0)-(a.playedAt||0));
+    return list.slice(0, n||5);
+  }
+
+  function renderCareraInicio(){
+    const c = state.career;
+    careerTryAutoAdvanceStages();
+    const myTeam = c.myTeamId ? careerTeamById(c.myTeamId) : null;
+    const next = careerNextMatchFor(c.myTeamId);
+    const results = careerLastResultsFor(c.myTeamId, 5);
+
+    let posLine = '&mdash;', standingsRow = null;
+    if(myTeam && (myTeam.zone===0 || myTeam.zone===1)){
+      const zoneIds = c.teams.filter(t=>t.zone===myTeam.zone).map(t=>t.id);
+      const standings = careerComputeStandings(zoneIds, m=>m.comp===c.tournament);
+      const idx = standings.findIndex(r=>r.id===c.myTeamId);
+      if(idx >= 0){ standingsRow = standings[idx]; posLine = '#'+(idx+1); }
+    }
+
+    let html = `<div class="cs-hero">
+      <div class="season-tag">Temporada ${c.year} &middot; ${c.tournament==='apertura'?'Apertura':'Clausura'}</div>`;
+    if(next){
+      const home = careerTeamById(next.home), away = careerTeamById(next.away);
+      html += `<div class="matchup">
+        <span>${teamBadgeHtml(home,30)} ${escapeHtml(home?home.name:'?')}</span>
+        <span class="vs-sep">vs</span>
+        <span>${escapeHtml(away?away.name:'?')} ${teamBadgeHtml(away,30)}</span>
+      </div>
+      <div class="meta">${formatCareerDate(next.date)} &middot; ${careerCompLabel(next)}</div>
+      <div class="btn-row"><button class="btn primary" data-action="career-advance-calendar">&#9654; Avanzar calendario</button></div>`;
+    } else {
+      html += `<div class="meta">No hay partidos programados por el momento.</div>
+      <div class="btn-row"><button class="btn primary" data-action="career-set-view" data-view="calendario">Ir al calendario</button></div>`;
+    }
+    html += `</div>`;
+
+    html += `<div class="cs-cards-row">
+      <div class="cs-stat-card"><div class="label">Posición</div><div class="value">${posLine}</div></div>
+      <div class="cs-stat-card"><div class="label">PJ</div><div class="value">${standingsRow?standingsRow.pj:'&mdash;'}</div></div>
+      <div class="cs-stat-card"><div class="label">PG</div><div class="value">${standingsRow?standingsRow.pg:'&mdash;'}</div></div>
+      <div class="cs-stat-card"><div class="label">PE</div><div class="value">${standingsRow?standingsRow.pe:'&mdash;'}</div></div>
+      <div class="cs-stat-card"><div class="label">PP</div><div class="value">${standingsRow?standingsRow.pp:'&mdash;'}</div></div>
+      <div class="cs-stat-card"><div class="label">Pts</div><div class="value">${standingsRow?standingsRow.pts:'&mdash;'}</div></div>
+      <div class="cs-stat-card"><div class="label">ELO</div><div class="value">${myTeam?myTeam.elo:'&mdash;'}</div></div>
+    </div>`;
+
+    html += `<div class="cs-section-title">Próximos partidos</div>`;
+    const upcoming = c.myTeamId ? careerAllUnplayedDatedMatches().filter(m=>m.home===c.myTeamId||m.away===c.myTeamId).sort((a,b)=>(a.date||'').localeCompare(b.date||'')).slice(0,5) : [];
+    if(upcoming.length){
+      html += upcoming.map(m => {
+        const home = careerTeamById(m.home), away = careerTeamById(m.away);
+        const rival = m.home===c.myTeamId ? away : home;
+        const loc = m.home===c.myTeamId ? 'Local' : 'Visitante';
+        return `<div class="cs-fixture-card">
+          <div style="display:flex;align-items:center;gap:10px;">${teamBadgeHtml(rival,26)}<div><div style="color:var(--ink);">${escapeHtml(rival?rival.name:'?')}</div><div style="color:var(--ink-dim);font-size:11.5px;">${loc} &middot; ${careerCompLabel(m)}</div></div></div>
+          <div style="color:var(--ink-dim);font-size:12.5px;">${formatCareerDate(m.date)}</div>
+        </div>`;
+      }).join('');
+    } else {
+      html += `<div class="cs-empty-hint">No hay próximos partidos programados todavía.</div>`;
+    }
+
+    html += `<div class="cs-section-title">Últimos resultados</div>`;
+    if(results.length){
+      html += `<div class="panel" style="padding:2px 0;">` + results.map(m => {
+        const home = careerTeamById(m.home), away = careerTeamById(m.away);
+        const isHome = m.home===c.myTeamId;
+        const rival = isHome ? away : home;
+        const gf = isHome ? m.homeScore : m.awayScore;
+        const gc = isHome ? m.awayScore : m.homeScore;
+        const cls = gf>gc?'win':(gf<gc?'loss':'draw');
+        const sign = gf>gc?'Victoria':(gf<gc?'Derrota':'Empate');
+        return `<div class="cs-result-row">
+          <div style="display:flex;align-items:center;gap:10px;"><span class="cs-result-dot ${cls}"></span><span>${sign} vs ${escapeHtml(rival?rival.name:'?')} <span style="color:var(--ink-dim);">&middot; ${careerCompLabel(m)}</span></span></div>
+          <div class="num" style="color:var(--ink);">${gf}&ndash;${gc}</div>
+        </div>`;
+      }).join('') + `</div>`;
+    } else {
+      html += `<div class="cs-empty-hint">Todavía no jugaste partidos esta temporada.</div>`;
+    }
+
+    return html;
+  }
+
   function renderCareraTemporada(){
     const c = state.career;
-    if(!c.view) c.view = 'calendario';
-    const tabs = [
-      { k:'calendario', label:'Calendario' },
-      { k:'liga', label:'Primera' },
-      { k:'nacional', label:'Nacional' },
-      { k:'bmetro', label:'B Metro' },
-      { k:'federal', label:'Federal A' },
-      { k:'primerac', label:'Primera C' },
-      { k:'promocional', label:'Promocional' },
-      { k:'copa-argentina', label:'Copa Argentina' },
-      { k:'internacionales', label:'Copas Internacionales' },
-      { k:'copas', label:'Tablas y Copas' }
-    ];
-    let out = `<div class="tabs" style="margin-bottom:18px;">${tabs.map(t=>`<div class="tab ${c.view===t.k?'active':''}" data-action="career-set-view" data-view="${t.k}">${t.label}</div>`).join('')}</div>`;
+    if(c.seasonDraws) return renderCareraSorteos();
+    if(!c.view) c.view = 'inicio';
     careerEnsureDivisions();
-    if(c.view === 'nacional') out += renderCareraNacional();
-    else if(c.view === 'bmetro') out += renderCareraBmetro();
-    else if(c.view === 'federal') out += renderCareraFederal();
-    else if(c.view === 'primerac') out += renderCareraPrimeraC();
-    else if(c.view === 'promocional') out += renderCareraPromocional();
-    else if(c.view === 'copa-argentina') out += renderCareraCopaArgentina();
-    else if(c.view === 'internacionales') out += renderCareraCopasInternacionales();
-    else if(c.view === 'copas') out += renderCareraCopasNacionales();
-    else if(c.view === 'liga') out += renderCareraLiga();
-    else out += renderCareraCalendario();
-    return out;
+    if(c.view === 'inicio') return renderCareraInicio();
+    if(c.view === 'nacional') return renderCareraNacional();
+    if(c.view === 'bmetro') return renderCareraBmetro();
+    if(c.view === 'federal') return renderCareraFederal();
+    if(c.view === 'primerac') return renderCareraPrimeraC();
+    if(c.view === 'promocional') return renderCareraPromocional();
+    if(c.view === 'copa-argentina') return renderCareraCopaArgentina();
+    if(c.view === 'internacionales') return renderCareraCopasInternacionales();
+    if(c.view === 'copas') return renderCareraCopasNacionales();
+    if(c.view === 'campeones') return renderCareraHistorialCampeones();
+    if(c.view === 'liga') return renderCareraLiga();
+    if(c.view === 'competiciones') return renderCareraCompeticiones();
+    if(c.view === 'estadisticas') return renderCareraEstadisticas();
+    if(c.view === 'equipos-list') return renderCareraEquiposGaleria();
+    if(c.view === 'jugadores') return renderCareraStub('&#128100;', 'Jugadores', 'El Modo Carrera todavía no simula planteles individuales, así que esta sección no tiene contenido por ahora.');
+    if(c.view === 'configuracion') return renderCareraStub('&#9881;', 'Configuración', 'Próximamente vas a poder ajustar acá los parámetros del motor de simulación.');
+    return renderCareraCalendario();
+  }
+  function renderCareraStub(icon, title, msg){
+    return `<div class="panel cs-stub"><div class="big">${icon}</div><h2>${title}</h2><p class="hint">${msg}</p></div>`;
+  }
+
+  function competitionCard(icon, title, subtitle, view){
+    return `<div class="cs-comp-card" data-action="career-set-view" data-view="${view}">
+      <div class="cc-icon">${icon}</div>
+      <div class="cc-title">${escapeHtml(title)}</div>
+      <div class="cc-sub">${escapeHtml(subtitle)}</div>
+      <div class="cc-cta">Ver torneo &rarr;</div>
+    </div>`;
+  }
+  function renderCareraCompeticiones(){
+    const c = state.career;
+    const copaStatus = () => {
+      const ca = c.copaArgentina;
+      if(!ca || (!ca.draw && !ca.built)) return 'Todavía no se sorteó';
+      if(ca.draw && !ca.built) return `Sorteo en curso (${ca.draw.revealed}/${ca.draw.pairs.length})`;
+      if(ca.champion){ const t = careerTeamById(ca.champion.teamId); return `Campeón: ${t?t.name:'&mdash;'}`; }
+      return 'Cuadro en juego';
+    };
+    const cupStatus = (key) => {
+      const b = c[key];
+      if(!b || !b.built) return 'Todavía no se armó el cuadro';
+      if(b.champion){ const t = careerTeamById(b.champion.teamId); return `Campeón: ${t?t.name:'&mdash;'}`; }
+      return 'Cuadro en juego';
+    };
+    let html = `<div class="panel"><h2>Competiciones</h2><p class="hint">Temporada ${c.year} &middot; ${c.tournament==='apertura'?'Apertura':'Clausura'}</p></div>`;
+    html += `<div class="cs-section-title">Argentina</div><div class="cs-comp-grid">`;
+    html += competitionCard('&#127942;','Primera División', `${c.tournament==='apertura'?'Apertura':'Clausura'} ${c.year} en juego`, 'liga');
+    html += competitionCard('&#9917;','Primera Nacional', 'Ascenso y descenso directo con Primera', 'nacional');
+    html += competitionCard('&#9917;','B Metropolitana', 'Tercera división del ascenso metropolitano', 'bmetro');
+    html += competitionCard('&#9917;','Federal A', 'Torneo federal del interior', 'federal');
+    html += competitionCard('&#9917;','Primera C', 'Cuarta división metropolitana', 'primerac');
+    html += competitionCard('&#9917;','Promocional', 'Amateur, Apertura y Clausura', 'promocional');
+    html += competitionCard('&#127942;','Copa Argentina', copaStatus(), 'copa-argentina');
+    html += competitionCard('&#128202;','Tablas y Copas', 'Tabla Anual, promedios y clasificación', 'copas');
+    html += `</div>`;
+    html += `<div class="cs-section-title">Internacional</div><div class="cs-comp-grid">`;
+    html += competitionCard('&#127758;','Copa Libertadores', cupStatus('libertadores'), 'internacionales');
+    html += competitionCard('&#127758;','Copa Sudamericana', cupStatus('sudamericana'), 'internacionales');
+    html += `</div>`;
+    return html;
+  }
+
+  // Riel de fases para los cuadros eliminatorios (Copa Argentina / Libertadores / Sudamericana).
+  // "activo" = la primera fase con partidos sin jugar; si ya está todo jugado, la última con partidos.
+  function renderStageRail(stages, labels, matches){
+    const active = stages.find(s => matches.some(m=>m.stage===s && !m.played))
+      || stages.slice().reverse().find(s => matches.some(m=>m.stage===s))
+      || stages[0];
+    const activeIdx = stages.indexOf(active);
+    return `<div class="cs-stage-rail">${stages.map((s,i)=>{
+      const cls = s===active ? 'active' : (i<activeIdx ? 'done' : '');
+      return `<div class="cs-stage-pip ${cls}">${labels[s]||s}</div>`;
+    }).join('<span class="cs-stage-sep">&rarr;</span>')}</div>`;
+  }
+
+  // ---------- Equipos: galería + ficha ----------
+  function careerAllRosterTeams(){
+    const c = state.career;
+    return [
+      { key:'primera', label:'Primera División', teams: c.teams || [] },
+      { key:'nacional', label:'Primera Nacional', teams: (c.nacional && c.nacional.teams) || [] },
+      { key:'bmetro', label:'B Metropolitana', teams: (c.bmetro && c.bmetro.teams) || [] },
+      { key:'federal', label:'Federal A', teams: (c.federal && c.federal.teams) || [] },
+      { key:'primerac', label:'Primera C', teams: (c.primerac && c.primerac.teams) || [] },
+      { key:'promocional', label:'Promocional', teams: (c.promocional && c.promocional.teams) || [] }
+    ];
+  }
+  function renderCareraEquiposGaleria(){
+    const c = state.career;
+    if(c.selectedTeamId){
+      const t = careerTeamById(c.selectedTeamId);
+      if(t) return renderCareraEquipoDetalle(c.selectedTeamId);
+      c.selectedTeamId = null;
+    }
+    const groups = careerAllRosterTeams();
+    let html = `<div class="panel"><h2>Equipos</h2><p class="hint">Todos los equipos activos en tu carrera, por categoría. Tocá uno para ver su ficha.</p></div>`;
+    let any = false;
+    groups.forEach(g => {
+      if(!g.teams.length) return;
+      any = true;
+      html += `<div class="cs-section-title">${g.label} &middot; ${g.teams.length}</div><div class="cs-team-grid">`;
+      g.teams.slice().sort((a,b)=>b.elo-a.elo).forEach(t => {
+        html += `<div class="cs-team-card" data-action="career-view-team" data-id="${t.id}">
+          ${teamBadgeHtml(t,38)}
+          <div class="ctc-name">${escapeHtml(t.name)}${t.id===c.myTeamId?'<span class="ctc-tag">TU EQUIPO</span>':''}</div>
+          <div class="ctc-elo num">${t.elo}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+    if(!any) html += `<div class="cs-empty-hint">Todavía no hay equipos cargados.</div>`;
+    return html;
+  }
+  function renderCareraEquipoDetalle(teamId){
+    const c = state.career;
+    const t = careerTeamById(teamId);
+    const next = careerNextMatchFor(teamId);
+    const results = careerLastResultsFor(teamId, 6);
+    let html = `<div class="btn-row"><button class="btn small" data-action="career-view-team" data-id="">&larr; Volver a Equipos</button></div>`;
+    html += `<div class="cs-hero" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      ${teamBadgeHtml(t,52)}
+      <div><div class="season-tag" style="margin-bottom:4px;">${teamId===c.myTeamId?'Tu equipo':'Equipo'}</div><div class="matchup" style="margin:0;">${escapeHtml(t.name)}</div></div>
+    </div>`;
+    html += `<div class="cs-cards-row"><div class="cs-stat-card"><div class="label">ELO actual</div><div class="value">${t.elo}</div></div></div>`;
+    html += `<div class="cs-section-title">Próximo partido</div>`;
+    if(next){
+      const home = careerTeamById(next.home), away = careerTeamById(next.away);
+      html += `<div class="cs-fixture-card">
+        <div style="display:flex;align-items:center;gap:10px;">${teamBadgeHtml(home,24)}<span>${escapeHtml(home?home.name:'?')}</span><span style="color:var(--ink-dim);">vs</span><span>${escapeHtml(away?away.name:'?')}</span>${teamBadgeHtml(away,24)}</div>
+        <div style="color:var(--ink-dim);font-size:12.5px;">${formatCareerDate(next.date)} &middot; ${careerCompLabel(next)}</div>
+      </div>`;
+    } else {
+      html += `<div class="cs-empty-hint">No tiene partidos programados por el momento.</div>`;
+    }
+    html += `<div class="cs-section-title">Últimos resultados</div>`;
+    if(results.length){
+      html += `<div class="panel" style="padding:2px 0;">` + results.map(m => {
+        const isHome = m.home===teamId;
+        const rival = careerTeamById(isHome ? m.away : m.home);
+        const gf = isHome ? m.homeScore : m.awayScore;
+        const gc = isHome ? m.awayScore : m.homeScore;
+        const cls = gf>gc?'win':(gf<gc?'loss':'draw');
+        const sign = gf>gc?'Victoria':(gf<gc?'Derrota':'Empate');
+        return `<div class="cs-result-row">
+          <div style="display:flex;align-items:center;gap:10px;"><span class="cs-result-dot ${cls}"></span><span>${sign} vs ${escapeHtml(rival?rival.name:'?')} <span style="color:var(--ink-dim);">&middot; ${careerCompLabel(m)}</span></span></div>
+          <div class="num" style="color:var(--ink);">${gf}&ndash;${gc}</div>
+        </div>`;
+      }).join('') + `</div>`;
+    } else {
+      html += `<div class="cs-empty-hint">Todavía no jugó partidos esta temporada.</div>`;
+    }
+    return html;
+  }
+
+  // ---------- Estadísticas: evolución de ELO ----------
+  // Se reconstruye a partir de los deltas guardados en cada partido jugado (m.deltaHome/m.deltaAway);
+  // no se inventa ningún dato: si no hay partidos jugados, no hay gráfico.
+  function careerEloTrajectory(teamId){
+    const t = careerTeamById(teamId);
+    if(!t) return [];
+    const matches = careerAllDatedMatches().filter(m=>m.played && (m.home===teamId || m.away===teamId));
+    matches.sort((a,b)=>(a.playedAt||0)-(b.playedAt||0));
+    const deltas = matches.map(m => m.home===teamId ? (m.deltaHome||0) : (m.deltaAway||0));
+    const totalDelta = deltas.reduce((s,d)=>s+d,0);
+    let running = t.elo - totalDelta;
+    const points = [running];
+    deltas.forEach(d => { running += d; points.push(running); });
+    return points;
+  }
+  function renderEloSparkline(points){
+    if(points.length < 2) return `<div class="cs-empty-hint">Todavía no hay partidos suficientes para graficar la evolución.</div>`;
+    const width = 640, height = 140;
+    const min = Math.min(...points), max = Math.max(...points);
+    const range = (max-min) || 1;
+    const stepX = width / (points.length - 1);
+    const coords = points.map((p,i) => [i*stepX, height - ((p-min)/range) * (height-24) - 12]);
+    const path = coords.map((pt,i) => (i===0?'M':'L') + pt[0].toFixed(1) + ',' + pt[1].toFixed(1)).join(' ');
+    const last = coords[coords.length-1];
+    return `<svg viewBox="0 0 ${width} ${height}" class="cs-elo-chart" preserveAspectRatio="none">
+      <path d="${path}" fill="none" stroke="var(--gold)" stroke-width="2.5" />
+      <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="4" fill="var(--gold-bright)" />
+    </svg>`;
+  }
+  function renderCareraEstadisticas(){
+    const c = state.career;
+    const myTeam = c.myTeamId ? careerTeamById(c.myTeamId) : null;
+    if(!myTeam) return renderCareraStub('&#128200;', 'Estadísticas', 'Elegí un equipo para ver sus estadísticas de ELO.');
+    const points = careerEloTrajectory(c.myTeamId);
+    const cur = myTeam.elo;
+    const initial = points.length ? points[0] : cur;
+    const best = points.length ? Math.max(...points) : cur;
+    const worst = points.length ? Math.min(...points) : cur;
+    const delta = cur - initial;
+    let html = `<div class="panel"><h2>Estadísticas &middot; ELO</h2><p class="hint">${escapeHtml(myTeam.name)}</p></div>`;
+    html += `<div class="cs-cards-row">
+      <div class="cs-stat-card"><div class="label">ELO actual</div><div class="value">${cur}</div></div>
+      <div class="cs-stat-card"><div class="label">ELO inicial</div><div class="value">${initial}</div></div>
+      <div class="cs-stat-card"><div class="label">Variación</div><div class="value" style="color:${delta>=0?'var(--green-win)':'var(--red)'};">${delta>=0?'+':''}${delta}</div></div>
+      <div class="cs-stat-card"><div class="label">Mejor ELO</div><div class="value">${best}</div></div>
+      <div class="cs-stat-card"><div class="label">Peor ELO</div><div class="value">${worst}</div></div>
+    </div>`;
+    html += `<div class="cs-section-title">Evolución &middot; ${points.length} partido${points.length===1?'':'s'} jugado${points.length===1?'':'s'} en la carrera</div>`;
+    html += `<div class="panel">${renderEloSparkline(points)}</div>`;
+    return html;
   }
 
   function renderCareraCalendario(){
@@ -4626,41 +5233,56 @@
     // después de simular en vez de desaparecer de la pantalla.
     const todays = careerAllDatedMatches().filter(m=>m.date === c.calendarDate);
     const pendingToday = todays.filter(m=>!m.played);
-    const pendingTotal = careerAllUnplayedDatedMatches().length;
+    const allPending = careerAllUnplayedDatedMatches();
+    const pendingTotal = allPending.length;
 
-    let html = `<div class="panel">
-      <h2>Calendario</h2>
-      <p class="hint">Fecha actual de la carrera: <strong style="color:var(--ink);">${formatCareerDate(c.calendarDate)}</strong></p>
-      ${todays.length ? `<p class="hint">${todays.length} partido${todays.length===1?'':'s'} programado${todays.length===1?'':'s'} &middot; ${pendingToday.length ? pendingToday.length+' sin jugar' : 'ya se jugaron todos'}.</p>` : ''}
+    let html = `<div class="cs-hero">
+      <div class="season-tag">Calendario &middot; Temporada ${c.year}</div>
+      <div class="matchup" style="font-size:16px;">${formatCareerDate(c.calendarDate)}</div>
+      <div class="meta">${todays.length ? `${todays.length} partido${todays.length===1?'':'s'} programado${todays.length===1?'':'s'} &middot; ${pendingToday.length ? pendingToday.length+' sin jugar' : 'ya se jugaron todos'}.` : 'Sin partidos programados para hoy.'}</div>
+      <div class="btn-row">
+        ${pendingToday.length ? `<button class="btn" data-action="career-simulate-day">Simular los ${pendingToday.length} partidos que faltan hoy</button>` : ''}
+        <button class="btn primary" data-action="career-advance-calendar" ${pendingTotal>0?'':'disabled'}>&#9654; Avanzar calendario</button>
+      </div>
     </div>`;
 
     if(todays.length === 0){
       html += `<div class="panel">`;
-      if(pendingTotal > 0){
-        html += `<p class="hint">No hay partidos programados para hoy.</p><div class="btn-row"><button class="btn primary" data-action="career-advance-calendar">Avanzar calendario</button></div>`;
+      if(pendingTotal === 0){
+        html += `<p class="hint">No hay más partidos programados por el momento. Puede que haga falta armar algo desde el menú de la izquierda (por ejemplo sortear la Copa Argentina, o pasar de temporada una vez terminado el Clausura).</p>`;
       } else {
-        html += `<p class="hint">No hay más partidos programados por el momento. Puede que haga falta armar algo desde las pestañas Primera División o Copa Argentina (por ejemplo sortear la Copa Argentina, o pasar de temporada una vez terminado el Clausura).</p>`;
+        html += `<p class="hint">Tocá "Avanzar calendario" para ir al próximo día con partidos.</p>`;
       }
       html += `</div>`;
-      return html;
+    } else {
+      const groups = [];
+      const groupIndex = {};
+      todays.forEach(m => {
+        const label = careerCompLabel(m);
+        if(!(label in groupIndex)){ groupIndex[label] = groups.length; groups.push({ label, matches: [] }); }
+        groups[groupIndex[label]].matches.push(m);
+      });
+      groups.forEach(g => {
+        html += `<div class="panel"><h2>${g.label}</h2>${g.matches.map(m=>renderCareerMatchRow(m, null)).join('')}</div>`;
+      });
+      if(!pendingToday.length && pendingTotal > 0){
+        html += `<p class="hint">Ya se jugó todo lo de hoy. Avanzá el calendario para ir al próximo día con partidos.</p>`;
+      }
     }
 
-    const groups = [];
-    const groupIndex = {};
-    todays.forEach(m => {
-      const label = careerCompLabel(m);
-      if(!(label in groupIndex)){ groupIndex[label] = groups.length; groups.push({ label, matches: [] }); }
-      groups[groupIndex[label]].matches.push(m);
-    });
-    groups.forEach(g => {
-      html += `<div class="panel"><h2>${g.label}</h2>${g.matches.map(m=>renderCareerMatchRow(m, null)).join('')}</div>`;
-    });
-    html += `<div class="btn-row">
-      ${pendingToday.length ? `<button class="btn" data-action="career-simulate-day">Simular los ${pendingToday.length} partidos que faltan hoy</button>` : ''}
-      <button class="btn primary" data-action="career-advance-calendar" ${pendingTotal>0?'':'disabled'}>Avanzar calendario</button>
-    </div>`;
-    if(!pendingToday.length && pendingTotal > 0){
-      html += `<p class="hint">Ya se jugó todo lo de hoy. Avanzá el calendario para ir al próximo día con partidos.</p>`;
+    // Vista previa de las próximas fechas (solo lectura, agrupadas por día).
+    const upcomingByDate = allPending.filter(m=>m.date && m.date !== c.calendarDate);
+    const dates = [...new Set(upcomingByDate.map(m=>m.date))].sort().slice(0,4);
+    if(dates.length){
+      html += `<div class="cs-section-title">Próximas fechas</div>`;
+      dates.forEach(d => {
+        const ms = upcomingByDate.filter(m=>m.date===d);
+        const comps = [...new Set(ms.map(m=>careerCompLabel(m)))];
+        html += `<div class="cs-fixture-card">
+          <div><div style="color:var(--ink);">${formatCareerDate(d)}</div><div style="color:var(--ink-dim);font-size:11.5px;">${comps.join(' &middot; ')}</div></div>
+          <div style="color:var(--ink-dim);font-size:12.5px;">${ms.length} partido${ms.length===1?'':'s'}</div>
+        </div>`;
+      });
     }
     return html;
   }
@@ -4758,14 +5380,27 @@
 
   function renderCareraCopaArgentina(){
     const c = state.career;
-    if(!c.copaArgentina || !c.copaArgentina.built){
+    if(!c.copaArgentina || (!c.copaArgentina.draw && !c.copaArgentina.built)){
       return `<div class="panel">
         <h2>Copa Argentina ${c.year}</h2>
         <p class="hint">64 equipos: tus 28 mejores de Primera División (por ELO) + 15 de la Primera Nacional + 10 del Federal A + 6 de la B Metropolitana + 5 de la Primera C. Partidos a un solo encuentro en cancha neutral; si hay empate, se define directo por penales.</p>
-        <div class="btn-row"><button class="btn primary" data-action="career-build-copa-argentina">Sortear cuadro de 32avos</button></div>
+        <div class="btn-row"><button class="btn primary" data-action="career-build-copa-argentina">Armar el bombo</button></div>
       </div>`;
     }
-    let html = `<div class="panel"><h2>Copa Argentina ${c.year}</h2>`;
+    if(c.copaArgentina.draw && !c.copaArgentina.built){
+      const draw = c.copaArgentina.draw;
+      let html = `<div class="panel">
+        <h2>Copa Argentina ${c.year} &mdash; Sorteo de 32avos</h2>
+        <p class="hint">Se van sacando los cruces de a uno (${draw.revealed} de ${draw.pairs.length}).</p>
+        <div class="btn-row"><button class="btn primary" data-action="career-draw-next-copa">Sacar el próximo cruce</button></div>
+      </div>`;
+      if(c.copaArgentina.matches.length){
+        html += `<div class="panel">` + c.copaArgentina.matches.map(m=>renderCareerMatchRow(m, null)).join('') + `</div>`;
+      }
+      return html;
+    }
+    let html = `<div class="panel"><h2>Copa Argentina ${c.year}</h2>${renderStageRail(COPA_ARG_STAGES, COPA_ARG_LABELS, c.copaArgentina.matches)}</div>`;
+    html += `<div class="panel">`;
     COPA_ARG_STAGES.forEach(stage => {
       const ms = c.copaArgentina.matches.filter(m=>m.stage===stage);
       if(ms.length === 0) return;
@@ -4821,7 +5456,8 @@
         <div class="btn-row"><button class="btn primary" data-action="career-build-continental" data-cup="${cupKey}">Sortear cuadro de octavos</button></div>
       </div>`;
     }
-    let html = `<div class="panel"><h2>${title} ${c.year}</h2>`;
+    let html = `<div class="panel"><h2>${title} ${c.year}</h2>${renderStageRail(CONTINENTAL_STAGES, COPA_ARG_LABELS, bucket.matches)}</div>`;
+    html += `<div class="panel">`;
     CONTINENTAL_STAGES.forEach(stage => {
       const ms = bucket.matches.filter(m=>m.stage===stage);
       if(ms.length === 0) return;
@@ -4846,6 +5482,46 @@
   function renderCareraCopaLibertadores(){ return renderContinentalCup('libertadores', 'Copa Libertadores'); }
   function renderCareraCopaSudamericana(){ return renderContinentalCup('sudamericana', 'Copa Sudamericana'); }
   function renderCareraCopasInternacionales(){ return renderCareraCopaLibertadores() + renderCareraCopaSudamericana(); }
+
+  // ---------- Historial de Campeones ----------
+  const COMPETITION_LABELS = {
+    apertura: 'Torneo Apertura',
+    clausura: 'Torneo Clausura',
+    'trofeo-campeones': 'Trofeo de Campeones',
+    'copa-argentina': 'Copa Argentina',
+    'supercopa-argentina': 'Supercopa Argentina',
+    libertadores: 'Copa Libertadores',
+    sudamericana: 'Copa Sudamericana',
+    'supercopa-internacional': 'Supercopa Internacional',
+    nacional: 'Primera Nacional (ascenso)',
+    bmetro: 'B Metropolitana (ascenso)',
+    federal: 'Federal A (ascenso)',
+    primerac: 'Primera C (ascenso)',
+    'promocional-apertura': 'Promocional Amateur — Apertura',
+    'promocional-clausura': 'Promocional Amateur — Clausura'
+  };
+  const COMPETITION_ORDER = ['apertura','clausura','trofeo-campeones','copa-argentina','supercopa-argentina','libertadores','sudamericana','supercopa-internacional','nacional','bmetro','federal','primerac','promocional-apertura','promocional-clausura'];
+  function renderCareraHistorialCampeones(){
+    const c = state.career;
+    const titles = c.titles || [];
+    let html = `<div class="panel"><h2>Historia</h2><p class="hint">Campeones de cada competición, temporada por temporada.</p></div>`;
+    let any = false;
+    COMPETITION_ORDER.forEach(key => {
+      const list = titles.filter(t=>t.competition===key).slice().sort((a,b)=>b.year-a.year);
+      if(!list.length) return;
+      any = true;
+      html += `<div class="cs-section-title">${COMPETITION_LABELS[key] || key}</div>`;
+      html += `<div class="table-scroll"><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>`;
+      list.forEach(t => {
+        const team = careerTeamById(t.teamId);
+        const name = t.teamName || (team ? team.name : null) || 'Equipo no disponible';
+        html += `<tr><td class="num">${t.year}</td><td><div style="display:flex;align-items:center;gap:8px;">${teamBadgeHtml({name},20)}<span>${escapeHtml(name)}</span></div></td></tr>`;
+      });
+      html += `</tbody></table></div>`;
+    });
+    if(!any) html += `<div class="panel"><p class="hint">Todavía no hay campeones registrados en esta carrera.</p></div>`;
+    return html;
+  }
 
   function renderCopaSlot(title, hint, comp){
     const c = state.career;
