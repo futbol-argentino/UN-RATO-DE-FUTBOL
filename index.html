@@ -403,7 +403,11 @@
       primerac: defaultPrimeraC(),
       promocional: defaultPromocional(),
       worldLeagues: {},         // ligas y copas de otros países — se juegan solas en segundo plano (ver careerEnsureWorldLeagues)
-      calendarDate: null        // 'YYYY-MM-DD' — fecha actual del calendario único de la carrera
+      calendarDate: null,       // 'YYYY-MM-DD' — fecha actual del calendario único de la carrera
+      wlPais: null,              // navegación de "Ligas del Mundo": país elegido
+      wlComp: null,              // ... competición elegida dentro del país
+      wlGrupo: null,             // ... grupo elegido (solo formatos de grupos múltiples, ej. Serie D)
+      wlTab: null                // ... pestaña elegida ('tabla' | 'fixture' | 'resultados')
     };
   }
 
@@ -1943,6 +1947,37 @@
       return;
     }
     else if(action === 'career-view-team'){ state.career.selectedTeamId = btn.getAttribute('data-id') || null; render(); return; }
+    else if(action === 'career-wl-set-pais'){
+      state.career.wlPais = btn.getAttribute('data-pais');
+      state.career.wlComp = null; state.career.wlGrupo = null; state.career.wlTab = null;
+      render(); return;
+    }
+    else if(action === 'career-wl-set-comp'){
+      state.career.wlComp = btn.getAttribute('data-comp');
+      state.career.wlGrupo = null; state.career.wlTab = 'tabla';
+      render(); return;
+    }
+    else if(action === 'career-wl-set-grupo'){
+      state.career.wlGrupo = btn.getAttribute('data-grupo');
+      state.career.wlTab = 'tabla';
+      render(); return;
+    }
+    else if(action === 'career-wl-back-pais'){
+      state.career.wlPais = null; state.career.wlComp = null; state.career.wlGrupo = null; state.career.wlTab = null;
+      render(); return;
+    }
+    else if(action === 'career-wl-back-comp'){
+      state.career.wlComp = null; state.career.wlGrupo = null; state.career.wlTab = null;
+      render(); return;
+    }
+    else if(action === 'career-wl-back-grupo'){
+      state.career.wlGrupo = null; state.career.wlTab = null;
+      render(); return;
+    }
+    else if(action === 'career-wl-set-tab'){
+      state.career.wlTab = btn.getAttribute('data-tab');
+      render(); return;
+    }
     else if(action === 'career-advance-calendar'){ careerAdvanceCalendar(); render(); return; }
     else if(action === 'career-simulate-day'){
       const c = state.career;
@@ -5535,6 +5570,122 @@
         { name:'Mirassol', elo:1846 }, { name:'Vitoria', elo:1813 }, { name:'Coritiba', elo:1777 },
         { name:'Gremio', elo:1771 }, { name:'Remo', elo:1769 }, { name:'Chapecoense', elo:1706 }
       ]
+    },
+    {
+      key: 'brasil-serieb',
+      country: 'Brasil',
+      name: 'Brasileirão Série B',
+      format: 'liga-ida-vuelta',
+      descensos: 4,               // últimos 4 (17°-20°) descienden a la Serie C
+      promocionDirecta: 2,        // 1° y 2° ascienden directo al Brasileirão
+      promocionPlayoff: [[3,6],[4,5]], // 3°vs6° y 4°vs5° a ida y vuelta; los 2 ganadores ascienden
+      teams: [
+        { name:'Novorizontino', elo:1882 }, { name:'Juventude', elo:1823 }, { name:'Criciuma', elo:1820 },
+        { name:'Clube de Regatas Brasil', elo:1804 }, { name:'Athletico Goianiense', elo:1803 },
+        { name:'Vila Nova', elo:1801 }, { name:'Fortaleza', elo:1793 }, { name:'Nautico', elo:1791 },
+        { name:'Cuiabá', elo:1783 }, { name:'Sport Recife', elo:1782 }, { name:'Sao Bernardo', elo:1780 },
+        { name:'Goias', elo:1757 }, { name:'Ceara', elo:1755 }, { name:'Botafogo SP', elo:1744 },
+        { name:'Operario Ferroviario', elo:1744 }, { name:'Athletic Club', elo:1711 }, { name:'Avaí', elo:1703 },
+        { name:'America MG', elo:1679 }, { name:'Londrina', elo:1673 }, { name:'Ponte Preta', elo:1412 }
+      ]
+    },
+    {
+      key: 'brasil-seriec',
+      country: 'Brasil',
+      name: 'Brasileirão Série C',
+      format: 'fases-grupos',
+      // Fase 1: todos-contra-todos una vez (19 fechas), tabla única con los 20 equipos.
+      descensos: 2,                // últimos 2 (19°-20°) descienden directo a la Serie D
+      // Fase 2: los 8 primeros de la fase 1 se separan en 2 grupos de 4 según su posición.
+      grupos: { A:[1,4,5,8], B:[2,3,6,7] },
+      // Dentro de cada grupo, ida y vuelta (6 fechas); los 2 primeros de cada grupo ascienden a
+      // la Serie B. Los 2 ganadores de grupo juegan una final ida y vuelta por el campeón (el
+      // campeón, además, clasifica a la Copa de Brasil — todavía no integrado).
+      teams: [
+        { name:'Botafogo PB', elo:1756 }, { name:'Brusque', elo:1706 }, { name:'Ferroviaria', elo:1781 },
+        { name:'Maringa', elo:1797 }, { name:'Floresta', elo:1673 }, { name:'Inter De Limeira', elo:1723 },
+        { name:'Paysandú', elo:1751 }, { name:'Santa Cruz', elo:1690 }, { name:'Ypiranga', elo:1695 },
+        { name:'Guarani SP', elo:1813 }, { name:'Figueirense', elo:1716 }, { name:'Maranhao', elo:1660 },
+        { name:'Amazonas FC', elo:1638 }, { name:'Caxias Do Sul', elo:1716 }, { name:'Ituano', elo:1696 },
+        { name:'Volta Redonda', elo:1686 }, { name:'Barra FC', elo:1720 }, { name:'Anápolis', elo:1647 },
+        { name:'Itabaiana', elo:1693 }, { name:'Confianca', elo:1648 }
+      ]
+    },
+    {
+      key: 'brasil-serie-d',
+      country: 'Brasil',
+      name: 'Brasileirão Série D',
+      // Formato especial: 16 grupos de 6 equipos, todos-contra-todos ida y vuelta (10 fechas por
+      // grupo). Terminada la fase de grupos, los 4 primeros de cada grupo (64 equipos) clasifican
+      // a una eliminatoria de 6 rondas — Segunda Fase, Tercera Fase, Octavos, Cuartos, Semis y
+      // Final — que termina de definir quién asciende a la Serie C (ver careerWorldLeagueBuildKnockoutGrupos).
+      format: 'grupos-multiples',
+      gruposIniciales: [
+        { nombre:'Grupo 1', teams:[
+          { name:'Manauara EC', elo:1742 }, { name:'Nacional AM', elo:1713 }, { name:'Sao Raimundo', elo:1563 },
+          { name:'Monte Roraima', elo:1572 }, { name:'Manaus', elo:1636 }, { name:'GA Sampaio', elo:1638 }
+        ]},
+        { nombre:'Grupo 2', teams:[
+          { name:'Guaporé', elo:1585 }, { name:'Araguaína', elo:1599 }, { name:'Gazin Porto Velho', elo:1613 },
+          { name:'Independencia', elo:1439 }, { name:'Galvez EC', elo:1369 }, { name:'Humaitá', elo:1166 }
+        ]},
+        { nombre:'Grupo 3', teams:[
+          { name:'Gama', elo:1783 }, { name:'Luverdense', elo:1682 }, { name:'Brasiliense', elo:1714 },
+          { name:'Aparecidense', elo:1625 }, { name:'Primavera EC', elo:1693 }, { name:'Inhumas', elo:1483 }
+        ]},
+        { nombre:'Grupo 4', teams:[
+          { name:'Capital Brasilia', elo:1737 }, { name:'Goiatuba EC', elo:1692 }, { name:'Ceilandia', elo:1612 },
+          { name:'Mixto', elo:1661 }, { name:'Uniao Rondonopolis', elo:1527 }, { name:'CEOV Operario', elo:1513 }
+        ]},
+        { nombre:'Grupo 5', teams:[
+          { name:'Trem DC', elo:1515 }, { name:'Aguia de Maraba', elo:1621 }, { name:'Imperatriz', elo:1552 },
+          { name:'Tuna Luso', elo:1538 }, { name:'Tocantinopolis', elo:1499 }, { name:'Oratorio', elo:1416 }
+        ]},
+        { nombre:'Grupo 6', teams:[
+          { name:'Iguatu', elo:1631 }, { name:'Maracana', elo:1619 }, { name:'Parnahyba', elo:1487 },
+          { name:'Sampaio Correa', elo:1707 }, { name:'Moto Club MA', elo:1524 }, { name:'IAPE', elo:1487 }
+        ]},
+        { nombre:'Grupo 7', teams:[
+          { name:'Ferroviario AC', elo:1694 }, { name:'Piauí', elo:1542 }, { name:'Fluminense PI', elo:1500 },
+          { name:'Altos', elo:1600 }, { name:'Tirol', elo:1518 }, { name:'Atletico Cearense', elo:1360 }
+        ]},
+        { nombre:'Grupo 8', teams:[
+          { name:'ABC', elo:1781 }, { name:'America RN', elo:1839 }, { name:'Maguary PE', elo:1623 },
+          { name:'Central SC', elo:1659 }, { name:'Sousa', elo:1625 }, { name:'Laguna', elo:1353 }
+        ]},
+        { nombre:'Grupo 9', teams:[
+          { name:'Treze', elo:1685 }, { name:'Serra Branca', elo:1668 }, { name:'Sergipe', elo:1668 },
+          { name:'Lagarto', elo:1563 }, { name:'Retro FC', elo:1630 }, { name:'Decisao', elo:1415 }
+        ]},
+        { nombre:'Grupo 10', teams:[
+          { name:'CSA', elo:1813 }, { name:'SD Juazeirense', elo:1615 }, { name:'ASA Arapiraquense', elo:1759 },
+          { name:'Jacuipense', elo:1559 }, { name:'CSE', elo:1625 }, { name:'Atletico Alagoinhas', elo:1342 }
+        ]},
+        { nombre:'Grupo 11', teams:[
+          { name:'Uberlandia', elo:1739 }, { name:'Betim FC', elo:1635 }, { name:'CRAC', elo:1611 },
+          { name:'Ivinhema', elo:1490 }, { name:'Abecat Ouvidorense', elo:1577 }, { name:'Operario MS', elo:1562 }
+        ]},
+        { nombre:'Grupo 12', teams:[
+          { name:'Tombense', elo:1699 }, { name:'Democrata GV', elo:1661 }, { name:'Vitoria ES', elo:1674 },
+          { name:'Rio Branco ES', elo:1680 }, { name:'Porto BA', elo:1485 }, { name:'Real Noroeste', elo:1537 }
+        ]},
+        { nombre:'Grupo 13', teams:[
+          { name:'Portuguesa', elo:1682 }, { name:'Agua Santa', elo:1706 }, { name:'Portuguesa RJ', elo:1758 },
+          { name:'America RJ', elo:1586 }, { name:'Madureira RJ', elo:1650 }, { name:'Pouso Alegre', elo:1629 }
+        ]},
+        { nombre:'Grupo 14', teams:[
+          { name:'XV de Piracicaba', elo:1701 }, { name:'Noroeste', elo:1713 }, { name:'Velo Clube', elo:1664 },
+          { name:'Sampaio Correa RJ', elo:1707 }, { name:'Nova Iguacu', elo:1729 }, { name:'Maricá', elo:1675 }
+        ]},
+        { nombre:'Grupo 15', teams:[
+          { name:'Santa Catarina', elo:1683 }, { name:'Cianorte', elo:1690 }, { name:'Cascavel FC', elo:1651 },
+          { name:'Sao Luiz', elo:1638 }, { name:'Joinville', elo:1669 }, { name:'Guarany de Bagé', elo:1496 }
+        ]},
+        { nombre:'Grupo 16', teams:[
+          { name:'Blumenau', elo:1649 }, { name:'Marcilio Dias', elo:1715 }, { name:'IF Sao Joséense', elo:1591 },
+          { name:'EC Sao Jose', elo:1667 }, { name:'Brasil de Pelotas', elo:1646 }, { name:'Azuriz', elo:1553 }
+        ]}
+      ]
     }
   ];
 
@@ -5573,6 +5724,13 @@
     const dAway = Math.round(k * ((1 - sHome) - (1 - expHome)));
     return [eloHome + dHome, eloAway + dAway];
   }
+  // Definición de penales genérica (series ida y vuelta con el agregado empatado): casi un cara o
+  // ceca, apenas inclinado por el favorito, igual que en cualquier eliminatoria del resto del juego.
+  function worldLeaguePenaltyWinner(eloA, eloB){
+    const adjusted = adjustedProbability(eloExpected(eloA, eloB), 45);
+    const tilted = 0.5 + (adjusted - 0.5) * 0.3;
+    return Math.random() < tilted ? 'A' : 'B';
+  }
   // Tabla de posiciones genérica a partir de una lista de partidos {home,away,homeScore,awayScore,played}
   // y un array de equipos {id,elo,...} — no depende de careerTeamById, así sirve para cualquier país.
   function computeGenericStandings(matches, teams){
@@ -5601,6 +5759,23 @@
     arr.sort((x,y) => y.pts - x.pts || y.dg - x.dg || y.gf - x.gf || (byId[y.id].elo - byId[x.id].elo));
     return arr;
   }
+  // Juega, dentro de una lista cualquiera de partidos {home,away,date,homeScore,awayScore,played},
+  // todos los que ya tengan fecha pasada según el calendario único de la carrera, actualizando el
+  // ELO de los equipos involucrados. Reutilizable tanto para la fase regular como para cualquier
+  // eliminatoria (por ej. el reducido de ascenso de la Serie B).
+  function careerWorldLeaguePlayDue(matches, byId, calendarDate, opts){
+    let jugoAlguno = false;
+    matches.forEach(m => {
+      if(m.played || !m.date || m.date >= calendarDate) return;
+      const home = byId[m.home], away = byId[m.away];
+      const res = worldLeagueMatchResult(home.elo, away.elo, opts);
+      m.homeScore = res.homeScore; m.awayScore = res.awayScore; m.played = true;
+      const [nh, na] = worldLeagueEloUpdate(home.elo, away.elo, m.homeScore, m.awayScore, opts);
+      home.elo = nh; away.elo = na;
+      jugoAlguno = true;
+    });
+    return jugoAlguno;
+  }
   // Arma el fixture completo de la temporada de una liga del exterior (por ahora, todos-contra-
   // todos a una o dos ruedas) con fechas repartidas semana a semana a lo largo del año, pero sin
   // jugar ningún partido todavía — eso lo hace careerWorldLeagueCatchUp a medida que el calendario
@@ -5615,7 +5790,7 @@
       : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
     const ids = teams.map(t=>t.id);
     let rounds = roundRobinRounds(ids);
-    if(def.format !== 'liga-una-vuelta'){
+    if(def.format === 'liga-ida-vuelta'){
       rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
     }
     // Arranca la misma semana que el Apertura argentino y juega una fecha por semana; así una
@@ -5630,38 +5805,331 @@
       });
     });
     const history = (prev && prev.history) ? prev.history.slice() : [];
+    // Posiciones de tabla involucradas en el playoff de ascenso (si esta liga tiene uno definido),
+    // para poder resaltarlas en la tabla en vivo aunque el playoff todavía no se haya armado.
+    const promocionPlayoffPositions = def.promocionPlayoff ? def.promocionPlayoff.reduce((acc,p)=>acc.concat(p),[]) : [];
     wl[def.key] = {
-      key: def.key, country: def.country, name: def.name, format: def.format, descensos: def.descensos || 0,
-      year: c.year, teams, matches, table: [], championId: null, relegatedIds: [], history
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      descensos: def.descensos || 0, promocionDirecta: def.promocionDirecta || 0,
+      promocionPlayoff: def.promocionPlayoff || null, promocionPlayoffPositions,
+      grupos: def.grupos || null,
+      year: c.year, teams, matches, table: [], championId: null, relegatedIds: [], promotedIds: [],
+      playoff: null, stage: def.format === 'fases-grupos' ? 'fase1' : 'liga', fase2Groups: null, final: null,
+      history
     };
   }
+  // ---- Formato "grupos-multiples" (Serie D de Brasil): varios grupos chicos (16 grupos de 6
+  // equipos) que juegan todos-contra-todos ida y vuelta en paralelo entre sí, sin fase previa
+  // compartida. Cada grupo tiene su propio fixture y tabla; cuando terminan los 16 grupos arranca
+  // la eliminatoria de ascenso (ver careerWorldLeagueBuildKnockoutGrupos más abajo).
+  function careerWorldLeagueBuildSeasonGrupos(def){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const prev = wl[def.key];
+    const startDate = careerSeasonStart(c.year, 'apertura');
+    const grupos = {};
+    const allTeams = [];
+    def.gruposIniciales.forEach((g, gi) => {
+      const prevGroup = prev && prev.grupos && prev.grupos[g.nombre];
+      const teams = (prevGroup && prevGroup.teams && prevGroup.teams.length)
+        ? prevGroup.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : g.teams.map((t,i) => ({ id:'wl_'+def.key+'_g'+gi+'_'+i, name:t.name, elo:t.elo }));
+      allTeams.push(...teams);
+      const ids = teams.map(t=>t.id);
+      let rounds = roundRobinRounds(ids);
+      rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+      const matches = [];
+      rounds.forEach((round, ri) => {
+        const date = addDaysISO(startDate, ri*7);
+        round.forEach(m => {
+          if(m.home === null || m.away === null) return;
+          matches.push({ id:'wl_'+def.key+'_g'+gi+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+        });
+      });
+      grupos[g.nombre] = { nombre:g.nombre, teamIds:ids, teams, matches, table: [] };
+    });
+    const history = (prev && prev.history) ? prev.history.slice() : [];
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      year: c.year, teams: allTeams, grupos, stage: 'grupos', groupWinners: [], championId: null,
+      history
+    };
+  }
+  // Constantes de la eliminatoria de ascenso de la Serie D: terminados los 16 grupos, los 4
+  // primeros de cada grupo (64 equipos) arrancan en la Segunda Fase, y de ahí en más el cuadro se
+  // achica ronda a ronda hasta la Final (Segunda Fase 64→32, Tercera Fase 32→16, Octavos 16→8,
+  // Cuartos 8→4, Semis 4→2, Final 2→1). En el fútbol brasileño real, los 4 cuartofinalistas
+  // ganadores ascienden a la Serie C apenas queda armada la semifinal, sin importar cómo siga el
+  // torneo; por eso acá el ascenso se define al pasar de Cuartos a Semis, no cuando termina todo.
+  const KO_GRUPOS_ORDER = ['segunda-fase','tercera-fase','octavos','cuartos','semis','final'];
+  const KO_GRUPOS_NEXT = { 'segunda-fase':'tercera-fase', 'tercera-fase':'octavos', octavos:'cuartos', cuartos:'semis', semis:'final' };
+  const KO_GRUPOS_LABELS = {
+    'segunda-fase': 'Segunda Fase',
+    'tercera-fase': 'Tercera Fase',
+    octavos: 'Octavos de Final',
+    cuartos: 'Cuartos de Final',
+    semis: 'Semifinales',
+    final: 'Final'
+  };
+  // Arma los 32 cruces de la Segunda Fase a partir de los 4 primeros de cada uno de los 16 grupos,
+  // siguiendo el reglamento real: los grupos se toman de a pares consecutivos (Grupo 1 con Grupo 2,
+  // Grupo 3 con Grupo 4, ..., Grupo 15 con Grupo 16) y dentro de cada par se cruzan las posiciones
+  // 1°vs4° y 2°vs3° (ida y vuelta). La vuelta de cada llave se juega en la cancha del equipo que
+  // más puntos sacó en la fase de grupos (y, en caso de empate, del que tenga mejor diferencia de
+  // gol) — por eso el "home" del par es siempre ese equipo, así lo reutiliza careerWorldLeagueBuildKoGruposRound
+  // (que ya hace jugar la vuelta en la cancha de "home").
+  function careerWorldLeagueGruposSegundaFasePairs(league){
+    const groupNames = Object.keys(league.grupos);
+    const crosses = [[1,4],[2,3],[3,2],[4,1]];
+    const pairs = [];
+    for(let gi=0; gi<groupNames.length; gi+=2){
+      const gA = league.grupos[groupNames[gi]];
+      const gB = league.grupos[groupNames[gi+1]];
+      crosses.forEach(([posA,posB]) => {
+        const rowA = gA.table[posA-1], rowB = gB.table[posB-1];
+        const aHosts = rowA.pts > rowB.pts || (rowA.pts === rowB.pts && rowA.dg >= rowB.dg);
+        pairs.push({ home: aHosts ? rowA.id : rowB.id, away: aHosts ? rowB.id : rowA.id });
+      });
+    }
+    return pairs;
+  }
+  // Arma una ronda de la llave (pares ida y vuelta) a partir de una lista de pares {home,away}.
+  function careerWorldLeagueBuildKoGruposRound(league, pairs, stageName, lastDate, roundIdx){
+    const built = pairs.map((p,i) => ({
+      teamA: p.home, teamB: p.away, winnerId: null, wentToPenalties: false,
+      legs: [
+        { id:'wl_'+league.key+'_'+stageName+'_'+i+'_1', home:p.away, away:p.home, leg:1, date:addDaysISO(lastDate, 14+roundIdx*21), homeScore:null, awayScore:null, played:false },
+        { id:'wl_'+league.key+'_'+stageName+'_'+i+'_2', home:p.home, away:p.away, leg:2, date:addDaysISO(lastDate, 21+roundIdx*21), homeScore:null, awayScore:null, played:false }
+      ]
+    }));
+    return { stage: stageName, pairs: built, resolved: false };
+  }
+  function careerWorldLeagueBuildKnockoutGrupos(league){
+    const pairs0 = careerWorldLeagueGruposSegundaFasePairs(league);
+    const lastDate = Object.values(league.grupos).reduce((max,g) => {
+      const gm = g.matches.reduce((mx,m) => m.date > mx ? m.date : mx, g.matches[0].date);
+      return gm > max ? gm : max;
+    }, league.grupos[Object.keys(league.grupos)[0]].matches[0].date);
+    const pairs0built = careerWorldLeagueBuildKoGruposRound(league, pairs0, 'segunda-fase', lastDate, 0);
+    league.knockoutRounds = [ pairs0built ];
+    league.stage = 'knockout';
+  }
+  function careerWorldLeagueCatchUpKnockoutGrupos(league){
+    const c = state.career;
+    const rounds = league.knockoutRounds;
+    const ko = rounds[rounds.length-1];
+    if(!ko || ko.resolved) return;
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    ko.pairs.forEach(pair => {
+      if(pair.winnerId) return;
+      careerWorldLeaguePlayDue(pair.legs, byIdAll, c.calendarDate, {});
+      if(pair.legs.every(l => l.played)){
+        const teamA = byIdAll[pair.teamA], teamB = byIdAll[pair.teamB];
+        const golesA = pair.legs[0].awayScore + pair.legs[1].homeScore;
+        const golesB = pair.legs[0].homeScore + pair.legs[1].awayScore;
+        if(golesA > golesB) pair.winnerId = pair.teamA;
+        else if(golesB > golesA) pair.winnerId = pair.teamB;
+        else { pair.wentToPenalties = true; pair.winnerId = worldLeaguePenaltyWinner(teamA.elo, teamB.elo) === 'A' ? pair.teamA : pair.teamB; }
+      }
+    });
+    if(ko.pairs.every(p => p.winnerId)){
+      ko.resolved = true;
+      const winners = ko.pairs.map(p => p.winnerId);
+      if(ko.stage === 'final'){
+        league.championId = winners[0];
+        league.stage = 'done';
+        league.history.unshift({ year: league.year, championId: league.championId, championName: byIdAll[league.championId].name });
+        if(league.history.length > 10) league.history.length = 10;
+        return;
+      }
+      const nextStage = KO_GRUPOS_NEXT[ko.stage];
+      // Los 4 que arman la semifinal ascienden a la Serie C apenas queda armado ese cruce, gane
+      // quien gane después: así funciona el ascenso real de la Serie D.
+      if(nextStage === 'semis') league.promotedIds = winners.slice();
+      const lastDate = ko.pairs.reduce((max,p) => p.legs.reduce((mx,l) => l.date > mx ? l.date : mx, max), ko.pairs[0].legs[0].date);
+      const pairs = [];
+      for(let i=0; i<winners.length; i+=2) pairs.push({ home:winners[i], away:winners[i+1] });
+      const roundIdx = KO_GRUPOS_ORDER.indexOf(nextStage);
+      rounds.push(careerWorldLeagueBuildKoGruposRound(league, pairs, nextStage, lastDate, roundIdx));
+    }
+  }
+  function careerWorldLeagueCatchUpGrupos(league){
+    const c = state.career;
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    let allDone = true;
+    Object.values(league.grupos).forEach(g => {
+      const jugo = careerWorldLeaguePlayDue(g.matches, byIdAll, c.calendarDate, {});
+      if(jugo || !g.table.length) g.table = computeGenericStandings(g.matches, g.teamIds.map(id => byIdAll[id]));
+      if(!g.matches.every(m => m.played)) allDone = false;
+    });
+    if(allDone && league.stage === 'grupos') careerWorldLeagueBuildKnockoutGrupos(league);
+    if(league.stage === 'knockout') careerWorldLeagueCatchUpKnockoutGrupos(league);
+  }
+  // ---- Formato "fases-grupos" (ej. Serie C de Brasil): fase 1 todos-contra-todos única, los
+  // mejores ubicados pasan a 2 grupos de 4 (ida y vuelta) y los ganadores de grupo definen el
+  // campeón en una final ida y vuelta. Los 2 primeros de cada grupo ascienden directo.
+  function careerWorldLeagueBuildFase2(league){
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    const lastDate = league.matches.reduce((max,m) => m.date > max ? m.date : max, league.matches[0].date);
+    const groups = {};
+    Object.keys(league.grupos).forEach(gname => {
+      const posArr = league.grupos[gname];
+      const teamIds = posArr.map(pos => league.table[pos-1].id);
+      let rounds = roundRobinRounds(teamIds);
+      rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+      const matches = [];
+      rounds.forEach((round, ri) => {
+        const date = addDaysISO(lastDate, 14 + ri*7);
+        round.forEach(m => {
+          if(m.home === null || m.away === null) return;
+          matches.push({ id:'wl_'+league.key+'_f2'+gname+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+        });
+      });
+      groups[gname] = { name:gname, teamIds, matches, table: [] };
+    });
+    league.fase2Groups = groups;
+    league.stage = 'fase2';
+  }
+  function careerWorldLeagueCatchUpFase2(league){
+    const c = state.career;
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    let allDone = true;
+    Object.values(league.fase2Groups).forEach(g => {
+      const jugo = careerWorldLeaguePlayDue(g.matches, byIdAll, c.calendarDate, {});
+      if(jugo || !g.table.length) g.table = computeGenericStandings(g.matches, g.teamIds.map(id => byIdAll[id]));
+      if(!g.matches.every(m => m.played)) allDone = false;
+    });
+    if(allDone && league.stage === 'fase2'){
+      const groupNames = Object.keys(league.fase2Groups);
+      const promoted = [], winners = [];
+      groupNames.forEach(gname => {
+        const g = league.fase2Groups[gname];
+        promoted.push(g.table[0].id, g.table[1].id);
+        winners.push(g.table[0].id);
+      });
+      league.promotedIds = promoted;
+      const lastDate = groupNames.reduce((max,gname) => {
+        const g = league.fase2Groups[gname];
+        const gm = g.matches.reduce((mx,m) => m.date > mx ? m.date : mx, g.matches[0].date);
+        return gm > max ? gm : max;
+      }, league.fase2Groups[groupNames[0]].matches[0].date);
+      league.final = {
+        teamA: winners[0], teamB: winners[1], winnerId: null, wentToPenalties: false,
+        legs: [
+          { id:'wl_'+league.key+'_final_1', home:winners[1], away:winners[0], leg:1, date:addDaysISO(lastDate,14), homeScore:null, awayScore:null, played:false },
+          { id:'wl_'+league.key+'_final_2', home:winners[0], away:winners[1], leg:2, date:addDaysISO(lastDate,21), homeScore:null, awayScore:null, played:false }
+        ]
+      };
+      league.stage = 'final';
+    }
+  }
+  function careerWorldLeagueCatchUpFinal(league){
+    const c = state.career;
+    const f = league.final;
+    if(!f || f.winnerId) return;
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    careerWorldLeaguePlayDue(f.legs, byIdAll, c.calendarDate, {});
+    if(f.legs.every(l => l.played)){
+      const teamA = byIdAll[f.teamA], teamB = byIdAll[f.teamB];
+      const golesA = f.legs[0].awayScore + f.legs[1].homeScore;
+      const golesB = f.legs[0].homeScore + f.legs[1].awayScore;
+      if(golesA > golesB) f.winnerId = f.teamA;
+      else if(golesB > golesA) f.winnerId = f.teamB;
+      else { f.wentToPenalties = true; f.winnerId = worldLeaguePenaltyWinner(teamA.elo, teamB.elo) === 'A' ? f.teamA : f.teamB; }
+      league.championId = f.winnerId;
+      league.stage = 'done';
+      league.history.unshift({ year: league.year, championId: league.championId, championName: byIdAll[league.championId].name });
+      if(league.history.length > 10) league.history.length = 10;
+    }
+  }
+  // Arma el reducido de ascenso una vez terminada la fase regular: cruces ida y vuelta entre los
+  // equipos de las posiciones que indique `promocionPlayoff` (ej. [[3,6],[4,5]]). El equipo mejor
+  // ubicado de cada cruce juega de local la vuelta (ventaja deportiva); en caso de empate en el
+  // agregado, se define por penales.
+  function careerWorldLeagueBuildPlayoff(league){
+    const c = state.career;
+    const lastDate = league.matches.reduce((max,m) => m.date > max ? m.date : max, league.matches[0].date);
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const pairs = league.promocionPlayoff.map((pos, i) => {
+      const posA = pos[0], posB = pos[1];
+      const teamA = league.table[posA-1].id, teamB = league.table[posB-1].id;
+      const dateLeg1 = addDaysISO(lastDate, 14 + i*0);
+      const dateLeg2 = addDaysISO(lastDate, 21 + i*0);
+      return {
+        posA, posB, teamA, teamB, winnerId: null, wentToPenalties: false,
+        legs: [
+          { id:'wl_'+league.key+'_po_'+i+'_1', home:teamB, away:teamA, leg:1, date:dateLeg1, homeScore:null, awayScore:null, played:false },
+          { id:'wl_'+league.key+'_po_'+i+'_2', home:teamA, away:teamB, leg:2, date:dateLeg2, homeScore:null, awayScore:null, played:false }
+        ]
+      };
+    });
+    league.playoff = { built:true, pairs, resolved:false };
+  }
+  function careerWorldLeagueCatchUpPlayoff(league){
+    const c = state.career;
+    const po = league.playoff;
+    if(!po || po.resolved) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    po.pairs.forEach(pair => {
+      if(pair.winnerId) return;
+      careerWorldLeaguePlayDue(pair.legs, byId, c.calendarDate, {});
+      if(pair.legs.every(l=>l.played)){
+        const teamA = byId[pair.teamA], teamB = byId[pair.teamB];
+        // leg1: home=teamB, away=teamA · leg2: home=teamA, away=teamB
+        const golesA = pair.legs[0].awayScore + pair.legs[1].homeScore;
+        const golesB = pair.legs[0].homeScore + pair.legs[1].awayScore;
+        if(golesA > golesB) pair.winnerId = pair.teamA;
+        else if(golesB > golesA) pair.winnerId = pair.teamB;
+        else {
+          pair.wentToPenalties = true;
+          pair.winnerId = worldLeaguePenaltyWinner(teamA.elo, teamB.elo) === 'A' ? pair.teamA : pair.teamB;
+        }
+      }
+    });
+    if(po.pairs.every(p=>p.winnerId)){
+      po.resolved = true;
+      const direct = league.promocionDirecta > 0 ? league.table.slice(0, league.promocionDirecta).map(r=>r.id) : [];
+      league.promotedIds = direct.concat(po.pairs.map(p=>p.winnerId));
+    }
+  }
   // Juega, de la liga dada, todos los partidos cuya fecha ya pasó según el calendario único de
-  // la carrera (mismo criterio que careerCatchUpMatches), y recalcula la tabla. Se llama en cada
-  // entrada a la pantalla de temporada, así que el resultado siempre está al día sin que el
-  // usuario tenga que hacer nada.
+  // la carrera (mismo criterio que careerCatchUpMatches), recalcula la tabla y, si la fase regular
+  // ya terminó, arma y sigue el reducido de ascenso (cuando la liga tiene uno definido). Se llama
+  // en cada entrada a la pantalla de temporada, así que el resultado siempre está al día sin que
+  // el usuario tenga que hacer nada.
   function careerWorldLeagueCatchUp(league){
     const c = state.career;
     if(!c.calendarDate) return;
     const byId = {}; league.teams.forEach(t => byId[t.id] = t);
-    let jugoAlguno = false;
-    league.matches.forEach(m => {
-      if(m.played || !m.date || m.date >= c.calendarDate) return;
-      const home = byId[m.home], away = byId[m.away];
-      const res = worldLeagueMatchResult(home.elo, away.elo, {});
-      m.homeScore = res.homeScore; m.awayScore = res.awayScore; m.played = true;
-      const [nh, na] = worldLeagueEloUpdate(home.elo, away.elo, m.homeScore, m.awayScore, {});
-      home.elo = nh; away.elo = na;
-      jugoAlguno = true;
-    });
+    if(league.format === 'fases-grupos'){
+      const jugoAlguno = careerWorldLeaguePlayDue(league.matches, byId, c.calendarDate, {});
+      if(jugoAlguno || !league.table.length) league.table = computeGenericStandings(league.matches, league.teams);
+      const fase1Done = league.matches.length > 0 && league.matches.every(m => m.played);
+      if(fase1Done){
+        if(league.relegatedIds.length === 0 && league.descensos > 0) league.relegatedIds = league.table.slice(-league.descensos).map(r => r.id);
+        if(!league.fase2Groups) careerWorldLeagueBuildFase2(league);
+      }
+      if(league.fase2Groups && league.stage === 'fase2') careerWorldLeagueCatchUpFase2(league);
+      if(league.final) careerWorldLeagueCatchUpFinal(league);
+      return;
+    }
+    const jugoAlguno = careerWorldLeaguePlayDue(league.matches, byId, c.calendarDate, {});
     if(jugoAlguno || !league.table.length) league.table = computeGenericStandings(league.matches, league.teams);
     const allPlayed = league.matches.length > 0 && league.matches.every(m => m.played);
     if(allPlayed && !league.championId){
       league.championId = league.table[0] ? league.table[0].id : null;
       if(league.descensos > 0) league.relegatedIds = league.table.slice(-league.descensos).map(r => r.id);
+      if(!league.promocionPlayoff && league.promocionDirecta > 0){
+        league.promotedIds = league.table.slice(0, league.promocionDirecta).map(r=>r.id);
+      }
       if(league.championId){
         league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
         if(league.history.length > 10) league.history.length = 10;
       }
+    }
+    if(allPlayed && league.promocionPlayoff){
+      if(!league.playoff) careerWorldLeagueBuildPlayoff(league);
+      careerWorldLeagueCatchUpPlayoff(league);
     }
   }
   // Punto de entrada: se llama junto con careerEnsureDivisions cada vez que se entra a la
@@ -5672,62 +6140,373 @@
     const wl = careerWorldLeagues();
     WORLD_LEAGUES_REGISTRY.forEach(def => {
       let league = wl[def.key];
-      if(!league || league.year !== c.year){ careerWorldLeagueBuildSeason(def); league = wl[def.key]; }
-      careerWorldLeagueCatchUp(league);
+      if(!league || league.year !== c.year){
+        if(def.format === 'grupos-multiples') careerWorldLeagueBuildSeasonGrupos(def);
+        else careerWorldLeagueBuildSeason(def);
+        league = wl[def.key];
+      }
+      if(def.format === 'grupos-multiples') careerWorldLeagueCatchUpGrupos(league);
+      else careerWorldLeagueCatchUp(league);
     });
   }
   function renderWorldLeagueTable(league){
     const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const promoDirectIds = league.promocionDirecta > 0 ? league.table.slice(0, league.promocionDirecta).map(r=>r.id) : [];
     return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
     ${league.table.map((r,i) => {
       const t = byId[r.id];
       const isChamp = r.id === league.championId;
       const isRel = league.relegatedIds && league.relegatedIds.includes(r.id);
-      const style = isRel ? 'border-left:4px solid var(--red);' : '';
-      return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${isChamp?' <span style="color:var(--gold-bright);font-size:11px;">&#127942; campeón</span>':''}${isRel?' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>':''}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      const isPromoDirect = promoDirectIds.includes(r.id);
+      const isPromoPlayoff = !isPromoDirect && league.promocionPlayoffPositions && league.promocionPlayoffPositions.includes(i+1);
+      const isPromoted = league.promotedIds && league.promotedIds.includes(r.id);
+      let style = '';
+      if(isRel) style = 'border-left:4px solid var(--red);';
+      else if(isPromoDirect) style = 'border-left:4px solid var(--green-win);';
+      else if(isPromoPlayoff) style = 'border-left:4px solid var(--gold);';
+      let tag = '';
+      if(isChamp) tag += ' <span style="color:var(--gold-bright);font-size:11px;">&#127942; campeón</span>';
+      if(isRel) tag += ' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>';
+      if(isPromoted) tag += ' <span style="color:var(--green-win);font-size:11px;">&#9650; asciende</span>';
+      else if(isPromoDirect) tag += ' <span style="color:var(--green-win);font-size:11px;">&#9650; ascenso directo</span>';
+      else if(isPromoPlayoff) tag += ' <span style="color:var(--gold);font-size:11px;">reducido</span>';
+      return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
     }).join('')}
     </tbody></table>`;
   }
+  function renderWorldLeaguePlayoff(league){
+    const po = league.playoff;
+    if(!po) return '';
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    let html = `<div class="panel"><h3>Reducido de ascenso</h3>`;
+    po.pairs.forEach(pair => {
+      const teamA = byId[pair.teamA], teamB = byId[pair.teamB];
+      html += `<div class="cs-fixture-card"><div>${pair.posA}&deg; ${escapeHtml(teamA.name)} vs ${pair.posB}&deg; ${escapeHtml(teamB.name)}</div><div class="num">`;
+      pair.legs.forEach(l => {
+        html += l.played ? ` ${l.homeScore}-${l.awayScore}` : ' &mdash;';
+      });
+      if(pair.winnerId){
+        const w = byId[pair.winnerId];
+        html += ` &middot; <span style="color:var(--green-win);">asciende ${escapeHtml(w.name)}${pair.wentToPenalties?' (penales)':''}</span>`;
+      }
+      html += `</div></div>`;
+    });
+    html += `</div>`;
+    return html;
+  }
+  // Tabla simple para un grupo de fase 2 (formato "fases-grupos"): mismas columnas, resalta a los
+  // 2 primeros como ascenso directo.
+  function renderWorldLeagueGroupTable(group, byIdAll){
+    return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+    ${group.table.map((r,i) => {
+      const t = byIdAll[r.id];
+      const isPromo = i < 2;
+      const style = isPromo ? 'border-left:4px solid var(--green-win);' : '';
+      const tag = isPromo ? ' <span style="color:var(--green-win);font-size:11px;">&#9650; asciende a Serie B</span>' : '';
+      return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+    }).join('')}
+    </tbody></table>`;
+  }
+  // Render dedicado para el formato "fases-grupos" (Serie C de Brasil): fase 1 (tabla única con
+  // clasificación a fase 2 y descenso directo), fase 2 (2 grupos ida y vuelta) y la final entre
+  // los 2 ganadores de grupo por el campeón.
+  function renderWorldLeagueFasesGrupos(league){
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    const clasificanIds = [].concat(...Object.values(league.grupos)).length
+      ? Object.values(league.grupos).reduce((acc,arr)=>acc.concat(arr),[]).map(pos => league.table[pos-1] && league.table[pos-1].id).filter(Boolean)
+      : [];
+    let html = `<div class="panel"><h3>Fase 1 &mdash; tabla general</h3><table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+    ${league.table.map((r,i) => {
+      const t = byIdAll[r.id];
+      const isRel = league.relegatedIds.includes(r.id);
+      const isClasif = clasificanIds.includes(r.id);
+      let style = '', tag = '';
+      if(isRel){ style='border-left:4px solid var(--red);'; tag=' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>'; }
+      else if(isClasif){ style='border-left:4px solid var(--gold);'; tag=' <span style="color:var(--gold);font-size:11px;">clasifica a fase 2</span>'; }
+      return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+    }).join('')}
+    </tbody></table></div>`;
+    if(league.fase2Groups){
+      Object.keys(league.fase2Groups).forEach(gname => {
+        const g = league.fase2Groups[gname];
+        html += `<div class="panel"><h3>Fase 2 &mdash; Grupo ${gname}</h3>${g.table.length ? renderWorldLeagueGroupTable(g, byIdAll) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+      });
+    }
+    if(league.final){
+      const f = league.final;
+      const teamA = byIdAll[f.teamA], teamB = byIdAll[f.teamB];
+      html += `<div class="panel"><h3>Final</h3><div class="cs-fixture-card"><div>${escapeHtml(teamA.name)} vs ${escapeHtml(teamB.name)}</div><div class="num">`;
+      f.legs.forEach(l => { html += l.played ? ` ${l.homeScore}-${l.awayScore}` : ' &mdash;'; });
+      if(f.winnerId){
+        const w = byIdAll[f.winnerId];
+        html += ` &middot; <span style="color:var(--gold-bright);">campeón: ${escapeHtml(w.name)}${f.wentToPenalties?' (penales)':''}</span>`;
+      }
+      html += `</div></div></div>`;
+    }
+    return html;
+  }
+  // Íconos de país para las tarjetas de "Ligas del Mundo" (fallback: globo terráqueo).
+  const COUNTRY_FLAGS = { 'Brasil': '&#127463;&#127479;' };
+  // Tarjeta clicable genérica, misma pinta que competitionCard pero con una data-action propia.
+  function worldNavCard(icon, title, subtitle, action, dataAttrs){
+    return `<div class="cs-comp-card" data-action="${action}" ${dataAttrs}>
+      <div class="cc-icon">${icon}</div>
+      <div class="cc-title">${escapeHtml(title)}</div>
+      <div class="cc-sub">${subtitle}</div>
+      <div class="cc-cta">Ver &rarr;</div>
+    </div>`;
+  }
+  // Frase de estado de una liga/copa para las tarjetas de selección de competición.
+  function worldLeagueStatusLabel(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    if(league.format === 'grupos-multiples'){
+      const grupos = Object.values(league.grupos);
+      const total = grupos.reduce((s,g)=>s+g.matches.length,0);
+      const jugados = grupos.reduce((s,g)=>s+g.matches.filter(m=>m.played).length,0);
+      if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)} &middot; Ascienden: ${escapeHtml((league.promotedIds||[]).map(id=>byId[id].name).join(', '))}`;
+      if(league.promotedIds && league.promotedIds.length) return `Jugando semifinales/final &middot; Ascienden: ${escapeHtml(league.promotedIds.map(id=>byId[id].name).join(', '))}`;
+      if(league.stage === 'knockout'){
+        const ko = league.knockoutRounds[league.knockoutRounds.length-1];
+        return `Eliminatoria de ascenso &middot; ${KO_GRUPOS_LABELS[ko.stage] || ko.stage}`;
+      }
+      if(jugados === 0) return `Todavía no arrancó &middot; ${grupos.length} grupos de 6 equipos`;
+      if(jugados === total) return `Fase de grupos completa &middot; arrancando la eliminatoria de ascenso`;
+      return `Fase de grupos &middot; ${jugados}/${total} partidos jugados`;
+    }
+    const jugados = league.matches.filter(m=>m.played).length;
+    const total = league.matches.length;
+    const totalRounds = total ? Math.max(...league.matches.map(m=>m.round)) : 0;
+    const roundsWithPlay = league.matches.filter(m=>m.played).map(m=>m.round);
+    const currentRound = roundsWithPlay.length ? Math.max(...roundsWithPlay) : 0;
+    if(league.format === 'fases-grupos'){
+      if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)} &middot; Ascienden: ${escapeHtml(league.promotedIds.map(id=>byId[id].name).join(', '))}`;
+      if(league.stage === 'final') return `Jugando la final &middot; Ascienden: ${escapeHtml(league.promotedIds.map(id=>byId[id].name).join(', '))}`;
+      if(league.stage === 'fase2') return `Fase 2 en curso`;
+      if(jugados === 0) return `Todavía no arrancó &middot; Fase 1 (${totalRounds} fechas)`;
+      return `Fase 1 &middot; Fecha ${currentRound} de ${totalRounds} &middot; ${jugados}/${total} partidos jugados`;
+    }
+    if(league.playoff && league.playoff.resolved){
+      return `Campeón: ${escapeHtml(byId[league.championId].name)} &middot; Ascienden: ${escapeHtml(league.promotedIds.map(id=>byId[id].name).join(', '))}`;
+    }
+    if(league.championId){
+      const champTeam = league.teams.find(t=>t.id===league.championId);
+      return `Campeón: ${escapeHtml(champTeam ? champTeam.name : '')}${league.promocionPlayoff ? ' &middot; Jugando el reducido de ascenso' : ''}`;
+    }
+    if(jugados === 0) return `Todavía no arrancó &middot; ${totalRounds} fechas en total`;
+    return `Fecha ${currentRound} de ${totalRounds} &middot; ${jugados}/${total} partidos jugados`;
+  }
+  // Fila simple (no editable) de un partido de liga del mundo, para las pestañas de Fixture y
+  // Resultados: solo muestra local, visitante y resultado (si ya se jugó), sin botones de
+  // simular ni confirmar porque estos partidos se juegan solos.
+  function renderWorldMatchRow(m, byId){
+    const home = byId[m.home], away = byId[m.away];
+    if(!home || !away) return '';
+    return `<div class="cs-fixture-card">
+      <div>${escapeHtml(home.name)} <span class="num" style="color:var(--ink-dim);">(${home.elo})</span> &nbsp;vs&nbsp; ${escapeHtml(away.name)} <span class="num" style="color:var(--ink-dim);">(${away.elo})</span></div>
+      <div class="num">${m.played ? `${m.homeScore} &ndash; ${m.awayScore}` : '&mdash;'}</div>
+    </div>`;
+  }
+  // Pestaña de Fixture o Resultados para una lista de partidos con su propio contexto de
+  // navegación por fecha (reutiliza el mismo mecanismo de fixtureNav que el resto de la carrera).
+  function renderWorldLeagueMatchesTab(ctx, matches, byId, mode){
+    if(!matches.length) return `<div class="panel"><p class="hint">Todavía no hay partidos.</p></div>`;
+    const rounds = [...new Set(matches.map(m=>m.round))].sort((a,b)=>a-b);
+    const total = rounds.length;
+    if(!state.career.fixtureNav) state.career.fixtureNav = {};
+    if(state.career.fixtureNav[ctx] === undefined){
+      if(mode === 'resultados'){
+        const played = matches.filter(m=>m.played).map(m=>m.round);
+        state.career.fixtureNav[ctx] = played.length ? Math.max(...played) : rounds[0];
+      } else {
+        const pending = matches.filter(m=>!m.played).map(m=>m.round);
+        state.career.fixtureNav[ctx] = pending.length ? Math.min(...pending) : rounds[rounds.length-1];
+      }
+    }
+    const cur = ensureCareerRoundPointer(ctx, total);
+    let curMatches = matches.filter(m=>m.round===cur);
+    if(mode === 'resultados') curMatches = curMatches.filter(m=>m.played);
+    let html = `<div class="panel"><h3>${mode==='resultados'?'Resultados':'Fixture'} &mdash; Fecha ${cur} de ${total}</h3>`;
+    html += renderRoundNav(ctx, cur, total, 'Fecha', 'career-nav-round');
+    if(!curMatches.length){
+      html += `<p class="hint">${mode==='resultados' ? 'Todavía no se jugó ningún partido en esta fecha.' : 'No hay partidos programados en esta fecha.'}</p>`;
+    } else {
+      html += curMatches.map(m=>renderWorldMatchRow(m, byId)).join('');
+    }
+    html += `</div>`;
+    return html;
+  }
+  // Junta, para las pestañas de Fixture/Resultados, todos los partidos de una liga sin importar
+  // la etapa (fase 1, grupos de fase 2, final), así se ve todo el calendario de una sola vez.
+  function worldLeagueAllMatchesFlat(league){
+    let matches = league.matches ? league.matches.slice() : [];
+    if(league.fase2Groups) Object.values(league.fase2Groups).forEach(g => { matches = matches.concat(g.matches); });
+    if(league.final) matches = matches.concat(league.final.legs);
+    return matches;
+  }
+  // Grilla de los 16 grupos de la Serie D, cada uno como tarjeta clicable con su estado.
+  function renderWorldLeagueGruposGrid(league){
+    const byIdAll = {}; league.teams.forEach(t=>byIdAll[t.id]=t);
+    let html = `<div class="cs-comp-grid">`;
+    Object.keys(league.grupos).forEach(gname => {
+      const g = league.grupos[gname];
+      const jugados = g.matches.filter(m=>m.played).length;
+      const total = g.matches.length;
+      const leader = g.table && g.table.length ? byIdAll[g.table[0].id] : null;
+      const leaderLabel = leader ? escapeHtml(leader.name) : '&mdash;';
+      let sub;
+      if(jugados === 0) sub = 'Todavía no arrancó';
+      else if(jugados === total) sub = `Puntero: ${leaderLabel}`;
+      else sub = `${jugados}/${total} partidos &middot; puntero: ${leaderLabel}`;
+      html += worldNavCard('&#9917;', gname, sub, 'career-wl-set-grupo', `data-grupo="${escapeHtml(gname)}"`);
+    });
+    html += `</div>`;
+    return html;
+  }
+  // Tabla de un grupo de la Serie D: los 4 primeros clasifican a la eliminatoria de ascenso
+  // (Segunda Fase), así que se resaltan los cuatro, con una marca aparte para el puntero.
+  function renderWorldLeagueGrupoDTable(group, byIdAll){
+    return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+    ${group.table.map((r,i) => {
+      const t = byIdAll[r.id];
+      const isLeader = i === 0;
+      const isClasif = i < 4;
+      const style = isClasif ? `border-left:4px solid ${isLeader?'var(--gold)':'var(--green-win)'};` : '';
+      const tag = isLeader ? ' <span style="color:var(--gold);font-size:11px;">1&deg; del grupo</span>'
+        : isClasif ? ' <span style="color:var(--green-win);font-size:11px;">clasifica a la Segunda Fase</span>' : '';
+      return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+    }).join('')}
+    </tbody></table>`;
+  }
+  // Cuadro de eliminatoria de ascenso de la Serie D: una tarjeta por ronda (Segunda Fase, Tercera
+  // Fase, Octavos, Cuartos, Semis, Final), con cada llave ida/vuelta y quién avanza. En Cuartos,
+  // además, se marca a los 4 ganadores como ascendidos a la Serie C (el ascenso ya quedó definido
+  // apenas se armó la Semifinal). Si ya hay campeón, cierra con el banner correspondiente.
+  function renderWorldLeagueKnockoutGrupos(league){
+    if(!league.knockoutRounds || !league.knockoutRounds.length) return '';
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    let html = '';
+    league.knockoutRounds.forEach(round => {
+      html += `<div class="panel"><h3>${KO_GRUPOS_LABELS[round.stage] || round.stage}</h3>`;
+      round.pairs.forEach(pair => {
+        const teamA = byIdAll[pair.teamA], teamB = byIdAll[pair.teamB];
+        html += `<div class="cs-fixture-card"><div>${escapeHtml(teamA.name)} vs ${escapeHtml(teamB.name)}</div><div class="num">`;
+        pair.legs.forEach(l => { html += l.played ? ` ${l.homeScore}-${l.awayScore}` : ' &mdash;'; });
+        if(pair.winnerId){
+          const w = byIdAll[pair.winnerId];
+          const promoTag = round.stage === 'cuartos' ? ' &middot; <span style="color:var(--green-win);">asciende a la Serie C</span>' : '';
+          html += ` &middot; <span style="color:var(--gold-bright);">avanza ${escapeHtml(w.name)}${pair.wentToPenalties?' (penales)':''}</span>${promoTag}`;
+        }
+        html += `</div></div>`;
+      });
+      html += `</div>`;
+    });
+    if(league.promotedIds && league.promotedIds.length && !league.championId){
+      html += `<div class="msg" style="background:rgba(90,143,90,0.12);border:1px solid rgba(90,143,90,0.4);color:var(--green-win);">&#9650; Ascienden a la Serie C: <strong>${league.promotedIds.map(id=>escapeHtml(byIdAll[id].name)).join(', ')}</strong></div>`;
+    }
+    if(league.championId){
+      const champ = byIdAll[league.championId];
+      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Serie D ${league.year}: <strong>${escapeHtml(champ.name)}</strong> &middot; clasifica a la Tercera Fase de la Copa de Brasil</div>`;
+    }
+    return html;
+  }
+  // ---------- Ligas del Mundo: navegación en 3-4 niveles (país -> competición -> [grupo] -> pestaña) ----------
   function renderCareraLigasMundo(){
     const c = state.career;
     careerEnsureWorldLeagues();
     const wl = careerWorldLeagues();
-    let html = `<div class="panel"><h2>Ligas del Mundo</h2><p class="hint">Las ligas que no son de Argentina se juegan solas en segundo plano, fecha a fecha, en paralelo al torneo local. Lo que ves acá es el estado real a la altura del calendario en la que estás ahora, no un resultado final adelantado.</p></div>`;
     if(WORLD_LEAGUES_REGISTRY.length === 0){
-      html += `<div class="panel cs-stub"><div class="big">&#127758;</div><h2>Todavía no hay ligas cargadas</h2><p class="hint">A medida que se sumen los formatos de cada país, sus ligas y copas van a aparecer acá.</p></div>`;
-      return html;
+      return `<div class="panel"><h2>Ligas del Mundo</h2><p class="hint">Las ligas que no son de Argentina se juegan solas en segundo plano, fecha a fecha, en paralelo al torneo local.</p></div><div class="panel cs-stub"><div class="big">&#127758;</div><h2>Todavía no hay ligas cargadas</h2><p class="hint">A medida que se sumen los formatos de cada país, sus ligas y copas van a aparecer acá.</p></div>`;
     }
     const byCountry = {};
     WORLD_LEAGUES_REGISTRY.forEach(def => {
       if(!byCountry[def.country]) byCountry[def.country] = [];
       byCountry[def.country].push(def);
     });
-    Object.keys(byCountry).forEach(country => {
-      html += `<div class="cs-section-title">${escapeHtml(country)}</div>`;
-      byCountry[country].forEach(def => {
-        const league = wl[def.key];
-        if(!league) return;
-        const jugados = league.matches.filter(m=>m.played).length;
-        const total = league.matches.length;
-        const totalRounds = total ? Math.max(...league.matches.map(m=>m.round)) : 0;
-        const roundsWithPlay = league.matches.filter(m=>m.played).map(m=>m.round);
-        const currentRound = roundsWithPlay.length ? Math.max(...roundsWithPlay) : 0;
-        let estado;
-        if(league.championId){
-          const champTeam = league.teams.find(t=>t.id===league.championId);
-          estado = `Campeón: <strong style="color:var(--ink);">${escapeHtml(champTeam ? champTeam.name : '')}</strong>`;
-        } else if(jugados === 0){
-          estado = `Todavía no arrancó &middot; ${totalRounds} fechas en total`;
-        } else {
-          estado = `Fecha ${currentRound} de ${totalRounds} &middot; ${jugados}/${total} partidos jugados`;
-        }
-        html += `<div class="panel"><h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${estado}</p>${renderWorldLeagueTable(league)}</div>`;
-        if(league.history && league.history.length > 1){
-          const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
-          html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-        }
+
+    // Nivel 1: elegir país.
+    if(!c.wlPais || !byCountry[c.wlPais]){
+      let html = `<div class="panel"><h2>Ligas del Mundo</h2><p class="hint">Las ligas que no son de Argentina se juegan solas en segundo plano, fecha a fecha, en paralelo al torneo local. Elegí un país para ver sus divisiones y copas por separado.</p></div>`;
+      html += `<div class="cs-comp-grid">`;
+      Object.keys(byCountry).forEach(country => {
+        const defs = byCountry[country];
+        html += worldNavCard(COUNTRY_FLAGS[country] || '&#127760;', country, `${defs.length} competición${defs.length===1?'':'es'}`, 'career-wl-set-pais', `data-pais="${escapeHtml(country)}"`);
       });
-    });
+      html += `</div>`;
+      return html;
+    }
+
+    const defs = byCountry[c.wlPais];
+
+    // Nivel 2: elegir competición dentro del país.
+    if(!c.wlComp || !defs.find(d=>d.key===c.wlComp)){
+      let html = `<div class="panel">
+        <div class="btn-row" style="margin-top:0;"><button class="btn ghost small" data-action="career-wl-back-pais">&larr; Ligas del Mundo</button></div>
+        <h2>${escapeHtml(c.wlPais)}</h2>
+        <p class="hint">Elegí una división o copa para ver su tabla, fixture y resultados.</p>
+      </div>`;
+      html += `<div class="cs-comp-grid">`;
+      defs.forEach(def => {
+        const league = wl[def.key];
+        html += worldNavCard('&#127942;', def.name, league ? worldLeagueStatusLabel(league) : 'Cargando&hellip;', 'career-wl-set-comp', `data-comp="${escapeHtml(def.key)}"`);
+      });
+      html += `</div>`;
+      return html;
+    }
+
+    const def = defs.find(d=>d.key===c.wlComp);
+    const league = wl[def.key];
+    if(!league) return `<div class="panel"><p class="hint">Cargando&hellip;</p></div>`;
+
+    const backBar = `<div class="btn-row" style="margin-top:0;">
+      <button class="btn ghost small" data-action="career-wl-back-pais">&larr; Ligas del Mundo</button>
+      <button class="btn ghost small" data-action="career-wl-back-comp">&larr; ${escapeHtml(c.wlPais)}</button>
+      ${league.format==='grupos-multiples' && c.wlGrupo ? `<button class="btn ghost small" data-action="career-wl-back-grupo">&larr; ${escapeHtml(league.name)}</button>` : ''}
+    </div>`;
+
+    // Serie D (y cualquier otro formato de grupos múltiples): primero hay que elegir el grupo.
+    if(league.format === 'grupos-multiples' && (!c.wlGrupo || !league.grupos[c.wlGrupo])){
+      let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
+      html += renderWorldLeagueGruposGrid(league);
+      html += renderWorldLeagueKnockoutGrupos(league);
+      if(league.history && league.history.length > 1){
+        const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
+        html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      return html;
+    }
+
+    if(!c.wlTab) c.wlTab = 'tabla';
+    const byIdAll = {}; league.teams.forEach(t=>byIdAll[t.id]=t);
+    let titulo = league.name, subtitulo = worldLeagueStatusLabel(league);
+    let matches, tablaHtml;
+    if(league.format === 'grupos-multiples'){
+      const g = league.grupos[c.wlGrupo];
+      titulo = `${league.name} &middot; ${g.nombre}`;
+      const jugados = g.matches.filter(m=>m.played).length, total = g.matches.length;
+      subtitulo = jugados===total ? 'Fase de grupos completa' : `${jugados}/${total} partidos jugados`;
+      matches = g.matches;
+      tablaHtml = g.table.length ? `<div class="panel">${renderWorldLeagueGrupoDTable(g, byIdAll)}</div>` : `<div class="panel"><p class="hint">Todavía no hay tabla.</p></div>`;
+    } else {
+      matches = worldLeagueAllMatchesFlat(league);
+      tablaHtml = league.format === 'fases-grupos' ? renderWorldLeagueFasesGrupos(league) : `<div class="panel">${renderWorldLeagueTable(league)}</div>${renderWorldLeaguePlayoff(league)}`;
+    }
+    const ctxBase = league.format === 'grupos-multiples' ? `wl_${def.key}_${c.wlGrupo}` : `wl_${def.key}`;
+
+    let html = `<div class="panel">${backBar}<h2>${titulo} ${league.year}</h2><p class="hint">${subtitulo}</p></div>`;
+    html += `<div class="btn-row" style="margin-top:0;">
+      <button class="btn small ${c.wlTab==='tabla'?'primary':'ghost'}" data-action="career-wl-set-tab" data-tab="tabla">Tabla</button>
+      <button class="btn small ${c.wlTab==='fixture'?'primary':'ghost'}" data-action="career-wl-set-tab" data-tab="fixture">Fixture</button>
+      <button class="btn small ${c.wlTab==='resultados'?'primary':'ghost'}" data-action="career-wl-set-tab" data-tab="resultados">Resultados</button>
+    </div>`;
+
+    if(c.wlTab === 'fixture') html += renderWorldLeagueMatchesTab(ctxBase+'_fx', matches, byIdAll, 'fixture');
+    else if(c.wlTab === 'resultados') html += renderWorldLeagueMatchesTab(ctxBase+'_res', matches, byIdAll, 'resultados');
+    else html += tablaHtml;
+
+    if(league.format !== 'grupos-multiples' && league.history && league.history.length > 1){
+      const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
+      html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
     return html;
   }
 
