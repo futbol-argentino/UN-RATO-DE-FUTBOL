@@ -5595,12 +5595,15 @@
       name: 'Brasileirão Série C',
       format: 'fases-grupos',
       // Fase 1: todos-contra-todos una vez (19 fechas), tabla única con los 20 equipos.
-      descensos: 2,                // últimos 2 (19°-20°) descienden directo a la Serie D
+      // Ojo: tiene que ser 4 (no 2) para que la pirámide cierre — la Serie D manda 4 para arriba
+      // cada año (los 4 cuartofinalistas ganadores), así que la Serie C tiene que mandar los mismos
+      // 4 para abajo o, si no, la Serie D perdería 2 equipos por cada ciclo completo de ascensos.
+      descensos: 4,
       // Fase 2: los 8 primeros de la fase 1 se separan en 2 grupos de 4 según su posición.
       grupos: { A:[1,4,5,8], B:[2,3,6,7] },
       // Dentro de cada grupo, ida y vuelta (6 fechas); los 2 primeros de cada grupo ascienden a
-      // la Serie B. Los 2 ganadores de grupo juegan una final ida y vuelta por el campeón (el
-      // campeón, además, clasifica a la Copa de Brasil — todavía no integrado).
+      // la Serie B. Los 2 ganadores de grupo juegan una final ida y vuelta por el campeón (que,
+      // como cualquier otro equipo de la Serie C, ya juega la Copa do Brasil igual).
       teams: [
         { name:'Botafogo PB', elo:1756 }, { name:'Brusque', elo:1706 }, { name:'Ferroviaria', elo:1781 },
         { name:'Maringa', elo:1797 }, { name:'Floresta', elo:1673 }, { name:'Inter De Limeira', elo:1723 },
@@ -5686,6 +5689,26 @@
           { name:'EC Sao Jose', elo:1667 }, { name:'Brasil de Pelotas', elo:1646 }, { name:'Azuriz', elo:1553 }
         ]}
       ]
+    },
+    {
+      // La Copa do Brasil no tiene planteles propios: se arma cada año con los equipos que ya
+      // están jugando la Série A, la Série B y la Série C (60 en total), más el campeón vigente de
+      // la Série D si ya está definido para este año. Por eso no tiene 'teams' acá — se resuelve en
+      // careerWorldLeagueBuildCopaBrasil, que corre después de que esas cuatro ligas ya estén
+      // armadas para el año en curso (ver careerEnsureWorldLeagues).
+      key: 'copa-brasil',
+      country: 'Brasil',
+      name: 'Copa do Brasil',
+      format: 'copa-eliminacion'
+    },
+    {
+      // Partido único entre el campeón del Brasileirão y el campeón de la Copa do Brasil del mismo
+      // año (si es el mismo equipo, se corona directo, sin jugarla). Se arma en
+      // careerEnsureSupercopaBrasil apenas están los dos campeones.
+      key: 'supercopa-brasil',
+      country: 'Brasil',
+      name: 'Supercopa do Brasil',
+      format: 'partido-unico'
     }
   ];
 
@@ -5780,14 +5803,17 @@
   // todos a una o dos ruedas) con fechas repartidas semana a semana a lo largo del año, pero sin
   // jugar ningún partido todavía — eso lo hace careerWorldLeagueCatchUp a medida que el calendario
   // avanza. Los equipos persisten de un año a otro (con su ELO ya actualizado); si es la primera
-  // vez que se arma esta liga, se cargan desde el registro.
-  function careerWorldLeagueBuildSeason(def){
+  // vez que se arma esta liga, se cargan desde el registro. Si se pasa `newRoster` (el plantel ya
+  // armado por la pirámide de ascensos/descensos, ver careerWorldLeaguePyramidNewRosters), se usa
+  // eso en vez de repetir el plantel del año anterior tal cual.
+  function careerWorldLeagueBuildSeason(def, newRoster){
     const c = state.career;
     const wl = careerWorldLeagues();
     const prev = wl[def.key];
-    const teams = (prev && prev.teams && prev.teams.length)
-      ? prev.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
-      : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    const teams = newRoster ? newRoster.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+      : (prev && prev.teams && prev.teams.length)
+        ? prev.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
     const ids = teams.map(t=>t.id);
     let rounds = roundRobinRounds(ids);
     if(def.format === 'liga-ida-vuelta'){
@@ -5813,6 +5839,13 @@
       descensos: def.descensos || 0, promocionDirecta: def.promocionDirecta || 0,
       promocionPlayoff: def.promocionPlayoff || null, promocionPlayoffPositions,
       grupos: def.grupos || null,
+      // `season` es un contador propio de esta división que suma 1 cada vez que arranca una
+      // temporada nueva, sin importar el año de carrera — hace falta porque, con la pirámide de
+      // ascensos ya funcionando, una división puede arrancar su siguiente temporada sin que
+      // `c.year` haya cambiado todavía (si esta terminó antes que las otras 3). La Copa/Supercopa
+      // do Brasil usan esto (no el año) para saber si el plantel de esta liga que tienen cargado
+      // sigue siendo el vigente.
+      season: (prev && prev.season) ? prev.season + 1 : 1,
       year: c.year, teams, matches, table: [], championId: null, relegatedIds: [], promotedIds: [],
       playoff: null, stage: def.format === 'fases-grupos' ? 'fase1' : 'liga', fase2Groups: null, final: null,
       history
@@ -5821,19 +5854,18 @@
   // ---- Formato "grupos-multiples" (Serie D de Brasil): varios grupos chicos (16 grupos de 6
   // equipos) que juegan todos-contra-todos ida y vuelta en paralelo entre sí, sin fase previa
   // compartida. Cada grupo tiene su propio fixture y tabla; cuando terminan los 16 grupos arranca
-  // la eliminatoria de ascenso (ver careerWorldLeagueBuildKnockoutGrupos más abajo).
-  function careerWorldLeagueBuildSeasonGrupos(def){
+  // la eliminatoria de ascenso (ver careerWorldLeagueBuildKnockoutGrupos más abajo). Si se pasa
+  // `newRoster` (armado por careerWorldLeaguePyramidNewRosters), los grupos se sortean de nuevo
+  // desde cero con ese plantel — ya no tiene sentido mantener los grupos del año anterior tal
+  // cual, porque cambió su composición (entraron y salieron equipos).
+  function careerWorldLeagueBuildSeasonGrupos(def, newRoster){
     const c = state.career;
     const wl = careerWorldLeagues();
     const prev = wl[def.key];
     const startDate = careerSeasonStart(c.year, 'apertura');
     const grupos = {};
     const allTeams = [];
-    def.gruposIniciales.forEach((g, gi) => {
-      const prevGroup = prev && prev.grupos && prev.grupos[g.nombre];
-      const teams = (prevGroup && prevGroup.teams && prevGroup.teams.length)
-        ? prevGroup.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
-        : g.teams.map((t,i) => ({ id:'wl_'+def.key+'_g'+gi+'_'+i, name:t.name, elo:t.elo }));
+    function armarGrupo(nombre, gi, teams){
       allTeams.push(...teams);
       const ids = teams.map(t=>t.id);
       let rounds = roundRobinRounds(ids);
@@ -5846,12 +5878,33 @@
           matches.push({ id:'wl_'+def.key+'_g'+gi+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
         });
       });
-      grupos[g.nombre] = { nombre:g.nombre, teamIds:ids, teams, matches, table: [] };
-    });
+      grupos[nombre] = { nombre, teamIds:ids, teams, matches, table: [] };
+    }
+    if(newRoster && newRoster.length){
+      const shuffledIds = shuffleArr(newRoster.map(t=>t.id));
+      const byId = {}; newRoster.forEach(t=>byId[t.id]=t);
+      const groupSize = 6;
+      const numGroups = Math.ceil(shuffledIds.length / groupSize);
+      for(let gi=0; gi<numGroups; gi++){
+        const groupIds = shuffledIds.slice(gi*groupSize, gi*groupSize+groupSize);
+        const teams = groupIds.map(id => ({ id:byId[id].id, name:byId[id].name, elo:byId[id].elo }));
+        armarGrupo('Grupo '+(gi+1), gi, teams);
+      }
+    } else {
+      def.gruposIniciales.forEach((g, gi) => {
+        const prevGroup = prev && prev.grupos && prev.grupos[g.nombre];
+        const teams = (prevGroup && prevGroup.teams && prevGroup.teams.length)
+          ? prevGroup.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+          : g.teams.map((t,i) => ({ id:'wl_'+def.key+'_g'+gi+'_'+i, name:t.name, elo:t.elo }));
+        armarGrupo(g.nombre, gi, teams);
+      });
+    }
     const history = (prev && prev.history) ? prev.history.slice() : [];
     wl[def.key] = {
       key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prev && prev.season) ? prev.season + 1 : 1,
       year: c.year, teams: allTeams, grupos, stage: 'grupos', groupWinners: [], championId: null,
+      relegatedIds: [], promotedIds: [],
       history
     };
   }
@@ -5866,6 +5919,19 @@
   const KO_GRUPOS_LABELS = {
     'segunda-fase': 'Segunda Fase',
     'tercera-fase': 'Tercera Fase',
+    octavos: 'Octavos de Final',
+    cuartos: 'Cuartos de Final',
+    semis: 'Semifinales',
+    final: 'Final'
+  };
+  // Cuadro de la Copa do Brasil: eliminación directa ida y vuelta desde el arranque (a diferencia
+  // de la Copa Argentina de este mismo simulador, que es partido único). El tamaño exacto del cuadro
+  // depende de cuántos equipos entran cada año (60 si la Série D todavía no tiene campeón, 61 si ya
+  // lo tiene), así que las primeras rondas quedan con libres hasta completar una potencia de 2.
+  const COPA_BRASIL_ORDER = ['primera-fase','segunda-fase','octavos','cuartos','semis','final'];
+  const COPA_BRASIL_LABELS = {
+    'primera-fase': 'Primera Fase',
+    'segunda-fase': 'Segunda Fase',
     octavos: 'Octavos de Final',
     cuartos: 'Cuartos de Final',
     semis: 'Semifinales',
@@ -5894,12 +5960,18 @@
     return pairs;
   }
   // Arma una ronda de la llave (pares ida y vuelta) a partir de una lista de pares {home,away}.
+  // OJO con esto: las fechas de cada ronda cuelgan siempre de `lastDate` (la fecha más tardía de
+  // la ronda ANTERIOR), nunca de un múltiplo de `roundIdx` — si se usara roundIdx acá, el hueco
+  // entre rondas se iría agrandando ronda a ronda (14, luego 35, luego 63, ...) y un cuadro de 6
+  // rondas terminaría tardando más de un año calendario en resolverse solo, sin que la temporada
+  // de la liga local avance tanto. roundIdx queda en la firma por compatibilidad pero no se usa
+  // para las fechas.
   function careerWorldLeagueBuildKoGruposRound(league, pairs, stageName, lastDate, roundIdx){
     const built = pairs.map((p,i) => ({
       teamA: p.home, teamB: p.away, winnerId: null, wentToPenalties: false,
       legs: [
-        { id:'wl_'+league.key+'_'+stageName+'_'+i+'_1', home:p.away, away:p.home, leg:1, date:addDaysISO(lastDate, 14+roundIdx*21), homeScore:null, awayScore:null, played:false },
-        { id:'wl_'+league.key+'_'+stageName+'_'+i+'_2', home:p.home, away:p.away, leg:2, date:addDaysISO(lastDate, 21+roundIdx*21), homeScore:null, awayScore:null, played:false }
+        { id:'wl_'+league.key+'_'+stageName+'_'+i+'_1', home:p.away, away:p.home, leg:1, date:addDaysISO(lastDate, 14), homeScore:null, awayScore:null, played:false },
+        { id:'wl_'+league.key+'_'+stageName+'_'+i+'_2', home:p.home, away:p.away, leg:2, date:addDaysISO(lastDate, 21), homeScore:null, awayScore:null, played:false }
       ]
     }));
     return { stage: stageName, pairs: built, resolved: false };
@@ -5915,6 +5987,19 @@
     league.stage = 'knockout';
   }
   function careerWorldLeagueCatchUpKnockoutGrupos(league){
+    careerWorldLeagueCatchUpKnockoutGeneric(league, KO_GRUPOS_ORDER, (lg, nextStage, winners) => {
+      // Los 4 que arman la semifinal ascienden a la Serie C apenas queda armado ese cruce, gane
+      // quien gane después: así funciona el ascenso real de la Serie D.
+      if(nextStage === 'semis') lg.promotedIds = winners.slice();
+    });
+  }
+  // Motor genérico de progresión de una eliminatoria ida y vuelta ya armada en league.knockoutRounds:
+  // juega los partidos que ya tengan fecha pasada, resuelve cada llave (global, y penales si hace
+  // falta), y cuando termina una ronda arma la siguiente a partir de los ganadores en el mismo
+  // orden del cuadro (ganador 1 vs ganador 2, etc.), hasta coronar campeón en la última ronda de
+  // `order`. onStageAdvance(league, nextStage, winners), si se pasa, se llama justo al armar cada
+  // ronda nueva — lo usa la Serie D para marcar el ascenso a la Serie C apenas se arma la semifinal.
+  function careerWorldLeagueCatchUpKnockoutGeneric(league, order, onStageAdvance){
     const c = state.career;
     const rounds = league.knockoutRounds;
     const ko = rounds[rounds.length-1];
@@ -5922,6 +6007,13 @@
     const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
     ko.pairs.forEach(pair => {
       if(pair.winnerId) return;
+      // Cruce con equipo libre (cuando el cuadro no completa una potencia de 2, como en la Copa
+      // do Brasil): el otro equipo pasa directo, sin jugar nada.
+      if(pair.teamA === null || pair.teamB === null){
+        pair.winnerId = pair.teamA === null ? pair.teamB : pair.teamA;
+        pair.legs.forEach(l => { l.played = true; l.bye = true; });
+        return;
+      }
       careerWorldLeaguePlayDue(pair.legs, byIdAll, c.calendarDate, {});
       if(pair.legs.every(l => l.played)){
         const teamA = byIdAll[pair.teamA], teamB = byIdAll[pair.teamB];
@@ -5935,21 +6027,19 @@
     if(ko.pairs.every(p => p.winnerId)){
       ko.resolved = true;
       const winners = ko.pairs.map(p => p.winnerId);
-      if(ko.stage === 'final'){
+      if(ko.stage === order[order.length-1]){
         league.championId = winners[0];
         league.stage = 'done';
         league.history.unshift({ year: league.year, championId: league.championId, championName: byIdAll[league.championId].name });
         if(league.history.length > 10) league.history.length = 10;
         return;
       }
-      const nextStage = KO_GRUPOS_NEXT[ko.stage];
-      // Los 4 que arman la semifinal ascienden a la Serie C apenas queda armado ese cruce, gane
-      // quien gane después: así funciona el ascenso real de la Serie D.
-      if(nextStage === 'semis') league.promotedIds = winners.slice();
+      const nextStage = order[order.indexOf(ko.stage)+1];
+      if(onStageAdvance) onStageAdvance(league, nextStage, winners);
       const lastDate = ko.pairs.reduce((max,p) => p.legs.reduce((mx,l) => l.date > mx ? l.date : mx, max), ko.pairs[0].legs[0].date);
       const pairs = [];
       for(let i=0; i<winners.length; i+=2) pairs.push({ home:winners[i], away:winners[i+1] });
-      const roundIdx = KO_GRUPOS_ORDER.indexOf(nextStage);
+      const roundIdx = order.indexOf(nextStage);
       rounds.push(careerWorldLeagueBuildKoGruposRound(league, pairs, nextStage, lastDate, roundIdx));
     }
   }
@@ -6135,19 +6225,186 @@
   // Punto de entrada: se llama junto con careerEnsureDivisions cada vez que se entra a la
   // temporada. Arma el fixture del año una sola vez (cuando cambia el año de carrera) y después,
   // en cada llamada, pone al día los resultados según la fecha del calendario — nunca todo junto.
+  // La pirámide brasileña (Série A-B-C-D): quién le manda los descendidos a quién, y de quién le
+  // llegan los ascendidos. La Série A no tiene "up" (es la cima) y la Série D no tiene "down" (es
+  // la base, no hay nada más abajo modelado todavía).
+  const BRASIL_PYRAMID = {
+    'brasileirao':    { down: 'brasil-serieb' },
+    'brasil-serieb':  { up: 'brasileirao', down: 'brasil-seriec' },
+    'brasil-seriec':  { up: 'brasil-serieb', down: 'brasil-serie-d' },
+    'brasil-serie-d': { up: 'brasil-seriec' }
+  };
+  // Una liga está "terminada" cuando ya tiene campeón y, si tiene reducido de ascenso
+  // (promocionPlayoff), ese reducido también ya se resolvió — si no se espera a esto último,
+  // promotedIds todavía estaría incompleto (le faltarían los 2 ganadores del reducido) justo
+  // cuando se termina de definir el campeón de la tabla regular.
+  function careerWorldLeagueFullyDone(league){
+    if(!league || !league.championId) return false;
+    if(league.promocionPlayoff && league.promocionPlayoff.length){
+      const expected = (league.promocionDirecta||0) + league.promocionPlayoff.length;
+      if(!league.promotedIds || league.promotedIds.length < expected) return false;
+    }
+    return true;
+  }
+  // Arma, a partir del estado ya terminado de las 4 divisiones brasileñas, el plantel con el que
+  // arranca la temporada siguiente de cada una: a cada una se le sacan sus propios ascendidos y
+  // descendidos, y se le suman los descendidos de la división de arriba y los ascendidos de la de
+  // abajo. Se espera a que las 4 estén terminadas antes de mover una sola ficha, para que la
+  // pirámide avance sincronizada — si no, por ejemplo, la Serie A podría sacarse sus 4 descensos
+  // antes de que la Serie B tenga listos sus 4 ascensos, y se quedaría con 16 equipos por un
+  // tiempo. Devuelve null si todavía falta alguna.
+  function careerWorldLeaguePyramidNewRosters(wl){
+    const keys = Object.keys(BRASIL_PYRAMID);
+    if(!keys.every(k => careerWorldLeagueFullyDone(wl[k]))) return null;
+    const rosters = {};
+    keys.forEach(k => {
+      const lg = wl[k];
+      const outIds = new Set([].concat(lg.relegatedIds||[], lg.promotedIds||[]));
+      const roster = lg.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+      const info = BRASIL_PYRAMID[k];
+      if(info.down){
+        const downLg = wl[info.down];
+        (downLg.promotedIds||[]).forEach(id => {
+          const t = downLg.teams.find(x => x.id === id);
+          if(t) roster.push({ id:t.id, name:t.name, elo:t.elo });
+        });
+      }
+      if(info.up){
+        const upLg = wl[info.up];
+        (upLg.relegatedIds||[]).forEach(id => {
+          const t = upLg.teams.find(x => x.id === id);
+          if(t) roster.push({ id:t.id, name:t.name, elo:t.elo });
+        });
+      }
+      rosters[k] = roster;
+    });
+    return rosters;
+  }
   function careerEnsureWorldLeagues(){
     const c = state.career;
     const wl = careerWorldLeagues();
+    // Se calcula una sola vez por llamada, ANTES de tocar ninguna liga: si alguna de las 4 ya
+    // había terminado su temporada en una llamada anterior y se quedó esperando a las demás, no
+    // hay que perder ese resultado (relegatedIds/promotedIds) antes de que la pirámide entera
+    // esté lista para avanzar junta.
+    const pyramidRosters = careerWorldLeaguePyramidNewRosters(wl);
     WORLD_LEAGUES_REGISTRY.forEach(def => {
+      // La Copa do Brasil y la Supercopa do Brasil no tienen fixture propio armado por adelantado
+      // (dependen de los planteles/campeones de las otras ligas de este mismo año), así que se
+      // procesan aparte, después de que el resto ya esté al día — ver más abajo.
+      if(def.format === 'copa-eliminacion' || def.format === 'partido-unico') return;
       let league = wl[def.key];
-      if(!league || league.year !== c.year){
-        if(def.format === 'grupos-multiples') careerWorldLeagueBuildSeasonGrupos(def);
-        else careerWorldLeagueBuildSeason(def);
+      // El arranque de la temporada siguiente de cada división depende de que esa división (y,
+      // si es parte de la pirámide brasileña, las otras 3) ya haya terminado la suya — no de que
+      // haya cambiado el año de carrera. Antes se rearmaba apenas cambiaba `c.year`, y eso podía
+      // llegar a cortar una Serie D a mitad de su propia eliminatoria de ascenso si el torneo
+      // local terminaba antes; ahora cada una corre hasta el final, aunque eso lleve más de un
+      // año calendario de por sí.
+      const isBrasilPyramid = !!BRASIL_PYRAMID[def.key];
+      const done = !league ? true : careerWorldLeagueFullyDone(league);
+      if(!league || (done && (!isBrasilPyramid || pyramidRosters))){
+        const newRoster = isBrasilPyramid && pyramidRosters ? pyramidRosters[def.key] : null;
+        if(def.format === 'grupos-multiples') careerWorldLeagueBuildSeasonGrupos(def, newRoster);
+        else careerWorldLeagueBuildSeason(def, newRoster);
         league = wl[def.key];
       }
       if(def.format === 'grupos-multiples') careerWorldLeagueCatchUpGrupos(league);
       else careerWorldLeagueCatchUp(league);
     });
+    careerEnsureCopaBrasil();
+    careerEnsureSupercopaBrasil();
+  }
+  // La Copa do Brasil se arma una sola vez por año, apenas la Série A, la Série B y la Série C ya
+  // tengan plantel armado para este año (si la Série D todavía no tiene campeón definido para este
+  // año, arranca sin ese cupo — no hace falta esperarla, porque su fase de ascenso puede llevarse
+  // más de una temporada).
+  function careerEnsureCopaBrasil(){
+    const wl = careerWorldLeagues();
+    const a = wl['brasileirao'], b = wl['brasil-serieb'], cc = wl['brasil-seriec'];
+    if(!a || !b || !cc) return;
+    let league = wl['copa-brasil'];
+    // No se fija en el año de carrera sino en el número de temporada propio de cada división (ver
+    // el campo `season`): con la pirámide de ascensos ya funcionando, una división puede arrancar
+    // su siguiente temporada sin que cambie el año, así que hay que rearmar la Copa apenas
+    // cualquiera de las 3 cambia de temporada, aunque sea la misma `c.year` de siempre.
+    const stale = !league || league.aSeason !== a.season || league.bSeason !== b.season || league.ccSeason !== cc.season;
+    if(stale) careerWorldLeagueBuildCopaBrasil();
+    league = wl['copa-brasil'];
+    if(league) careerWorldLeagueCatchUpKnockoutGeneric(league, COPA_BRASIL_ORDER, null);
+  }
+  function careerWorldLeagueBuildCopaBrasil(){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const a = wl['brasileirao'], b = wl['brasil-serieb'], cc = wl['brasil-seriec'];
+    if(!a || !b || !cc) return;
+    let teams = [].concat(a.teams, b.teams, cc.teams);
+    const d = wl['brasil-serie-d'];
+    if(d && d.championId){
+      const champ = d.teams.find(t => t.id === d.championId);
+      if(champ) teams = teams.concat([champ]);
+    }
+    // El cuadro se siembra por ELO (no hay bombos regionales cargados): los equipos más fuertes
+    // quedan en los extremos del sorteo, así son los que se llevan los libres cuando el número de
+    // equipos no completa una potencia de 2 (buildFirstKnockoutRound arma esos libres solo).
+    const seeded = teams.slice().sort((x,y)=>y.elo-x.elo).map(t=>t.id);
+    const pairs0 = buildFirstKnockoutRound(seeded);
+    // La primera fecha de ida cae 2 semanas después del arranque de temporada, un miércoles (como
+    // el resto de los cruces ida y vuelta de estas ligas); careerWorldLeagueBuildKoGruposRound sirve
+    // la primera ronda con roundIdx 0, o sea ida en lastDate+14 y vuelta en lastDate+21 — por eso acá
+    // el "lastDate" de referencia se calcula 14 días antes de esa fecha de ida deseada.
+    const idaDate = nextWeekdayAfter(careerSeasonStart(c.year, 'apertura'), 3);
+    const lastDate = addDaysISO(idaDate, -14);
+    const prev = wl['copa-brasil'];
+    const league = {
+      key:'copa-brasil', country:'Brasil', name:'Copa do Brasil', format:'copa-eliminacion',
+      season: (prev && prev.season) ? prev.season + 1 : 1,
+      aSeason: a.season, bSeason: b.season, ccSeason: cc.season,
+      year:c.year, teams, knockoutRounds:[], championId:null, stage:'knockout',
+      history: (prev && prev.history) ? prev.history.slice() : []
+    };
+    league.knockoutRounds = [ careerWorldLeagueBuildKoGruposRound(league, pairs0, 'primera-fase', lastDate, 0) ];
+    wl['copa-brasil'] = league;
+  }
+  // La Supercopa se arma recién cuando ya están el campeón del Brasileirão y el campeón de la Copa
+  // do Brasil de la misma "generación" (mismo par de números de temporada — ver `season` más
+  // arriba). Si es el mismo equipo, se corona directo (sin partido), como pasa en la vida real; si
+  // no, se juega un partido único a cancha neutral.
+  function careerEnsureSupercopaBrasil(){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const brasileirao = wl['brasileirao'], copa = wl['copa-brasil'];
+    if(!brasileirao || !brasileirao.championId) return;
+    if(!copa || !copa.championId) return;
+    let sc = wl['supercopa-brasil'];
+    if(sc && sc.aSeason === brasileirao.season && sc.copaSeason === copa.season){
+      if(sc.match && !sc.match.played){
+        const byIdAll = {}; sc.teams.forEach(t=>byIdAll[t.id]=t);
+        careerWorldLeaguePlayDue([sc.match], byIdAll, c.calendarDate, {neutral:true});
+        if(sc.match.played){
+          const m = sc.match;
+          if(m.homeScore > m.awayScore) sc.championId = m.home;
+          else if(m.awayScore > m.homeScore) sc.championId = m.away;
+          else { sc.wentToPenalties = true; sc.championId = worldLeaguePenaltyWinner(byIdAll[m.home].elo, byIdAll[m.away].elo) === 'A' ? m.home : m.away; }
+          sc.history.unshift({ year:c.year, championId:sc.championId, championName:byIdAll[sc.championId].name });
+          if(sc.history.length > 10) sc.history.length = 10;
+        }
+      }
+      return;
+    }
+    const teamA = brasileirao.teams.find(t=>t.id===brasileirao.championId);
+    const teamB = copa.teams.find(t=>t.id===copa.championId);
+    if(!teamA || !teamB) return;
+    const prevHistory = (wl['supercopa-brasil'] && wl['supercopa-brasil'].history) ? wl['supercopa-brasil'].history.slice() : [];
+    const base = { key:'supercopa-brasil', country:'Brasil', name:'Supercopa do Brasil', format:'partido-unico', year:c.year, aSeason:brasileirao.season, copaSeason:copa.season };
+    if(teamA.id === teamB.id){
+      prevHistory.unshift({ year:c.year, championId:teamA.id, championName:teamA.name });
+      if(prevHistory.length > 10) prevHistory.length = 10;
+      wl['supercopa-brasil'] = Object.assign({}, base, { teams:[teamA], match:null, championId:teamA.id, wentToPenalties:false, history:prevHistory });
+      return;
+    }
+    const date = nextWeekdayAfter(c.calendarDate, 3);
+    const match = { id:'wl_supercopa-brasil_'+c.year+'_'+copa.season, home:teamA.id, away:teamB.id, date, homeScore:null, awayScore:null, played:false };
+    wl['supercopa-brasil'] = Object.assign({}, base, { teams:[teamA,teamB], match, championId:null, wentToPenalties:false, history:prevHistory });
   }
   function renderWorldLeagueTable(league){
     const byId = {}; league.teams.forEach(t => byId[t.id] = t);
@@ -6259,6 +6516,16 @@
   // Frase de estado de una liga/copa para las tarjetas de selección de competición.
   function worldLeagueStatusLabel(league){
     const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    if(league.format === 'copa-eliminacion'){
+      if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
+      const ko = league.knockoutRounds[league.knockoutRounds.length-1];
+      return `${COPA_BRASIL_LABELS[ko.stage] || ko.stage} en curso`;
+    }
+    if(league.format === 'partido-unico'){
+      if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
+      if(!league.match) return `Pendiente de los dos campeones de este año`;
+      return league.match.played ? `Jugado` : `Se juega el ${formatCareerDate(league.match.date)}`;
+    }
     if(league.format === 'grupos-multiples'){
       const grupos = Object.values(league.grupos);
       const total = grupos.reduce((s,g)=>s+g.matches.length,0);
@@ -6409,6 +6676,56 @@
     }
     return html;
   }
+  // Cuadro de la Copa do Brasil: mismo estilo que el cuadro de ascenso de la Serie D, pero sin
+  // ninguna marca de ascenso/descenso (acá lo único que importa es quién sigue en carrera y quién
+  // termina siendo campeón).
+  function renderWorldLeagueKnockoutCopa(league){
+    if(!league.knockoutRounds || !league.knockoutRounds.length) return `<div class="panel"><p class="hint">Todavía no arrancó.</p></div>`;
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    let html = '';
+    league.knockoutRounds.forEach(round => {
+      html += `<div class="panel"><h3>${COPA_BRASIL_LABELS[round.stage] || round.stage}</h3>`;
+      round.pairs.forEach(pair => {
+        const teamA = pair.teamA === null ? null : byIdAll[pair.teamA], teamB = pair.teamB === null ? null : byIdAll[pair.teamB];
+        if(!teamA || !teamB){
+          const solo = teamA || teamB;
+          html += `<div class="cs-fixture-card"><div>${escapeHtml(solo.name)} <span class="hint">(libre)</span></div><div class="num"><span style="color:var(--gold-bright);">avanza directo</span></div></div>`;
+          return;
+        }
+        html += `<div class="cs-fixture-card"><div>${escapeHtml(teamA.name)} vs ${escapeHtml(teamB.name)}</div><div class="num">`;
+        pair.legs.forEach(l => { html += l.played ? ` ${l.homeScore}-${l.awayScore}` : ' &mdash;'; });
+        if(pair.winnerId){
+          const w = byIdAll[pair.winnerId];
+          html += ` &middot; <span style="color:var(--gold-bright);">avanza ${escapeHtml(w.name)}${pair.wentToPenalties?' (penales)':''}</span>`;
+        }
+        html += `</div></div>`;
+      });
+      html += `</div>`;
+    });
+    if(league.championId){
+      const champ = byIdAll[league.championId];
+      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Copa do Brasil ${league.year}: <strong>${escapeHtml(champ.name)}</strong></div>`;
+    }
+    return html;
+  }
+  // Tarjeta de la Supercopa: un único partido (o directamente el bicampeón, sin partido, si el
+  // mismo equipo salió campeón del Brasileirão y de la Copa do Brasil).
+  function renderWorldLeagueSupercopa(league){
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    if(league.championId && !league.match){
+      const champ = byIdAll[league.championId];
+      return `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; <strong>${escapeHtml(champ.name)}</strong> salió campeón del Brasileirão y de la Copa do Brasil el mismo año, así que se queda directo con la Supercopa ${league.year} sin necesidad de jugarla.</div>`;
+    }
+    if(!league.match) return `<div class="panel"><p class="hint">Se arma apenas estén el campeón del Brasileirão y el de la Copa do Brasil de este año.</p></div>`;
+    const m = league.match;
+    const teamA = byIdAll[m.home], teamB = byIdAll[m.away];
+    let html = `<div class="panel"><div class="cs-fixture-card"><div>${escapeHtml(teamA.name)} vs ${escapeHtml(teamB.name)}</div><div class="num">${m.played ? `${m.homeScore} &ndash; ${m.awayScore}` : '&mdash;'}</div></div>`;
+    if(league.championId){
+      html += `<p class="hint" style="margin-top:10px;">&#127942; Campeón de la Supercopa do Brasil ${league.year}: <strong>${escapeHtml(byIdAll[league.championId].name)}</strong>${league.wentToPenalties?' (penales)':''}</p>`;
+    }
+    html += `</div>`;
+    return html;
+  }
   // ---------- Ligas del Mundo: navegación en 3-4 niveles (país -> competición -> [grupo] -> pestaña) ----------
   function renderCareraLigasMundo(){
     const c = state.career;
@@ -6462,6 +6779,18 @@
       <button class="btn ghost small" data-action="career-wl-back-comp">&larr; ${escapeHtml(c.wlPais)}</button>
       ${league.format==='grupos-multiples' && c.wlGrupo ? `<button class="btn ghost small" data-action="career-wl-back-grupo">&larr; ${escapeHtml(league.name)}</button>` : ''}
     </div>`;
+
+    // Copa do Brasil y Supercopa do Brasil: eliminatoria/partido único sin pestañas de Tabla, ya
+    // que no hay una tabla de posiciones que mostrar, solo el cuadro (o el partido) en sí.
+    if(league.format === 'copa-eliminacion' || league.format === 'partido-unico'){
+      let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
+      html += league.format === 'copa-eliminacion' ? renderWorldLeagueKnockoutCopa(league) : renderWorldLeagueSupercopa(league);
+      if(league.history && league.history.length > 1){
+        const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
+        html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      return html;
+    }
 
     // Serie D (y cualquier otro formato de grupos múltiples): primero hay que elegir el grupo.
     if(league.format === 'grupos-multiples' && (!c.wlGrupo || !league.grupos[c.wlGrupo])){
