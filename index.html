@@ -5813,6 +5813,27 @@
         { name:'Montevideo Boca Juniors', elo:1400 }, { name:'Nuevo Casabó', elo:1390 }, { name:'Liffa', elo:1380 },
         { name:'Estudiantes del Plata', elo:1370 }, { name:'Academia', elo:1360 }, { name:'Deportivo CEM', elo:1350 }
       ]
+    },
+    {
+      // Copa Uruguay. No tiene planteles propios: se arma cada temporada con los equipos de las
+      // cuatro categorías de Uruguay (16 de Primera + 10 de Segunda + 4 de Primera Divisional C,
+      // que salen de una previa entre los 8 mejores del Torneo Final + 2 de la Divisional D) en
+      // careerEnsureCopaUruguay. Eliminación directa a partido único desde dieciseisavos.
+      key: 'uruguay-copa',
+      country: 'Uruguay',
+      name: 'Copa Uruguay',
+      format: 'uruguay-copa',
+      pendingHint: 'Se arma a mitad de temporada, cuando terminan la primera rueda de la Fase Regular de Segunda y el Torneo Final de Primera Divisional C.'
+    },
+    {
+      // Supercopa Uruguaya. Partido único entre el Campeón Uruguayo y el campeón del Torneo
+      // Intermedio de la misma temporada (si son el mismo equipo, el rival es el subcampeón del
+      // Intermedio). Se arma en careerEnsureSupercopaUruguaya apenas termina la Primera.
+      key: 'uruguay-supercopa',
+      country: 'Uruguay',
+      name: 'Supercopa Uruguaya',
+      format: 'uruguay-supercopa',
+      pendingHint: 'Se arma apenas termina la temporada de la Primera División.'
     }
   ];
 
@@ -6397,7 +6418,7 @@
       // La Copa do Brasil y la Supercopa do Brasil no tienen fixture propio armado por adelantado
       // (dependen de los planteles/campeones de las otras ligas de este mismo año), así que se
       // procesan aparte, después de que el resto ya esté al día — ver más abajo.
-      if(def.format === 'copa-eliminacion' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta') return;
+      if(def.format === 'copa-eliminacion' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta' || def.format === 'uruguay-copa' || def.format === 'uruguay-supercopa') return;
       let league = wl[def.key];
       // El arranque de la temporada siguiente de cada división depende de que esa división (y,
       // si es parte de la pirámide brasileña, las otras 3) ya haya terminado la suya — no de que
@@ -6448,8 +6469,12 @@
     const segundaPrev = wl['uruguay-segunda'];
     const terceraPrev = wl['uruguay-tercera'];
     const cuartaPrev = wl['uruguay-cuarta'];
-    const allDone = !!(primeraPrev && segundaPrev && terceraPrev && cuartaPrev &&
+    const leaguesDone = !!(primeraPrev && segundaPrev && terceraPrev && cuartaPrev &&
       primeraPrev.stage === 'done' && segundaPrev.stage === 'done' && terceraPrev.stage === 'done' && cuartaPrev.stage === 'done');
+    // Además de las cuatro categorías, la Copa Uruguay y la Supercopa Uruguaya de la temporada
+    // tienen que haber terminado antes de que arranque la siguiente (la Supercopa se juega "antes
+    // de comenzar la nueva temporada").
+    const allDone = leaguesDone && careerUruguayCupsDone(primeraPrev, segundaPrev, terceraPrev);
 
     if(!primeraPrev || (primeraPrev.stage === 'done' && allDone)){
       let newRoster = null;
@@ -6511,6 +6536,10 @@
     careerWorldLeagueCatchUpUruguaySegunda(wl['uruguay-segunda']);
     careerWorldLeagueCatchUpUruguayTercera(wl['uruguay-tercera']);
     careerWorldLeagueCatchUpUruguayCuarta(wl['uruguay-cuarta']);
+    // Copa Uruguay y Supercopa Uruguaya: se arman y avanzan después de las cuatro categorías, porque
+    // dependen de sus resultados.
+    careerEnsureCopaUruguay();
+    careerEnsureSupercopaUruguaya();
   }
   function careerWorldLeagueBuildSeasonUruguayPrimera(def, prevLeague, forcedRoster){
     const c = state.career;
@@ -7059,6 +7088,9 @@
       stage: 'regular',
       regular: { matches, table: [] },
       regularChampionId: null, playoff: null, ascensoFinal: null,
+      // Los 2 mejores de la tabla de la temporada anterior que no ascendieron: clasifican a la Copa
+      // Uruguay de esta temporada (null en la primera temporada: entran Real Montevideo y Rincon).
+      copaSlotIds: careerUruguayCuartaCopaSlots(prevLeague),
       promotedIds: [], championId: null,
       history: (prevLeague && prevLeague.history) ? prevLeague.history.slice() : []
     };
@@ -7156,6 +7188,294 @@
       league.history.unshift({ year: c.year, championId: league.championId, championName: byId[league.championId].name });
       if(league.history.length > 15) league.history.length = 15;
       league.stage = 'done';
+    }
+  }
+  // ---------- Uruguay: Copa Uruguay y Supercopa Uruguaya ----------
+  // COPA URUGUAY. 32 equipos, eliminación directa a partido único desde dieciseisavos, con las
+  // cuatro categorías de Uruguay ya cargadas:
+  //   - Primera: los 16 equipos.
+  //   - Segunda: los mejores URUGUAY_COPA_SEGUNDA_CUPOS (10) de la tabla de la Fase Regular al
+  //     terminar la PRIMERA RUEDA (ver nota abajo).
+  //   - Primera Divisional C: los 8 mejores del Torneo Final son "candidatos", pero solo 4 llegan.
+  //     Se sortean entre sí en una previa a partido único (empate = penales directos) y los 4
+  //     ganadores entran al cuadro.
+  //   - Divisional D: los 2 mejores de la tabla del año anterior que no hayan ascendido (en la
+  //     primera temporada, que no hay año anterior: Real Montevideo y Rincon). Se guardan en
+  //     `copaSlotIds` de la Divisional D al armar cada temporada (careerUruguayCuartaCopaSlots).
+  // Dieciseisavos: se sortea el cuadro, con la única condición de que no se crucen dos equipos de
+  // Primera (son 16 de Primera y 16 de categorías menores, así que cada uno de Primera cae con uno de
+  // abajo). Una vez sorteado, el cuadro queda armado (ganador 1 vs ganador 2, etc.). Todos los partidos
+  // son a partido único en cancha del equipo de la categoría menor; si son de la misma categoría no
+  // hay "menor", así que se juega en cancha neutral. Empate = penales directos (sin alargue, la
+  // misma simplificación del resto del motor).
+  // NOTA sobre Segunda: el reglamento dice "10 equipos" pero también "los primeros 6 de la primera
+  // rueda"; para que el cuadro cierre en 32 (16 + 10 + 4 + 2) se toman los 10 mejores. Se cambia
+  // en una sola constante (URUGUAY_COPA_SEGUNDA_CUPOS).
+  // Se arma una vez por temporada de Primera, apenas están listos los datos de Segunda (1ª rueda
+  // de la Fase Regular) y Primera Divisional C (Torneo Final terminado). La próxima temporada de
+  // las cuatro categorías NO arranca hasta que la Copa de la temporada termina (ver
+  // careerUruguayCupsDone), así hay exactamente una Copa por temporada.
+  //
+  // SUPERCOPA URUGUAYA. Se arma apenas termina la Primera: partido único (cancha neutral) entre el
+  // Campeón Uruguayo y el campeón del Torneo Intermedio de esa misma temporada; si son el mismo
+  // equipo, su rival es el subcampeón del Intermedio. Se juega antes de que arranque la temporada
+  // siguiente (esa temporada tampoco arranca hasta que la Supercopa se juegue).
+  const URUGUAY_COPA_STAGES = ['dieciseisavos','octavos','cuartos','semis','final'];
+  const URUGUAY_COPA_LABELS = {
+    previa: 'Previa de la Primera Divisional C (8 &rarr; 4)',
+    dieciseisavos: 'Dieciseisavos de Final',
+    octavos: 'Octavos de Final',
+    cuartos: 'Cuartos de Final',
+    semis: 'Semifinales',
+    final: 'Final'
+  };
+  const URUGUAY_COPA_LEVEL_LABELS = { 1:'Primera', 2:'Segunda', 3:'Primera Divisional C', 4:'Divisional D' };
+  const URUGUAY_COPA_SEGUNDA_CUPOS = 10;
+  const URUGUAY_COPA_TERCERA_CANDIDATOS = 8;
+  const URUGUAY_COPA_CUARTA_INICIAL = ['Real Montevideo', 'Rincon'];
+
+  // Los 2 mejores de la tabla de la Divisional D de la temporada que termina, sin contar al que
+  // ascendió. Devuelve null si no hay temporada anterior (primera temporada).
+  function careerUruguayCuartaCopaSlots(prevLeague){
+    if(!prevLeague || !prevLeague.regular || !prevLeague.regular.table || !prevLeague.regular.table.length) return null;
+    const promoted = new Set(prevLeague.promotedIds || []);
+    return prevLeague.regular.table.filter(r => !promoted.has(r.id)).slice(0,2).map(r => r.id);
+  }
+  function careerUruguayCopaCuartaIds(C){
+    const ids = new Set(C.teams.map(t => t.id));
+    let out = (C.copaSlotIds || []).filter(id => ids.has(id));
+    if(!C.copaSlotIds){
+      URUGUAY_COPA_CUARTA_INICIAL.forEach(n => {
+        const t = C.teams.find(x => x.name === n);
+        if(t && !out.includes(t.id)) out.push(t.id);
+      });
+    }
+    if(out.length < 2){
+      C.teams.slice().sort((a,b) => b.elo - a.elo).forEach(t => { if(out.length < 2 && !out.includes(t.id)) out.push(t.id); });
+    }
+    return out.slice(0,2);
+  }
+  // ¿Ya están los datos para armar la Copa de esta temporada? Segunda: primera rueda de la Fase
+  // Regular jugada completa. Tercera: Torneo Final jugado completo.
+  function careerUruguayCopaReady(P, S, T){
+    if(!P || !S || !T || !S.regular || !T.torneoFinal) return false;
+    const sm = S.regular.matches, tm = T.torneoFinal.matches;
+    if(!sm.length || !tm.length) return false;
+    const half = Math.max.apply(null, sm.map(m => m.round)) / 2;
+    return sm.filter(m => m.round <= half).every(m => m.played) && tm.every(m => m.played);
+  }
+  // La próxima temporada de las 4 categorías solo arranca cuando la Copa y la Supercopa de la
+  // temporada actual ya terminaron.
+  function careerUruguayCupsDone(P, S, T){
+    const wl = careerWorldLeagues();
+    const copa = wl['uruguay-copa'], sc = wl['uruguay-supercopa'];
+    // Si (por algún estado raro) la Copa no se pudo armar porque faltan datos, no se traba la
+    // pirámide entera esperándola.
+    const copaOk = (copa && copa.primeraSeason === P.season) ? copa.stage === 'done' : !careerUruguayCopaReady(P, S, T);
+    const scOk = !!(sc && sc.primeraSeason === P.season && sc.championId);
+    return copaOk && scOk;
+  }
+  // Local de un cruce: el de la categoría menor (número de nivel más alto); si son de la misma
+  // categoría, cancha neutral.
+  function careerUruguayCopaMatchup(a, b, levels){
+    const la = levels[a], lb = levels[b];
+    if(la === lb) return { home:a, away:b, neutral:true };
+    return la > lb ? { home:a, away:b, neutral:false } : { home:b, away:a, neutral:false };
+  }
+  function careerUruguayCopaMk(league, tag, home, away, date, neutral){
+    return { id:'wl_uruguay-copa_'+league.primeraSeason+'_'+tag, home, away, date, neutral:!!neutral, homeScore:null, awayScore:null, played:false, wentToPenalties:false, winnerId:null };
+  }
+  function careerUruguayCopaMaxDate(matches, fallback){
+    return matches.reduce((mx,m) => (m.date && m.date > mx) ? m.date : mx, fallback);
+  }
+  function careerEnsureCopaUruguay(){
+    const wl = careerWorldLeagues();
+    const P = wl['uruguay-primera'], S = wl['uruguay-segunda'], T = wl['uruguay-tercera'], C = wl['uruguay-cuarta'];
+    if(!P || !S || !T || !C) return;
+    let copa = wl['uruguay-copa'];
+    if(!copa || (copa.stage === 'done' && copa.primeraSeason !== P.season)){
+      if(careerUruguayCopaReady(P, S, T)) careerWorldLeagueBuildUruguayCopa(P, S, T, C);
+      copa = wl['uruguay-copa'];
+    }
+    if(copa && copa.stage !== 'done') careerWorldLeagueCatchUpUruguayCopa(copa);
+  }
+  function careerWorldLeagueBuildUruguayCopa(P, S, T, C){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const prev = wl['uruguay-copa'];
+    // Segunda: mejores N de la tabla al cierre de la primera rueda de la Fase Regular.
+    const half = Math.max.apply(null, S.regular.matches.map(m => m.round)) / 2;
+    const segTable = computeGenericStandings(S.regular.matches.filter(m => m.round <= half), S.teams);
+    const segIds = segTable.slice(0, URUGUAY_COPA_SEGUNDA_CUPOS).map(r => r.id);
+    // Primera Divisional C: 8 mejores del Torneo Final (candidatos a la previa).
+    const tById = {}; T.teams.forEach(t => tById[t.id] = t);
+    const terTable = computeGenericStandings(T.torneoFinal.matches, T.torneoFinal.teamIds.map(id => tById[id]));
+    const terIds = terTable.slice(0, URUGUAY_COPA_TERCERA_CANDIDATOS).map(r => r.id);
+    // Divisional D: los 2 lugares (ver careerUruguayCuartaCopaSlots).
+    const cuaIds = careerUruguayCopaCuartaIds(C);
+    const pick = (L, ids) => ids.map(id => L.teams.find(t => t.id === id)).filter(Boolean);
+    const teamsP = P.teams.slice(), teamsS = pick(S, segIds), teamsT = pick(T, terIds), teamsC = pick(C, cuaIds);
+    const levels = {};
+    teamsP.forEach(t => levels[t.id] = 1);
+    teamsS.forEach(t => levels[t.id] = 2);
+    teamsT.forEach(t => levels[t.id] = 3);
+    teamsC.forEach(t => levels[t.id] = 4);
+    const league = {
+      key:'uruguay-copa', country:'Uruguay', name:'Copa Uruguay', format:'uruguay-copa',
+      season: (prev && prev.season) ? prev.season + 1 : 1,
+      primeraSeason: P.season, year: c.year,
+      // Mismos objetos de equipo que usan las ligas (así el ELO de los partidos de Copa también
+      // se refleja en ellas mientras dure la temporada).
+      teams: [].concat(teamsP, teamsS, teamsT, teamsC), levels,
+      qualified: { primera: teamsP.map(t=>t.id), segunda: teamsS.map(t=>t.id), tercera: teamsT.map(t=>t.id), cuarta: teamsC.map(t=>t.id) },
+      previa: { matches: [], advancedIds: [] },
+      rounds: [], stage: 'previa',
+      championId: null, runnerUpId: null,
+      history: (prev && prev.history) ? prev.history.slice() : []
+    };
+    // Previa de la Primera Divisional C: los 8 candidatos se sortean entre sí, un solo partido
+    // (el primero sorteado es local), penales directos si empatan.
+    const date = nextWeekdayAfter(c.calendarDate || careerSeasonStart(c.year, 'apertura'), 3);
+    const sorteo = shuffleArr(teamsT.map(t => t.id));
+    for(let i = 0; i + 1 < sorteo.length; i += 2){
+      league.previa.matches.push(careerUruguayCopaMk(league, 'previa_'+(i/2), sorteo[i], sorteo[i+1], date, false));
+    }
+    wl['uruguay-copa'] = league;
+  }
+  // Arma los dieciseisavos (sorteo con la condición de no cruzar equipos de Primera) una vez que
+  // la previa ya definió a los 4 de la Primera Divisional C.
+  function careerWorldLeagueBuildUruguayCopaBracket(league){
+    const c = state.career;
+    const pl = shuffleArr(league.qualified.primera.slice());
+    const rl = shuffleArr([].concat(league.qualified.segunda, league.previa.advancedIds, league.qualified.cuarta));
+    const pairs = [];
+    while(pl.length && rl.length) pairs.push([pl.pop(), rl.pop()]);
+    const sobrantes = pl.concat(rl);
+    while(sobrantes.length > 1) pairs.push([sobrantes.pop(), sobrantes.pop()]);
+    const fallback = c.calendarDate || careerSeasonStart(c.year, 'apertura');
+    const date = addDaysISO(careerUruguayCopaMaxDate(league.previa.matches, fallback), 7);
+    const matches = pairs.map((p, i) => {
+      const mu = careerUruguayCopaMatchup(p[0], p[1], league.levels);
+      return careerUruguayCopaMk(league, 'dieciseisavos_'+i, mu.home, mu.away, date, mu.neutral);
+    });
+    league.rounds.push({ stage:'dieciseisavos', matches });
+  }
+  function careerWorldLeagueCatchUpUruguayCopa(league){
+    const c = state.career;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    // Los partidos en cancha neutral se juegan aparte (sin ventaja de localía).
+    function playDue(list){
+      careerWorldLeaguePlayDue(list.filter(m => !m.neutral), byId, c.calendarDate, {});
+      careerWorldLeaguePlayDue(list.filter(m => m.neutral), byId, c.calendarDate, {neutral:true});
+    }
+    function resolve(m){
+      if(m.played && !m.winnerId){
+        if(m.homeScore > m.awayScore) m.winnerId = m.home;
+        else if(m.awayScore > m.homeScore) m.winnerId = m.away;
+        else { m.wentToPenalties = true; m.winnerId = worldLeaguePenaltyWinner(byId[m.home].elo, byId[m.away].elo) === 'A' ? m.home : m.away; }
+      }
+    }
+    // Se avanzan todas las etapas que ya corresponda jugar según el calendario en una sola llamada
+    // (si pasaron varias semanas de golpe, no se cuelga esperando una ronda por render).
+    let guard = 0, progressed = true;
+    while(progressed && guard < 12 && league.stage !== 'done'){
+      progressed = false; guard++;
+      if(league.stage === 'previa'){
+        const ms = league.previa.matches;
+        playDue(ms); ms.forEach(resolve);
+        if(ms.every(m => m.winnerId)){
+          league.previa.advancedIds = ms.map(m => m.winnerId);
+          careerWorldLeagueBuildUruguayCopaBracket(league);
+          league.stage = 'knockout';
+          progressed = true;
+        }
+      } else if(league.stage === 'knockout'){
+        const round = league.rounds[league.rounds.length-1];
+        playDue(round.matches); round.matches.forEach(resolve);
+        if(round.matches.every(m => m.winnerId)){
+          if(round.matches.length === 1){
+            const f = round.matches[0];
+            league.championId = f.winnerId;
+            league.runnerUpId = f.winnerId === f.home ? f.away : f.home;
+            league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
+            if(league.history.length > 15) league.history.length = 15;
+            league.stage = 'done';
+          } else {
+            const winners = round.matches.map(m => m.winnerId);
+            const nextStage = URUGUAY_COPA_STAGES[URUGUAY_COPA_STAGES.indexOf(round.stage) + 1] || 'final';
+            const date = addDaysISO(careerUruguayCopaMaxDate(round.matches, c.calendarDate), 7);
+            const matches = [];
+            for(let i = 0; i + 1 < winners.length; i += 2){
+              const mu = careerUruguayCopaMatchup(winners[i], winners[i+1], league.levels);
+              matches.push(careerUruguayCopaMk(league, nextStage+'_'+(i/2), mu.home, mu.away, date, mu.neutral));
+            }
+            league.rounds.push({ stage: nextStage, matches });
+            progressed = true;
+          }
+        }
+      }
+    }
+  }
+  // Fecha más tardía de todo lo que tuvo la Primera en la temporada (Apertura, Intermedio, Clausura
+  // y definición del título).
+  function careerUruguayPrimeraLastDate(P){
+    let last = null;
+    const upd = d => { if(d && (!last || d > last)) last = d; };
+    [P.apertura, P.serieA, P.serieB, P.clausura].forEach(part => { if(part && part.matches) part.matches.forEach(m => upd(m.date)); });
+    if(P.intermedioFinal) upd(P.intermedioFinal.date);
+    if(P.definicion){
+      if(P.definicion.semifinal) upd(P.definicion.semifinal.date);
+      if(P.definicion.final) upd(P.definicion.final.date);
+    }
+    return last;
+  }
+  function careerEnsureSupercopaUruguaya(){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const P = wl['uruguay-primera'];
+    if(!P) return;
+    let sc = wl['uruguay-supercopa'];
+    if(P.stage === 'done' && P.championId && !(sc && sc.primeraSeason === P.season)){
+      const byId = {}; P.teams.forEach(t => byId[t.id] = t);
+      const teamA = byId[P.championId];
+      const fin = P.intermedioFinal;
+      const interChamp = (fin && fin.championId) ? fin.championId : null;
+      const interRunnerUp = interChamp ? (fin.home === interChamp ? fin.away : fin.home) : null;
+      // Si el Campeón Uruguayo ganó también el Intermedio, el rival es el subcampeón del Intermedio.
+      const mismoEquipo = interChamp === P.championId;
+      const rivalId = mismoEquipo ? interRunnerUp : interChamp;
+      const teamB = rivalId ? byId[rivalId] : null;
+      const prevHistory = (sc && sc.history) ? sc.history.slice() : [];
+      const base = {
+        key:'uruguay-supercopa', country:'Uruguay', name:'Supercopa Uruguaya', format:'uruguay-supercopa',
+        season: (sc && sc.season) ? sc.season + 1 : 1,
+        primeraSeason: P.season, year: c.year, mismoEquipo
+      };
+      if(!teamB || teamB.id === teamA.id){
+        // No debería pasar (siempre hay un subcampeón del Intermedio distinto), pero si faltara el
+        // rival se corona directo al Campeón Uruguayo en vez de trabar la pirámide.
+        prevHistory.unshift({ year:c.year, championId:teamA.id, championName:teamA.name });
+        if(prevHistory.length > 15) prevHistory.length = 15;
+        wl['uruguay-supercopa'] = Object.assign({}, base, { teams:[teamA], match:null, championId:teamA.id, wentToPenalties:false, history:prevHistory });
+      } else {
+        const last = careerUruguayPrimeraLastDate(P) || c.calendarDate;
+        const date = addDaysISO(last, 14);
+        const match = { id:'wl_uruguay-supercopa_'+P.season, home:teamA.id, away:teamB.id, date, neutral:true, homeScore:null, awayScore:null, played:false };
+        wl['uruguay-supercopa'] = Object.assign({}, base, { teams:[teamA, teamB], match, championId:null, wentToPenalties:false, history:prevHistory });
+      }
+      sc = wl['uruguay-supercopa'];
+    }
+    if(sc && sc.match && !sc.match.played){
+      const byIdAll = {}; sc.teams.forEach(t => byIdAll[t.id] = t);
+      careerWorldLeaguePlayDue([sc.match], byIdAll, c.calendarDate, {neutral:true});
+      if(sc.match.played){
+        const m = sc.match;
+        if(m.homeScore > m.awayScore) sc.championId = m.home;
+        else if(m.awayScore > m.homeScore) sc.championId = m.away;
+        else { sc.wentToPenalties = true; sc.championId = worldLeaguePenaltyWinner(byIdAll[m.home].elo, byIdAll[m.away].elo) === 'A' ? m.home : m.away; }
+        sc.history.unshift({ year:sc.year, championId:sc.championId, championName:byIdAll[sc.championId].name });
+        if(sc.history.length > 15) sc.history.length = 15;
+      }
     }
   }
   // La Copa do Brasil se arma una sola vez por año, apenas la Série A, la Série B y la Série C ya
@@ -7533,6 +7853,62 @@
     }
     return html;
   }
+  // Copa Uruguay: quiénes clasificaron por categoría, la previa de la Primera Divisional C y el
+  // cuadro ronda por ronda (partido único; el local es el de la categoría menor, neutral si son de
+  // la misma categoría).
+  function renderWorldLeagueUruguayCopa(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const lv = id => URUGUAY_COPA_LEVEL_LABELS[league.levels[id]] || '';
+    function nameList(ids){ return ids.map(id => byId[id] ? escapeHtml(byId[id].name) : '').filter(Boolean).join(', '); }
+    function matchLine(m){
+      const home = byId[m.home], away = byId[m.away];
+      let res;
+      if(m.played){
+        res = `${m.homeScore} &ndash; ${m.awayScore}`;
+        if(m.wentToPenalties) res += ' (penales)';
+        if(m.winnerId) res += ` &middot; <span style="color:var(--gold-bright);">avanza ${escapeHtml(byId[m.winnerId].name)}</span>`;
+      } else {
+        res = `se juega el ${formatCareerDate(m.date)}`;
+      }
+      const venue = m.neutral ? 'cancha neutral' : `cancha de ${escapeHtml(home.name)}`;
+      return `<div class="cs-fixture-card"><div>${escapeHtml(home.name)} <span class="hint">(${lv(m.home)})</span> vs ${escapeHtml(away.name)} <span class="hint">(${lv(m.away)})</span><div class="hint" style="font-size:11.5px;">${venue}</div></div><div class="num">${res}</div></div>`;
+    }
+    let html = `<div class="panel"><h3>Clasificados</h3>
+      <p class="hint"><strong style="color:var(--ink);">Primera (16):</strong> ${nameList(league.qualified.primera)}</p>
+      <p class="hint"><strong style="color:var(--ink);">Segunda (${league.qualified.segunda.length}):</strong> ${nameList(league.qualified.segunda)} <span class="hint">&mdash; mejores de la Fase Regular al cierre de la primera rueda</span></p>
+      <p class="hint"><strong style="color:var(--ink);">Primera Divisional C (candidatos a la previa):</strong> ${nameList(league.qualified.tercera)} <span class="hint">&mdash; 8 mejores del Torneo Final</span></p>
+      <p class="hint"><strong style="color:var(--ink);">Divisional D (${league.qualified.cuarta.length}):</strong> ${nameList(league.qualified.cuarta)}</p>
+    </div>`;
+    if(league.previa && league.previa.matches.length){
+      html += `<div class="panel"><h3>${URUGUAY_COPA_LABELS.previa}</h3><p class="hint">Los 8 candidatos se sortean entre sí, partido único (empate: penales). Los 4 ganadores entran al cuadro.</p>${league.previa.matches.map(matchLine).join('')}</div>`;
+    }
+    league.rounds.forEach(round => {
+      html += `<div class="panel"><h3>${URUGUAY_COPA_LABELS[round.stage] || round.stage}</h3>${round.stage === 'dieciseisavos' ? '<p class="hint">Sorteo sin cruces entre equipos de Primera. Cada partido se juega en cancha del equipo de la categoría menor.</p>' : ''}${round.matches.map(matchLine).join('')}</div>`;
+    });
+    if(league.championId){
+      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Copa Uruguay ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong></div>`;
+    }
+    return html;
+  }
+  // Supercopa Uruguaya: un único partido en cancha neutral entre el Campeón Uruguayo y el campeón del
+  // Intermedio (o el subcampeón del Intermedio si es el mismo equipo).
+  function renderWorldLeagueUruguaySupercopa(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    let html = '';
+    if(league.match){
+      const m = league.match;
+      const home = byId[m.home], away = byId[m.away];
+      let res = m.played ? `${m.homeScore} &ndash; ${m.awayScore}${league.wentToPenalties ? ' (penales)' : ''}` : `se juega el ${formatCareerDate(m.date)}`;
+      const nota = league.mismoEquipo
+        ? 'El Campeón Uruguayo ganó también el Torneo Intermedio, así que su rival es el subcampeón del Intermedio.'
+        : 'Campeón Uruguayo vs campeón del Torneo Intermedio de la temporada.';
+      html += `<div class="panel"><p class="hint">${nota} Partido único en cancha neutral; si empatan, penales.</p><div class="cs-fixture-card"><div>${escapeHtml(home.name)} vs ${escapeHtml(away.name)}</div><div class="num">${res}</div></div></div>`;
+    }
+    if(league.championId){
+      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Supercopa Uruguaya ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong></div>`;
+    }
+    return html;
+  }
   // Íconos de país para las tarjetas de "Ligas del Mundo" (fallback: globo terráqueo).
   const COUNTRY_FLAGS = { 'Brasil': '&#127463;&#127479;', 'Uruguay': '&#127482;&#127466;' };
   // Tarjeta clicable genérica, misma pinta que competitionCard pero con una data-action propia.
@@ -7566,6 +7942,17 @@
       if(league.stage === 'done' || league.championId) return `Asciende a la Tercera ${league.year}: ${escapeHtml(byId[league.championId].name)}`;
       const labels = { regular:'Fase Regular', 'playoff-quarters':'Playoffs (cuartos)', 'playoff-semis':'Playoffs (semifinales)', 'playoff-final':'Playoffs (final)', 'ascenso-final':'Final de ascenso' };
       return labels[league.stage] || 'En juego';
+    }
+    if(league.format === 'uruguay-copa'){
+      if(league.stage === 'done' || league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
+      if(league.stage === 'previa') return `${URUGUAY_COPA_LABELS.previa} en curso`;
+      const ko = league.rounds[league.rounds.length-1];
+      return `${URUGUAY_COPA_LABELS[ko.stage] || ko.stage} en curso`;
+    }
+    if(league.format === 'uruguay-supercopa'){
+      if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
+      if(!league.match) return `Pendiente`;
+      return league.match.played ? `Jugado` : `Se juega el ${formatCareerDate(league.match.date)}`;
     }
     if(league.format === 'copa-eliminacion'){
       if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
@@ -7815,7 +8202,7 @@
       html += `<div class="cs-comp-grid">`;
       defs.forEach(def => {
         const league = wl[def.key];
-        html += worldNavCard('&#127942;', def.name, league ? worldLeagueStatusLabel(league) : 'Cargando&hellip;', 'career-wl-set-comp', `data-comp="${escapeHtml(def.key)}"`);
+        html += worldNavCard('&#127942;', def.name, league ? worldLeagueStatusLabel(league) : (def.pendingHint ? 'Todavía no arrancó' : 'Cargando&hellip;'), 'career-wl-set-comp', `data-comp="${escapeHtml(def.key)}"`);
       });
       html += `</div>`;
       return html;
@@ -7823,7 +8210,13 @@
 
     const def = defs.find(d=>d.key===c.wlComp);
     const league = wl[def.key];
-    if(!league) return `<div class="panel"><p class="hint">Cargando&hellip;</p></div>`;
+    if(!league){
+      if(!def.pendingHint) return `<div class="panel"><p class="hint">Cargando&hellip;</p></div>`;
+      return `<div class="panel"><div class="btn-row" style="margin-top:0;">
+        <button class="btn ghost small" data-action="career-wl-back-pais">&larr; Ligas del Mundo</button>
+        <button class="btn ghost small" data-action="career-wl-back-comp">&larr; ${escapeHtml(c.wlPais)}</button>
+      </div><h2>${escapeHtml(def.name)}</h2><p class="hint">${def.pendingHint}</p></div>`;
+    }
 
     const backBar = `<div class="btn-row" style="margin-top:0;">
       <button class="btn ghost small" data-action="career-wl-back-pais">&larr; Ligas del Mundo</button>
@@ -7833,9 +8226,12 @@
 
     // Copa do Brasil y Supercopa do Brasil: eliminatoria/partido único sin pestañas de Tabla, ya
     // que no hay una tabla de posiciones que mostrar, solo el cuadro (o el partido) en sí.
-    if(league.format === 'copa-eliminacion' || league.format === 'partido-unico'){
+    if(league.format === 'copa-eliminacion' || league.format === 'partido-unico' || league.format === 'uruguay-copa' || league.format === 'uruguay-supercopa'){
       let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
-      html += league.format === 'copa-eliminacion' ? renderWorldLeagueKnockoutCopa(league) : renderWorldLeagueSupercopa(league);
+      if(league.format === 'copa-eliminacion') html += renderWorldLeagueKnockoutCopa(league);
+      else if(league.format === 'uruguay-copa') html += renderWorldLeagueUruguayCopa(league);
+      else if(league.format === 'uruguay-supercopa') html += renderWorldLeagueUruguaySupercopa(league);
+      else html += renderWorldLeagueSupercopa(league);
       if(league.history && league.history.length > 1){
         const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
         html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
