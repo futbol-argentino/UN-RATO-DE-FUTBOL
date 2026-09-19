@@ -5741,6 +5741,78 @@
         { name:'Cerro', elo:1582 }, { name:'Cerro Largo', elo:1581 }, { name:'Central Español', elo:1575 },
         { name:'Montevideo Wanderers', elo:1549 }, { name:'Progreso', elo:1526 }
       ]
+    },
+    {
+      // Segunda División Profesional de Uruguay. Formato propio ('uruguay-segunda'), resuelto junto
+      // con la Primera en careerEnsureUruguayLeagues: Torneo Competencia (2 zonas de 7, sorteadas
+      // cada temporada, todos contra todos a una rueda + final a partido único entre los ganadores
+      // de zona — no otorga ascenso) -> Fase Regular (los 14 en una sola tabla, todos contra todos a
+      // dos ruedas; esa tabla ES la Tabla Anual) -> 1° y 2° ascienden directo, 3°-4°-5°-6° juegan un
+      // reducido ida y vuelta (3°vs6°, 4°vs5°, la vuelta en cancha del mejor ubicado; empate = pasa
+      // el mejor ubicado en la Tabla Anual, sin alargue ni penales) y la final del reducido (mismo
+      // formato de ida y vuelta; empate sí va a penales) define el tercer ascenso. Descenso: tabla
+      // de promedios de las últimas 2 temporadas, bajan 2 a la Primera Divisional C (todavía no
+      // cargada, así que por ahora solo se marcan).
+      key: 'uruguay-segunda',
+      country: 'Uruguay',
+      name: 'Segunda División Profesional',
+      format: 'uruguay-segunda',
+      teams: [
+        { name:'Fenix', elo:1578 }, { name:'River Plate Montevideo', elo:1560 }, { name:'Plaza Colonia', elo:1557 },
+        { name:'Rentistas', elo:1529 }, { name:'Cerrito', elo:1524 }, { name:'La Luz', elo:1520 },
+        { name:'CD Colon', elo:1504 }, { name:'Oriental', elo:1495 }, { name:'Atenas', elo:1488 },
+        { name:'Paysandú FC', elo:1462 }, { name:'Tacuarembó', elo:1448 }, { name:'Huracan FC', elo:1445 },
+        { name:'Uruguay Montevideo', elo:1445 }, { name:'Miramar Misiones', elo:1415 }
+      ]
+    },
+    {
+      // Primera Divisional C (Tercera División de Uruguay). Formato propio ('uruguay-tercera'),
+      // resuelto junto con Primera y Segunda en careerEnsureUruguayLeagues: las 3 series se sortean
+      // cada temporada (A y B de 10, C de 9) y juegan todos contra todos a una rueda -> clasifican
+      // los primeros 6 de cada serie (18) al Torneo Final -> el Torneo Final es una única liga a una
+      // rueda entre esos 18, y en paralelo se juega el Torneo Inicial (semifinales sorteadas entre
+      // los 3 campeones de serie + el mejor segundo, y una final; el campeón del Inicial NO asciende
+      // directo, solo se asegura un lugar en la definición del segundo ascenso) -> el 1° del Torneo
+      // Final es el Campeón de Primera Divisional C y asciende directo; el 2° del Torneo Final juega
+      // una definición a partido único contra el campeón del Inicial por el segundo ascenso (si son
+      // el mismo equipo, asciende directo) -> el último del Torneo Final desciende a la Divisional D
+      // (todavía no cargada, se marca nomás). Ascienden 2 a la Segunda División.
+      key: 'uruguay-tercera',
+      country: 'Uruguay',
+      name: 'Primera Divisional C',
+      format: 'uruguay-tercera',
+      teams: [
+        { name:'Deutscher', elo:1557 }, { name:'Rampla Juniors', elo:1465 }, { name:'Bella Vista', elo:1393 },
+        { name:'Rocha', elo:1500 }, { name:'Deportivo Italiano', elo:1506 }, { name:'Mar de Fondo', elo:1373 },
+        { name:'Frontera Rivera', elo:1442 }, { name:'Los Halcones', elo:1563 }, { name:'Alto Perú', elo:1413 },
+        { name:'Cooper', elo:1456 },
+        { name:'Lito', elo:1551 }, { name:'Salus', elo:1633 }, { name:'Deportivo LSM', elo:1550 },
+        { name:'CA Platense', elo:1509 }, { name:'Artigas', elo:1421 }, { name:'Parque del Plata', elo:1315 },
+        { name:'Durazno', elo:1413 }, { name:'Basáñez', elo:1540 }, { name:'Potencia', elo:1328 },
+        { name:'Canadian', elo:1560 },
+        { name:'Deportivo Colonia', elo:1417 }, { name:'Sud America', elo:1436 }, { name:'Bella Italia', elo:1547 },
+        { name:'Terremoto', elo:1466 }, { name:'Gorriones', elo:1450 }, { name:'Huracan Buceo', elo:1587 },
+        { name:'Salto', elo:1621 }, { name:'Villa Española', elo:1451 }, { name:'Villa Teresa', elo:1596 }
+      ]
+    },
+    {
+      // Divisional D (Cuarta División de Uruguay). Formato propio ('uruguay-cuarta'), resuelto junto
+      // con las otras tres en careerEnsureUruguayLeagues: fase regular a una rueda entre los 12 ->
+      // los mejores 8 juegan playoffs a eliminación directa por posición (1v8, 2v7, 3v6, 4v5;
+      // semis: [1v8] vs [4v5] y [2v7] vs [3v6]), todo a partido único con penales directos si hay
+      // empate -> si el mismo equipo ganó la fase regular y los playoffs asciende directo a la
+      // Tercera; si son dos equipos distintos juegan una final de ascenso ida y vuelta (si sigue
+      // empatada, penales). No hay descenso: es la última categoría cargada por ahora.
+      key: 'uruguay-cuarta',
+      country: 'Uruguay',
+      name: 'Divisional D',
+      format: 'uruguay-cuarta',
+      teams: [
+        { name:'Paso de la Arena', elo:1378 }, { name:'Rincon', elo:1543 }, { name:'Real Montevideo', elo:1490 },
+        { name:'Toledo Keguay', elo:1450 }, { name:'Dilio Sport', elo:1430 }, { name:'Melilla SAD', elo:1410 },
+        { name:'Montevideo Boca Juniors', elo:1400 }, { name:'Nuevo Casabó', elo:1390 }, { name:'Liffa', elo:1380 },
+        { name:'Estudiantes del Plata', elo:1370 }, { name:'Academia', elo:1360 }, { name:'Deportivo CEM', elo:1350 }
+      ]
     }
   ];
 
@@ -6325,7 +6397,7 @@
       // La Copa do Brasil y la Supercopa do Brasil no tienen fixture propio armado por adelantado
       // (dependen de los planteles/campeones de las otras ligas de este mismo año), así que se
       // procesan aparte, después de que el resto ya esté al día — ver más abajo.
-      if(def.format === 'copa-eliminacion' || def.format === 'partido-unico' || def.format === 'uruguay-primera') return;
+      if(def.format === 'copa-eliminacion' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta') return;
       let league = wl[def.key];
       // El arranque de la temporada siguiente de cada división depende de que esa división (y,
       // si es parte de la pirámide brasileña, las otras 3) ya haya terminado la suya — no de que
@@ -6346,32 +6418,107 @@
     });
     careerEnsureCopaBrasil();
     careerEnsureSupercopaBrasil();
-    careerEnsureUruguayPrimera();
+    careerEnsureUruguayLeagues();
   }
-  // ---------- Uruguay: Primera División (Liga AUF) ----------
-  // Formato propio (Apertura -> Intermedio -> Clausura -> Tabla Anual -> definición del Campeón
-  // Uruguayo), así que no entra en el motor genérico de careerWorldLeagueBuildSeason/CatchUp — se
-  // arma y avanza acá, con su propia máquina de estados en `league.stage`.
-  function careerEnsureUruguayPrimera(){
-    const def = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'uruguay-primera');
-    if(!def) return;
+  // ---------- Uruguay: Primera, Segunda, Tercera y Cuarta División ----------
+  // Cuatro formatos propios (Primera: Apertura -> Intermedio -> Clausura -> Tabla Anual ->
+  // definición del Campeón Uruguayo. Segunda: Torneo Competencia -> Fase Regular -> Tabla Anual ->
+  // reducido de ascenso. Tercera/Primera Divisional C: series -> Torneo Inicial [propio campeón, no
+  // asciende directo] + Torneo Final en paralelo -> definición del segundo ascenso. Cuarta/Divisional
+  // D: fase regular -> playoffs entre los mejores 8 -> si el mismo equipo gana la fase regular y los
+  // playoffs asciende directo, si no juegan una final de ascenso ida y vuelta), así que no entran en
+  // el motor genérico de careerWorldLeagueBuildSeason/CatchUp — se arman y avanzan acá, cada una con
+  // su propia máquina de estados en `league.stage`. Además, a diferencia de Brasil (que usa
+  // BRASIL_PYRAMID + careerWorldLeaguePyramidNewRosters), acá el enganche entre las cuatro divisiones
+  // se resuelve directamente en careerEnsureUruguayLeagues, que espera a que las CUATRO terminen su
+  // temporada antes de mover un solo equipo (si alguna termina antes, se queda esperando a las otras
+  // tres, igual que la pirámide brasileña espera a las 4 suyas): 3 ascienden de la Segunda a la
+  // Primera y los 3 que bajan de la Primera ocupan su lugar en la Segunda; 2 ascienden de la Tercera
+  // a la Segunda y los 2 que bajan de la Segunda ocupan su lugar en la Tercera; 1 asciende de la
+  // Cuarta a la Tercera y el que desciende de la Tercera ocupa su lugar en la Cuarta. Solo el que
+  // asciende pierde 100 de ELO.
+  function careerEnsureUruguayLeagues(){
     const wl = careerWorldLeagues();
-    let league = wl['uruguay-primera'];
-    if(!league || league.stage === 'done'){
-      careerWorldLeagueBuildSeasonUruguay(def, league);
-      league = wl['uruguay-primera'];
+    const defPrimera = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'uruguay-primera');
+    const defSegunda = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'uruguay-segunda');
+    const defTercera = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'uruguay-tercera');
+    const defCuarta = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'uruguay-cuarta');
+    if(!defPrimera || !defSegunda || !defTercera || !defCuarta) return;
+    const primeraPrev = wl['uruguay-primera'];
+    const segundaPrev = wl['uruguay-segunda'];
+    const terceraPrev = wl['uruguay-tercera'];
+    const cuartaPrev = wl['uruguay-cuarta'];
+    const allDone = !!(primeraPrev && segundaPrev && terceraPrev && cuartaPrev &&
+      primeraPrev.stage === 'done' && segundaPrev.stage === 'done' && terceraPrev.stage === 'done' && cuartaPrev.stage === 'done');
+
+    if(!primeraPrev || (primeraPrev.stage === 'done' && allDone)){
+      let newRoster = null;
+      if(allDone){
+        const outIds = new Set(primeraPrev.relegatedIds || []);
+        newRoster = primeraPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        (segundaPrev.promotedIds || []).forEach(id => {
+          const t = segundaPrev.teams.find(x => x.id === id);
+          if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo - 100 });
+        });
+      }
+      careerWorldLeagueBuildSeasonUruguayPrimera(defPrimera, primeraPrev, newRoster);
     }
-    careerWorldLeagueCatchUpUruguay(league);
+    if(!segundaPrev || (segundaPrev.stage === 'done' && allDone)){
+      let newRoster = null;
+      if(allDone){
+        const outIds = new Set([].concat(segundaPrev.promotedIds || [], segundaPrev.relegatedIds || []));
+        newRoster = segundaPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        (primeraPrev.relegatedIds || []).forEach(id => {
+          const t = primeraPrev.teams.find(x => x.id === id);
+          if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo });
+        });
+        (terceraPrev.promotedIds || []).forEach(id => {
+          const t = terceraPrev.teams.find(x => x.id === id);
+          if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo - 100 });
+        });
+      }
+      careerWorldLeagueBuildSeasonUruguaySegunda(defSegunda, segundaPrev, newRoster);
+    }
+    if(!terceraPrev || (terceraPrev.stage === 'done' && allDone)){
+      let newRoster = null;
+      if(allDone){
+        const outIds = new Set([].concat(terceraPrev.promotedIds || [], terceraPrev.relegatedIds || []));
+        newRoster = terceraPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        (segundaPrev.relegatedIds || []).forEach(id => {
+          const t = segundaPrev.teams.find(x => x.id === id);
+          if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo });
+        });
+        (cuartaPrev.promotedIds || []).forEach(id => {
+          const t = cuartaPrev.teams.find(x => x.id === id);
+          if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo - 100 });
+        });
+      }
+      careerWorldLeagueBuildSeasonUruguayTercera(defTercera, terceraPrev, newRoster);
+    }
+    if(!cuartaPrev || (cuartaPrev.stage === 'done' && allDone)){
+      let newRoster = null;
+      if(allDone){
+        const outIds = new Set(cuartaPrev.promotedIds || []);
+        newRoster = cuartaPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        (terceraPrev.relegatedIds || []).forEach(id => {
+          const t = terceraPrev.teams.find(x => x.id === id);
+          if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo });
+        });
+      }
+      careerWorldLeagueBuildSeasonUruguayCuarta(defCuarta, cuartaPrev, newRoster);
+    }
+    careerWorldLeagueCatchUpUruguayPrimera(wl['uruguay-primera']);
+    careerWorldLeagueCatchUpUruguaySegunda(wl['uruguay-segunda']);
+    careerWorldLeagueCatchUpUruguayTercera(wl['uruguay-tercera']);
+    careerWorldLeagueCatchUpUruguayCuarta(wl['uruguay-cuarta']);
   }
-  function careerWorldLeagueBuildSeasonUruguay(def, prevLeague){
+  function careerWorldLeagueBuildSeasonUruguayPrimera(def, prevLeague, forcedRoster){
     const c = state.career;
     const wl = careerWorldLeagues();
-    // Los equipos persisten de una temporada a la otra con su ELO ya actualizado (todavía no hay
-    // Segunda División cargada, así que por ahora los 16 siguen siempre en Primera — ver la nota en
-    // el registro de arriba).
-    const teams = (prevLeague && prevLeague.teams && prevLeague.teams.length)
-      ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
-      : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    const teams = forcedRoster ? forcedRoster
+      : (prevLeague && prevLeague.teams && prevLeague.teams.length)
+        ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
     const ids = teams.map(t=>t.id);
     const startDate = careerSeasonStart(c.year, 'apertura');
     const rounds = roundRobinRounds(ids);
@@ -6400,7 +6547,7 @@
   // Avanza la Primera de Uruguay un paso por vez según su fase actual, jugando todo lo que ya
   // corresponda según el calendario único de la carrera — mismo mecanismo de "catch up" que el
   // resto de las ligas del exterior.
-  function careerWorldLeagueCatchUpUruguay(league){
+  function careerWorldLeagueCatchUpUruguayPrimera(league){
     const c = state.career;
     const byId = {}; league.teams.forEach(t => byId[t.id] = t);
 
@@ -6517,9 +6664,8 @@
     }
 
     if(league.stage === 'definicion-lista'){
-      // Descenso: tabla de promedios (puntos por partido de hasta las últimas 2 temporadas), bajan 3.
-      // Sin Segunda División cargada todavía no hay adónde mandarlos, así que por ahora solo se
-      // marcan (los 16 equipos siguen jugando la temporada siguiente igual).
+      // Descenso: tabla de promedios (puntos por partido de hasta las últimas 2 temporadas), bajan 3
+      // a la Segunda División (careerEnsureUruguayLeagues se encarga del movimiento real).
       league.teams.forEach(t=>{
         const row = league.tablaAnual.find(r=>r.id===t.id);
         if(!league.seasonLog[t.id]) league.seasonLog[t.id] = [];
@@ -6533,6 +6679,480 @@
       }).sort((a,b)=> a.avg-b.avg || byId[a.id].elo - byId[b.id].elo);
       league.promediosTable = promedios;
       league.relegatedIds = promedios.slice(0,3).map(r=>r.id);
+      league.history.unshift({ year: c.year, championId: league.championId, championName: byId[league.championId].name });
+      if(league.history.length > 15) league.history.length = 15;
+      league.stage = 'done';
+    }
+  }
+  // Arma (o resuelve) una serie ida y vuelta entre dos equipos, sumando los puntos de partido (3/1/0)
+  // de las dos idas y la diferencia de goles de la serie — no el resultado agregado tipo gol de visitante,
+  // que es el criterio que describe la Segunda División uruguaya tanto para el reducido como para la final.
+  function careerWorldLeagueBuildTwoLegTie(teamA, teamB, betterPlacedId, startDate){
+    const idaHome = betterPlacedId === teamA ? teamB : teamA;
+    const idaAway = betterPlacedId === teamA ? teamA : teamB;
+    return {
+      teamA, teamB, betterPlacedId, winnerId: null, wentToPenalties: false,
+      legs: [
+        { home: idaHome, away: idaAway, date: startDate, homeScore:null, awayScore:null, played:false },
+        { home: betterPlacedId, away: (betterPlacedId===teamA?teamB:teamA), date: addDaysISO(startDate,7), homeScore:null, awayScore:null, played:false }
+      ]
+    };
+  }
+  // Resuelve una serie ya jugada (las 2 idas). `finalDecider` decide qué pasa si sigue empatada
+  // en puntos y diferencia de goles tras las dos idas: en el reducido (no es la final) avanza
+  // directamente el mejor ubicado en la Tabla Anual, sin alargue ni penales (así lo pide la regla);
+  // en la final sí hay alargue y penales — se simplifica, como el resto del juego, a una definición
+  // directa por penales.
+  function careerWorldLeagueResolveTwoLegTie(tie, byId){
+    const pts = {}, gf = {}, gc = {};
+    [tie.teamA, tie.teamB].forEach(id=>{ pts[id]=0; gf[id]=0; gc[id]=0; });
+    tie.legs.forEach(m=>{
+      if(!m.played) return;
+      if(m.homeScore > m.awayScore) pts[m.home] += 3;
+      else if(m.homeScore < m.awayScore) pts[m.away] += 3;
+      else { pts[m.home] += 1; pts[m.away] += 1; }
+      gf[m.home] += m.homeScore; gc[m.home] += m.awayScore;
+      gf[m.away] += m.awayScore; gc[m.away] += m.homeScore;
+    });
+    if(pts[tie.teamA] !== pts[tie.teamB]) return pts[tie.teamA] > pts[tie.teamB] ? tie.teamA : tie.teamB;
+    const dgA = gf[tie.teamA]-gc[tie.teamA], dgB = gf[tie.teamB]-gc[tie.teamB];
+    if(dgA !== dgB) return dgA > dgB ? tie.teamA : tie.teamB;
+    return null; // sigue empatado: lo resuelve el caller (reducido: mejor ubicado; final: penales)
+  }
+  // ---------- Uruguay: Segunda División Profesional ----------
+  function careerWorldLeagueBuildSeasonUruguaySegunda(def, prevLeague, forcedRoster){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const teams = forcedRoster ? forcedRoster
+      : (prevLeague && prevLeague.teams && prevLeague.teams.length)
+        ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    // Las 2 zonas del Torneo Competencia se sortean cada temporada (la letra chica no especifica
+    // el criterio, así que se hace al azar, como el resto de los sorteos de grupos de este motor).
+    const shuffled = shuffleArr(teams.slice());
+    const zonaA = shuffled.slice(0,7), zonaB = shuffled.slice(7,14);
+    const startDate = careerSeasonStart(c.year, 'apertura');
+    function buildZona(zonaTeams, tag){
+      const ids = zonaTeams.map(t=>t.id);
+      const rounds = roundRobinRounds(ids);
+      const matches = [];
+      rounds.forEach((round, ri) => {
+        const date = addDaysISO(startDate, ri*7);
+        round.forEach(m => {
+          if(m.home===null||m.away===null) return;
+          matches.push({ id:'wl_uruguay-segunda_zona'+tag+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+        });
+      });
+      return { teamIds: ids, matches, table: [] };
+    }
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
+      year: c.year, teams,
+      stage: 'competencia',
+      zonaA: buildZona(zonaA,'A'), zonaB: buildZona(zonaB,'B'), competenciaFinal: null,
+      regular: null, tablaAnual: [], promediosTable: [],
+      playoff: null, relegatedIds: [], promotedIds: [], championId: null,
+      seasonLog: (prevLeague && prevLeague.seasonLog) ? prevLeague.seasonLog : {},
+      history: (prevLeague && prevLeague.history) ? prevLeague.history.slice() : []
+    };
+  }
+  function careerWorldLeagueCatchUpUruguaySegunda(league){
+    const c = state.career;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+
+    if(league.stage === 'competencia'){
+      careerWorldLeaguePlayDue(league.zonaA.matches, byId, c.calendarDate, {});
+      careerWorldLeaguePlayDue(league.zonaB.matches, byId, c.calendarDate, {});
+      league.zonaA.table = computeGenericStandings(league.zonaA.matches, league.zonaA.teamIds.map(id=>byId[id]));
+      league.zonaB.table = computeGenericStandings(league.zonaB.matches, league.zonaB.teamIds.map(id=>byId[id]));
+      const doneA = league.zonaA.matches.every(m=>m.played), doneB = league.zonaB.matches.every(m=>m.played);
+      if(doneA && doneB){
+        const winnerA = league.zonaA.table[0].id, winnerB = league.zonaB.table[0].id;
+        const lastDate = [].concat(league.zonaA.matches, league.zonaB.matches).reduce((mx,m)=> m.date>mx?m.date:mx, league.zonaA.matches[0].date);
+        league.competenciaFinal = { home:winnerA, away:winnerB, date: addDaysISO(lastDate,7), homeScore:null, awayScore:null, played:false, wentToPenalties:false, championId:null };
+        league.stage = 'competencia-final';
+      }
+    }
+
+    if(league.stage === 'competencia-final'){
+      const m = league.competenciaFinal;
+      careerWorldLeaguePlayDue([m], byId, c.calendarDate, {neutral:true});
+      if(m.played && !m.championId){
+        if(m.homeScore > m.awayScore) m.championId = m.home;
+        else if(m.awayScore > m.homeScore) m.championId = m.away;
+        else { m.wentToPenalties = true; m.championId = worldLeaguePenaltyWinner(byId[m.home].elo, byId[m.away].elo) === 'A' ? m.home : m.away; }
+        // Fase Regular: los 14 en una sola tabla, todos contra todos a dos ruedas.
+        const ids = league.teams.map(t=>t.id);
+        let rounds = roundRobinRounds(ids);
+        rounds = rounds.concat(rounds.map(r => r.map(mm => ({home:mm.away, away:mm.home}))));
+        const startDate = addDaysISO(m.date, 7);
+        const matches = [];
+        rounds.forEach((round, ri) => {
+          const date = addDaysISO(startDate, ri*7);
+          round.forEach(mm => {
+            if(mm.home===null||mm.away===null) return;
+            matches.push({ id:'wl_uruguay-segunda_regular_'+matches.length, home:mm.home, away:mm.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+          });
+        });
+        league.regular = { matches, table: [] };
+        league.stage = 'regular';
+      }
+    }
+
+    if(league.stage === 'regular'){
+      careerWorldLeaguePlayDue(league.regular.matches, byId, c.calendarDate, {});
+      league.regular.table = computeGenericStandings(league.regular.matches, league.teams);
+      if(league.regular.matches.every(m=>m.played)){
+        league.tablaAnual = league.regular.table;
+        const order = league.tablaAnual.map(r=>r.id);
+        const directIds = order.slice(0,2); // 1° y 2°: ascenso directo
+        const p3=order[2], p4=order[3], p5=order[4], p6=order[5];
+        const lastDate = league.regular.matches[league.regular.matches.length-1].date;
+        const startDate = addDaysISO(lastDate, 7);
+        league.playoff = {
+          directIds,
+          semis: [
+            careerWorldLeagueBuildTwoLegTie(p3, p6, p3, startDate),
+            careerWorldLeagueBuildTwoLegTie(p4, p5, p4, startDate)
+          ],
+          final: null
+        };
+        league.promotedIds = directIds.slice();
+        league.stage = 'playoff-semis';
+      }
+    }
+
+    if(league.stage === 'playoff-semis'){
+      const po = league.playoff;
+      po.semis.forEach(tie => careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {}));
+      const allSemisPlayed = po.semis.every(tie => tie.legs.every(l=>l.played));
+      if(allSemisPlayed && po.semis.every(tie=>tie.winnerId)){
+        // ya resueltas (no debería repetirse), sigue de largo
+      } else if(allSemisPlayed){
+        po.semis.forEach(tie => {
+          if(tie.winnerId) return;
+          const w = careerWorldLeagueResolveTwoLegTie(tie, byId);
+          tie.winnerId = w || tie.betterPlacedId; // en el reducido, empate = pasa el mejor ubicado
+        });
+      }
+      if(po.semis.every(tie=>tie.winnerId)){
+        const order = league.tablaAnual.map(r=>r.id);
+        const [w1, w2] = [po.semis[0].winnerId, po.semis[1].winnerId];
+        const betterPlaced = order.indexOf(w1) < order.indexOf(w2) ? w1 : w2;
+        const lastDate = [].concat(po.semis[0].legs, po.semis[1].legs).reduce((mx,m)=> m.date>mx?m.date:mx, po.semis[0].legs[0].date);
+        po.final = careerWorldLeagueBuildTwoLegTie(w1, w2, betterPlaced, addDaysISO(lastDate,7));
+        league.stage = 'playoff-final';
+      }
+    }
+
+    if(league.stage === 'playoff-final'){
+      const f = league.playoff.final;
+      careerWorldLeaguePlayDue(f.legs, byId, c.calendarDate, {});
+      if(f.legs.every(l=>l.played) && !f.winnerId){
+        const w = careerWorldLeagueResolveTwoLegTie(f, byId);
+        if(w){ f.winnerId = w; }
+        else {
+          // Sigue empatada tras las dos idas: en la final sí hay alargue y penales — se resuelve
+          // directo por penales, como el resto de las definiciones a partido único de este motor.
+          f.wentToPenalties = true;
+          f.winnerId = worldLeaguePenaltyWinner(byId[f.teamA].elo, byId[f.teamB].elo) === 'A' ? f.teamA : f.teamB;
+        }
+        league.promotedIds = league.playoff.directIds.concat([f.winnerId]);
+        league.championId = league.tablaAnual[0].id; // 1° de la Tabla Anual = Campeón de Segunda
+        league.stage = 'definicion-lista';
+      }
+    }
+
+    if(league.stage === 'definicion-lista'){
+      // Descenso: tabla de promedios (últimas hasta 2 temporadas), bajan 2 a la Primera Divisional C
+      // (careerEnsureUruguayLeagues se encarga del movimiento real).
+      league.teams.forEach(t=>{
+        const row = league.tablaAnual.find(r=>r.id===t.id);
+        if(!league.seasonLog[t.id]) league.seasonLog[t.id] = [];
+        if(row) league.seasonLog[t.id].push({ pts: row.pts, pj: row.pj });
+        if(league.seasonLog[t.id].length > 2) league.seasonLog[t.id] = league.seasonLog[t.id].slice(-2);
+      });
+      const promedios = league.teams.map(t=>{
+        const log = league.seasonLog[t.id] || [];
+        const totalPts = log.reduce((s,x)=>s+x.pts,0), totalPj = log.reduce((s,x)=>s+x.pj,0);
+        return { id:t.id, avg: totalPj>0 ? totalPts/totalPj : 0 };
+      }).sort((a,b)=> a.avg-b.avg || byId[a.id].elo - byId[b.id].elo);
+      league.promediosTable = promedios;
+      league.relegatedIds = promedios.slice(0,2).map(r=>r.id);
+      league.history.unshift({ year: c.year, championId: league.championId, championName: byId[league.championId].name });
+      if(league.history.length > 15) league.history.length = 15;
+      league.stage = 'done';
+    }
+  }
+  // ---------- Uruguay: Primera Divisional C (Tercera División) ----------
+  function careerWorldLeagueBuildSeasonUruguayTercera(def, prevLeague, forcedRoster){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const teams = forcedRoster ? forcedRoster
+      : (prevLeague && prevLeague.teams && prevLeague.teams.length)
+        ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    // Las 3 series se sortean cada temporada (Serie A y B de 10, Serie C de 9).
+    const shuffled = shuffleArr(teams.slice());
+    const serieA = shuffled.slice(0,10), serieB = shuffled.slice(10,20), serieC = shuffled.slice(20,29);
+    const startDate = careerSeasonStart(c.year, 'apertura');
+    function buildSerie(serieTeams, tag){
+      const ids = serieTeams.map(t=>t.id);
+      const rounds = roundRobinRounds(ids);
+      const matches = [];
+      rounds.forEach((round, ri) => {
+        const date = addDaysISO(startDate, ri*7);
+        round.forEach(m => {
+          if(m.home===null||m.away===null) return;
+          matches.push({ id:'wl_uruguay-tercera_serie'+tag+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+        });
+      });
+      return { teamIds: ids, matches, table: [] };
+    }
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
+      year: c.year, teams,
+      stage: 'series',
+      serieA: buildSerie(serieA,'A'), serieB: buildSerie(serieB,'B'), serieC: buildSerie(serieC,'C'),
+      torneoInicial: null, torneoFinal: null,
+      segundoAscenso: null, relegatedIds: [], promotedIds: [], championId: null,
+      history: (prevLeague && prevLeague.history) ? prevLeague.history.slice() : []
+    };
+  }
+  function careerWorldLeagueCatchUpUruguayTercera(league){
+    const c = state.career;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+
+    if(league.stage === 'series'){
+      careerWorldLeaguePlayDue(league.serieA.matches, byId, c.calendarDate, {});
+      careerWorldLeaguePlayDue(league.serieB.matches, byId, c.calendarDate, {});
+      careerWorldLeaguePlayDue(league.serieC.matches, byId, c.calendarDate, {});
+      league.serieA.table = computeGenericStandings(league.serieA.matches, league.serieA.teamIds.map(id=>byId[id]));
+      league.serieB.table = computeGenericStandings(league.serieB.matches, league.serieB.teamIds.map(id=>byId[id]));
+      league.serieC.table = computeGenericStandings(league.serieC.matches, league.serieC.teamIds.map(id=>byId[id]));
+      const doneA = league.serieA.matches.every(m=>m.played), doneB = league.serieB.matches.every(m=>m.played), doneC = league.serieC.matches.every(m=>m.played);
+      if(doneA && doneB && doneC){
+        // Clasifican los primeros 6 de cada serie (18 en total) al Torneo Final.
+        const clasificados = [].concat(league.serieA.table.slice(0,6), league.serieB.table.slice(0,6), league.serieC.table.slice(0,6)).map(r=>r.id);
+        const champA = league.serieA.table[0].id, champB = league.serieB.table[0].id, champC = league.serieC.table[0].id;
+        // Mejor segundo de las 3 series, con el mismo criterio de desempate que cualquier tabla.
+        const segundos = [league.serieA.table[1], league.serieB.table[1], league.serieC.table[1]].slice();
+        segundos.sort((x,y)=> y.pts-x.pts || y.dg-x.dg || y.gf-x.gf || (byId[y.id].elo - byId[x.id].elo));
+        const mejorSegundo = segundos[0].id;
+        const semiTeams = shuffleArr([champA, champB, champC, mejorSegundo]); // sorteo de semifinales
+        const lastDate = [].concat(league.serieA.matches, league.serieB.matches, league.serieC.matches).reduce((mx,m)=> m.date>mx?m.date:mx, league.serieA.matches[0].date);
+        const startDate = addDaysISO(lastDate, 7);
+        league.torneoInicial = {
+          semis: [
+            { home:semiTeams[0], away:semiTeams[1], date:startDate, homeScore:null, awayScore:null, played:false, wentToPenalties:false, winnerId:null },
+            { home:semiTeams[2], away:semiTeams[3], date:startDate, homeScore:null, awayScore:null, played:false, wentToPenalties:false, winnerId:null }
+          ],
+          final: null, championId: null
+        };
+        const rounds = roundRobinRounds(clasificados);
+        const matches = [];
+        rounds.forEach((round, ri) => {
+          const date = addDaysISO(startDate, ri*7);
+          round.forEach(m => {
+            if(m.home===null||m.away===null) return;
+            matches.push({ id:'wl_uruguay-tercera_final_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+          });
+        });
+        // El campeón del Torneo Inicial no asciende directo, pero se asegura un lugar en la
+        // definición por el segundo ascenso al final de la temporada (ver stage 'segundo-ascenso').
+        league.torneoFinal = { teamIds: clasificados, matches, table: [] };
+        league.stage = 'final';
+      }
+    }
+
+    if(league.stage === 'final'){
+      // El Torneo Final (liga de los 18 clasificados) corre en paralelo a las semis y la final del
+      // Torneo Inicial (que solo define SU propio campeón, no un ascenso).
+      const ti = league.torneoInicial;
+      if(ti.championId === null){
+        careerWorldLeaguePlayDue(ti.semis, byId, c.calendarDate, {neutral:true});
+        ti.semis.forEach(m => {
+          if(m.played && !m.winnerId){
+            if(m.homeScore > m.awayScore) m.winnerId = m.home;
+            else if(m.awayScore > m.homeScore) m.winnerId = m.away;
+            else { m.wentToPenalties = true; m.winnerId = worldLeaguePenaltyWinner(byId[m.home].elo, byId[m.away].elo) === 'A' ? m.home : m.away; }
+          }
+        });
+        if(!ti.final && ti.semis.every(m=>m.winnerId)){
+          const lastDate = ti.semis.reduce((mx,m)=> m.date>mx?m.date:mx, ti.semis[0].date);
+          ti.final = { home:ti.semis[0].winnerId, away:ti.semis[1].winnerId, date:addDaysISO(lastDate,7), homeScore:null, awayScore:null, played:false, wentToPenalties:false, winnerId:null };
+        }
+        if(ti.final){
+          careerWorldLeaguePlayDue([ti.final], byId, c.calendarDate, {neutral:true});
+          if(ti.final.played && !ti.final.winnerId){
+            if(ti.final.homeScore > ti.final.awayScore) ti.final.winnerId = ti.final.home;
+            else if(ti.final.awayScore > ti.final.homeScore) ti.final.winnerId = ti.final.away;
+            else { ti.final.wentToPenalties = true; ti.final.winnerId = worldLeaguePenaltyWinner(byId[ti.final.home].elo, byId[ti.final.away].elo) === 'A' ? ti.final.home : ti.final.away; }
+            ti.championId = ti.final.winnerId;
+          }
+        }
+      }
+      careerWorldLeaguePlayDue(league.torneoFinal.matches, byId, c.calendarDate, {});
+      league.torneoFinal.table = computeGenericStandings(league.torneoFinal.matches, league.torneoFinal.teamIds.map(id=>byId[id]));
+      if(league.torneoFinal.matches.every(m=>m.played) && ti.championId !== null){
+        const order = league.torneoFinal.table.map(r=>r.id);
+        const primerAscenso = order[0], segundoFinal = order[1];
+        league.championId = primerAscenso; // Campeón Uruguayo de Primera Divisional C
+        if(segundoFinal === ti.championId){
+          league.promotedIds = [primerAscenso, segundoFinal];
+          league.segundoAscenso = { scenario: 1 };
+          league.stage = 'definicion-lista';
+        } else {
+          const date = addDaysISO(league.torneoFinal.matches[league.torneoFinal.matches.length-1].date, 7);
+          league.segundoAscenso = { scenario: 2, match: { home:segundoFinal, away:ti.championId, date, homeScore:null, awayScore:null, played:false, wentToPenalties:false, winnerId:null } };
+          league.stage = 'segundo-ascenso';
+        }
+      }
+    }
+
+    if(league.stage === 'segundo-ascenso'){
+      const m = league.segundoAscenso.match;
+      careerWorldLeaguePlayDue([m], byId, c.calendarDate, {neutral:true});
+      if(m.played && !m.winnerId){
+        if(m.homeScore > m.awayScore) m.winnerId = m.home;
+        else if(m.awayScore > m.homeScore) m.winnerId = m.away;
+        else { m.wentToPenalties = true; m.winnerId = worldLeaguePenaltyWinner(byId[m.home].elo, byId[m.away].elo) === 'A' ? m.home : m.away; }
+        league.promotedIds = [league.championId, m.winnerId];
+        league.stage = 'definicion-lista';
+      }
+    }
+
+    if(league.stage === 'definicion-lista'){
+      // Desciende el último del Torneo Final, a la Divisional D (careerEnsureUruguayLeagues se
+      // encarga del movimiento real).
+      league.relegatedIds = [league.torneoFinal.table[league.torneoFinal.table.length-1].id];
+      league.history.unshift({ year: c.year, championId: league.championId, championName: byId[league.championId].name });
+      if(league.history.length > 15) league.history.length = 15;
+      league.stage = 'done';
+    }
+  }
+  // ---------- Uruguay: Divisional D (Cuarta División) ----------
+  function careerWorldLeagueBuildSeasonUruguayCuarta(def, prevLeague, forcedRoster){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const teams = forcedRoster ? forcedRoster
+      : (prevLeague && prevLeague.teams && prevLeague.teams.length)
+        ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    const ids = teams.map(t=>t.id);
+    const startDate = careerSeasonStart(c.year, 'apertura');
+    const rounds = roundRobinRounds(ids);
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home===null||m.away===null) return;
+        matches.push({ id:'wl_'+def.key+'_regular_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
+      year: c.year, teams,
+      stage: 'regular',
+      regular: { matches, table: [] },
+      regularChampionId: null, playoff: null, ascensoFinal: null,
+      promotedIds: [], championId: null,
+      history: (prevLeague && prevLeague.history) ? prevLeague.history.slice() : []
+    };
+  }
+  function careerWorldLeagueCatchUpUruguayCuarta(league){
+    const c = state.career;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+
+    function resolveSingle(m){
+      if(m.played && !m.winnerId){
+        if(m.homeScore > m.awayScore) m.winnerId = m.home;
+        else if(m.awayScore > m.homeScore) m.winnerId = m.away;
+        else { m.wentToPenalties = true; m.winnerId = worldLeaguePenaltyWinner(byId[m.home].elo, byId[m.away].elo) === 'A' ? m.home : m.away; }
+      }
+    }
+
+    if(league.stage === 'regular'){
+      careerWorldLeaguePlayDue(league.regular.matches, byId, c.calendarDate, {});
+      league.regular.table = computeGenericStandings(league.regular.matches, league.teams);
+      if(league.regular.matches.every(m=>m.played)){
+        league.regularChampionId = league.regular.table[0].id;
+        const top8 = league.regular.table.slice(0,8).map(r=>r.id); // 1° a 8°, cruces fijos por posición
+        const lastDate = league.regular.matches[league.regular.matches.length-1].date;
+        const startDate = addDaysISO(lastDate, 7);
+        // Cuartos: 1v8, 2v7, 3v6, 4v5, a partido único en cancha del mejor posicionado.
+        const qf = [[0,7],[1,6],[2,5],[3,4]].map(([hi,ai]) => ({
+          home: top8[hi], away: top8[ai], date: startDate, homeScore:null, awayScore:null, played:false, wentToPenalties:false, winnerId:null
+        }));
+        league.playoff = { quarters: qf, semis: null, final: null, championId: null };
+        league.stage = 'playoff-quarters';
+      }
+    }
+
+    if(league.stage === 'playoff-quarters'){
+      const po = league.playoff;
+      careerWorldLeaguePlayDue(po.quarters, byId, c.calendarDate, {});
+      po.quarters.forEach(resolveSingle);
+      if(po.quarters.every(m=>m.winnerId) && !po.semis){
+        const lastDate = po.quarters.reduce((mx,m)=> m.date>mx?m.date:mx, po.quarters[0].date);
+        const date = addDaysISO(lastDate, 7);
+        // Cruces de semis por el bracket de arriba: (1v8) vs (4v5) vs; (2v7) vs (3v6).
+        po.semis = [
+          { home:po.quarters[0].winnerId, away:po.quarters[3].winnerId, date, homeScore:null, awayScore:null, played:false, wentToPenalties:false, winnerId:null },
+          { home:po.quarters[1].winnerId, away:po.quarters[2].winnerId, date, homeScore:null, awayScore:null, played:false, wentToPenalties:false, winnerId:null }
+        ];
+        league.stage = 'playoff-semis';
+      }
+    }
+
+    if(league.stage === 'playoff-semis'){
+      const po = league.playoff;
+      careerWorldLeaguePlayDue(po.semis, byId, c.calendarDate, {neutral:true});
+      po.semis.forEach(resolveSingle);
+      if(po.semis.every(m=>m.winnerId) && !po.final){
+        const lastDate = po.semis.reduce((mx,m)=> m.date>mx?m.date:mx, po.semis[0].date);
+        po.final = { home:po.semis[0].winnerId, away:po.semis[1].winnerId, date:addDaysISO(lastDate,7), homeScore:null, awayScore:null, played:false, wentToPenalties:false, winnerId:null };
+        league.stage = 'playoff-final';
+      }
+    }
+
+    if(league.stage === 'playoff-final'){
+      const po = league.playoff;
+      careerWorldLeaguePlayDue([po.final], byId, c.calendarDate, {neutral:true});
+      resolveSingle(po.final);
+      if(po.final.winnerId && !po.championId){
+        po.championId = po.final.winnerId;
+        if(po.championId === league.regularChampionId){
+          // Mismo equipo ganó la fase regular y los playoffs: asciende directo.
+          league.championId = po.championId;
+          league.promotedIds = [po.championId];
+          league.stage = 'definicion-lista';
+        } else {
+          const date = addDaysISO(po.final.date, 7);
+          league.ascensoFinal = careerWorldLeagueBuildTwoLegTie(league.regularChampionId, po.championId, league.regularChampionId, date);
+          league.stage = 'ascenso-final';
+        }
+      }
+    }
+
+    if(league.stage === 'ascenso-final'){
+      const f = league.ascensoFinal;
+      careerWorldLeaguePlayDue(f.legs, byId, c.calendarDate, {});
+      if(f.legs.every(l=>l.played) && !f.winnerId){
+        const w = careerWorldLeagueResolveTwoLegTie(f, byId);
+        f.winnerId = w || (worldLeaguePenaltyWinner(byId[f.teamA].elo, byId[f.teamB].elo) === 'A' ? f.teamA : f.teamB);
+        if(!w) f.wentToPenalties = true;
+        league.championId = f.winnerId;
+        league.promotedIds = [f.winnerId];
+        league.stage = 'definicion-lista';
+      }
+    }
+
+    if(league.stage === 'definicion-lista'){
+      // La Cuarta es la última categoría cargada por ahora: no hay descenso que resolver acá.
       league.history.unshift({ year: c.year, championId: league.championId, championName: byId[league.championId].name });
       if(league.history.length > 15) league.history.length = 15;
       league.stage = 'done';
@@ -6761,7 +7381,7 @@
       html += `<div class="panel"><h3>Torneo Clausura</h3>${league.clausura.table.length ? simpleTable(league.clausura.table, {champion: ['definicion-lista','done'].includes(league.stage) || league.championId ? league.clausura.table[0].id : null}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
     }
     if(league.tablaAnual && league.tablaAnual.length){
-      html += `<div class="panel"><h3>Tabla Anual</h3><p class="hint">Suma los puntos del Apertura, el Intermedio y el Clausura.</p>${simpleTable(league.tablaAnual, {highlight: league.relegatedIds, highlightLabel: ' <span style="color:var(--red);font-size:11px;">&#9660; desciende (provisorio, falta cargar la Segunda División)</span>'})}</div>`;
+      html += `<div class="panel"><h3>Tabla Anual</h3><p class="hint">Suma los puntos del Apertura, el Intermedio y el Clausura.</p>${simpleTable(league.tablaAnual, {highlight: league.relegatedIds, highlightLabel: ' <span style="color:var(--red);font-size:11px;">&#9660; desciende a la Segunda</span>'})}</div>`;
     }
     if(league.definicion && league.definicion.scenario === 2){
       let defHtml = '';
@@ -6771,6 +7391,145 @@
     }
     if(league.championId){
       html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón Uruguayo ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong></div></div>`;
+    }
+    return html;
+  }
+  // Segunda División de Uruguay: mismo criterio que la Primera, todo apilado en un solo panel.
+  function renderWorldLeagueUruguaySegunda(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    function simpleTable(rows, opts){
+      opts = opts || {};
+      return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        let tag = '';
+        if(opts.champion === r.id) tag = ' <span style="color:var(--gold-bright);font-size:11px;">&#127942; campeón</span>';
+        else if(opts.promoted && opts.promoted.includes(r.id)) tag = ' <span style="color:var(--green,#2e8b57);font-size:11px;">&#9650; asciende</span>';
+        else if(opts.highlight && opts.highlight.includes(r.id)) tag = opts.highlightLabel || '';
+        return `<tr><td>${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+    }
+    function matchLine(m, label){
+      if(!m) return '';
+      const home = byId[m.home], away = byId[m.away];
+      const res = m.played ? `${m.homeScore} &ndash; ${m.awayScore}${m.wentToPenalties ? ' (penales)' : ''}` : `se juega el ${formatCareerDate(m.date)}`;
+      return `<div class="cs-fixture-card"><div>${label ? `<strong>${label}:</strong> ` : ''}${escapeHtml(home.name)} vs ${escapeHtml(away.name)}</div><div class="num">${res}</div></div>`;
+    }
+    function tieBlock(tie, label){
+      if(!tie) return '';
+      let h = `<h4 style="margin:10px 0 4px;">${label}: ${escapeHtml(byId[tie.teamA].name)} vs ${escapeHtml(byId[tie.teamB].name)}</h4>`;
+      h += matchLine(tie.legs[0], 'Ida');
+      h += matchLine(tie.legs[1], 'Vuelta');
+      if(tie.winnerId) h += `<p class="hint">Avanza: <strong style="color:var(--ink);">${escapeHtml(byId[tie.winnerId].name)}</strong></p>`;
+      return h;
+    }
+    let html = `<div class="panel"><h3>Torneo Competencia &mdash; Zona A</h3>${league.zonaA.table.length ? simpleTable(league.zonaA.table) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    html += `<div class="panel"><h3>Torneo Competencia &mdash; Zona B</h3>${league.zonaB.table.length ? simpleTable(league.zonaB.table) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    if(league.competenciaFinal){
+      html += `<div class="panel"><h3>Final del Torneo Competencia</h3>${matchLine(league.competenciaFinal)}${league.competenciaFinal.championId ? `<p class="hint">No otorga ascenso — campeón: <strong style="color:var(--ink);">${escapeHtml(byId[league.competenciaFinal.championId].name)}</strong></p>` : ''}</div>`;
+    }
+    if(league.regular){
+      html += `<div class="panel"><h3>Fase Regular / Tabla Anual</h3>${league.regular.table.length ? simpleTable(league.regular.table, { promoted: league.promotedIds && league.promotedIds.length===2 ? league.promotedIds : null, champion: league.championId }) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    }
+    if(league.playoff){
+      let poHtml = tieBlock(league.playoff.semis[0], 'Semifinal reducido');
+      poHtml += tieBlock(league.playoff.semis[1], 'Semifinal reducido');
+      if(league.playoff.final) poHtml += tieBlock(league.playoff.final, 'Final del reducido');
+      html += `<div class="panel"><h3>Reducido por el tercer ascenso</h3>${poHtml}</div>`;
+    }
+    if(league.tablaAnual && league.tablaAnual.length && league.stage === 'done'){
+      html += `<div class="panel"><h3>Tabla de descenso</h3><p class="hint">Promedios de las últimas 2 temporadas.</p>${simpleTable(league.tablaAnual, {highlight: league.relegatedIds, highlightLabel: ' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>'})}</div>`;
+    }
+    if(league.championId){
+      html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de Segunda ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong> &middot; ascienden: ${(league.promotedIds||[]).map(id=>escapeHtml(byId[id].name)).join(', ')}</div></div>`;
+    }
+    return html;
+  }
+  // Primera Divisional C (Tercera de Uruguay): mismo criterio, todo apilado en un solo panel.
+  function renderWorldLeagueUruguayTercera(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    function simpleTable(rows, opts){
+      opts = opts || {};
+      return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        let tag = '';
+        if(opts.champion === r.id) tag = ' <span style="color:var(--gold-bright);font-size:11px;">&#127942; campeón</span>';
+        else if(opts.promoted && opts.promoted.includes(r.id)) tag = ' <span style="color:var(--green,#2e8b57);font-size:11px;">&#9650; asciende</span>';
+        else if(opts.clasificado && opts.clasificado.includes(r.id)) tag = ' <span style="color:var(--gold);font-size:11px;">clasifica</span>';
+        else if(opts.relegated && opts.relegated.includes(r.id)) tag = ' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>';
+        return `<tr><td>${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+    }
+    function matchLine(m, label){
+      if(!m) return '';
+      const home = byId[m.home], away = byId[m.away];
+      const res = m.played ? `${m.homeScore} &ndash; ${m.awayScore}${m.wentToPenalties ? ' (penales)' : ''}` : `se juega el ${formatCareerDate(m.date)}`;
+      return `<div class="cs-fixture-card"><div>${label ? `<strong>${label}:</strong> ` : ''}${escapeHtml(home.name)} vs ${escapeHtml(away.name)}</div><div class="num">${res}</div></div>`;
+    }
+    const top6 = league.serieA.table.length ? league.serieA.table.slice(0,6).map(r=>r.id) : [];
+    const top6B = league.serieB.table.length ? league.serieB.table.slice(0,6).map(r=>r.id) : [];
+    const top6C = league.serieC.table.length ? league.serieC.table.slice(0,6).map(r=>r.id) : [];
+    let html = `<div class="panel"><h3>Serie A</h3>${league.serieA.table.length ? simpleTable(league.serieA.table, {clasificado: top6}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    html += `<div class="panel"><h3>Serie B</h3>${league.serieB.table.length ? simpleTable(league.serieB.table, {clasificado: top6B}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    html += `<div class="panel"><h3>Serie C</h3>${league.serieC.table.length ? simpleTable(league.serieC.table, {clasificado: top6C}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    if(league.torneoInicial){
+      let tiHtml = league.torneoInicial.semis.map(m => matchLine(m, 'Semifinal Torneo Inicial')).join('');
+      if(league.torneoInicial.final) tiHtml += matchLine(league.torneoInicial.final, 'Final Torneo Inicial');
+      if(league.torneoInicial.championId) tiHtml += `<p class="hint">Campeón del Torneo Inicial (no asciende directo, define el segundo ascenso): <strong style="color:var(--ink);">${escapeHtml(byId[league.torneoInicial.championId].name)}</strong></p>`;
+      html += `<div class="panel"><h3>Torneo Inicial</h3>${tiHtml}</div>`;
+    }
+    if(league.torneoFinal){
+      html += `<div class="panel"><h3>Torneo Final</h3>${league.torneoFinal.table.length ? simpleTable(league.torneoFinal.table, { champion: league.championId, promoted: league.promotedIds && league.promotedIds.length ? league.promotedIds : null, relegated: league.relegatedIds }) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    }
+    if(league.segundoAscenso && league.segundoAscenso.scenario === 2){
+      html += `<div class="panel"><h3>Definición del segundo ascenso</h3>${matchLine(league.segundoAscenso.match, '2° del Torneo Final vs campeón del Inicial')}</div>`;
+    }
+    if(league.championId){
+      html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de Primera Divisional C ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong>${league.promotedIds && league.promotedIds.length ? ` &middot; ascienden: ${league.promotedIds.map(id=>escapeHtml(byId[id].name)).join(', ')}` : ''}</div></div>`;
+    }
+    return html;
+  }
+  // Divisional D (Cuarta de Uruguay): mismo criterio, todo apilado en un solo panel.
+  function renderWorldLeagueUruguayCuarta(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    function simpleTable(rows, opts){
+      opts = opts || {};
+      return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        let tag = '';
+        if(opts.champion === r.id) tag = ' <span style="color:var(--gold-bright);font-size:11px;">&#127942; 1° (fase regular)</span>';
+        else if(opts.playoff && opts.playoff.includes(r.id)) tag = ' <span style="color:var(--gold);font-size:11px;">clasifica a playoffs</span>';
+        return `<tr><td>${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+    }
+    function matchLine(m, label){
+      if(!m) return '';
+      const home = byId[m.home], away = byId[m.away];
+      const res = m.played ? `${m.homeScore} &ndash; ${m.awayScore}${m.wentToPenalties ? ' (penales)' : ''}` : `se juega el ${formatCareerDate(m.date)}`;
+      return `<div class="cs-fixture-card"><div>${label ? `<strong>${label}:</strong> ` : ''}${escapeHtml(home.name)} vs ${escapeHtml(away.name)}</div><div class="num">${res}</div></div>`;
+    }
+    const top8 = league.regular.table.length ? league.regular.table.slice(0,8).map(r=>r.id) : [];
+    let html = `<div class="panel"><h3>Fase Regular</h3>${league.regular.table.length ? simpleTable(league.regular.table, { champion: league.regularChampionId, playoff: top8 }) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    if(league.playoff){
+      let poHtml = league.playoff.quarters.map(m => matchLine(m, 'Cuartos')).join('');
+      if(league.playoff.semis) poHtml += league.playoff.semis.map(m => matchLine(m, 'Semifinal')).join('');
+      if(league.playoff.final) poHtml += matchLine(league.playoff.final, 'Final de playoffs');
+      if(league.playoff.championId) poHtml += `<p class="hint">Campeón de los playoffs: <strong style="color:var(--ink);">${escapeHtml(byId[league.playoff.championId].name)}</strong></p>`;
+      html += `<div class="panel"><h3>Playoffs</h3>${poHtml}</div>`;
+    }
+    if(league.ascensoFinal){
+      const f = league.ascensoFinal;
+      let fHtml = matchLine(f.legs[0], 'Ida');
+      fHtml += matchLine(f.legs[1], 'Vuelta');
+      html += `<div class="panel"><h3>Final de ascenso</h3><p class="hint">1° de la Fase Regular vs campeón de los Playoffs (equipos distintos).</p>${fHtml}</div>`;
+    }
+    if(league.championId){
+      html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#9650; Asciende a la Primera Divisional C ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong></div></div>`;
     }
     return html;
   }
@@ -6791,6 +7550,21 @@
     if(league.format === 'uruguay-primera'){
       if(league.stage === 'done' || league.championId) return `Campeón Uruguayo ${league.year}: ${escapeHtml(byId[league.championId].name)}`;
       const labels = { apertura:'Torneo Apertura', 'intermedio-series':'Torneo Intermedio (series)', 'intermedio-final':'Final del Intermedio', clausura:'Torneo Clausura', 'definicion-semifinal':'Definición del título (semifinal)', 'definicion-final':'Definición del título (final)' };
+      return labels[league.stage] || 'En juego';
+    }
+    if(league.format === 'uruguay-segunda'){
+      if(league.stage === 'done' || league.championId) return `Campeón de Segunda ${league.year}: ${escapeHtml(byId[league.championId].name)}`;
+      const labels = { competencia:'Torneo Competencia (zonas)', 'competencia-final':'Final del Competencia', regular:'Fase Regular', 'playoff-semis':'Reducido de ascenso (semifinales)', 'playoff-final':'Reducido de ascenso (final)' };
+      return labels[league.stage] || 'En juego';
+    }
+    if(league.format === 'uruguay-tercera'){
+      if(league.stage === 'done' || league.championId) return `Campeón de Primera Divisional C ${league.year}: ${escapeHtml(byId[league.championId].name)}`;
+      const labels = { series:'Series (Torneo Inicial)', final:'Torneo Final / Torneo Inicial', 'segundo-ascenso':'Definición del segundo ascenso' };
+      return labels[league.stage] || 'En juego';
+    }
+    if(league.format === 'uruguay-cuarta'){
+      if(league.stage === 'done' || league.championId) return `Asciende a la Tercera ${league.year}: ${escapeHtml(byId[league.championId].name)}`;
+      const labels = { regular:'Fase Regular', 'playoff-quarters':'Playoffs (cuartos)', 'playoff-semis':'Playoffs (semifinales)', 'playoff-final':'Playoffs (final)', 'ascenso-final':'Final de ascenso' };
       return labels[league.stage] || 'En juego';
     }
     if(league.format === 'copa-eliminacion'){
@@ -7069,10 +7843,13 @@
       return html;
     }
 
-    // Primera de Uruguay: formato propio, todo en un solo panel (ver renderWorldLeagueUruguay).
-    if(league.format === 'uruguay-primera'){
+    // Primera, Segunda, Tercera y Cuarta de Uruguay: formato propio, todo en un solo panel.
+    if(league.format === 'uruguay-primera' || league.format === 'uruguay-segunda' || league.format === 'uruguay-tercera' || league.format === 'uruguay-cuarta'){
       let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
-      html += renderWorldLeagueUruguay(league);
+      if(league.format === 'uruguay-primera') html += renderWorldLeagueUruguay(league);
+      else if(league.format === 'uruguay-segunda') html += renderWorldLeagueUruguaySegunda(league);
+      else if(league.format === 'uruguay-tercera') html += renderWorldLeagueUruguayTercera(league);
+      else html += renderWorldLeagueUruguayCuarta(league);
       if(league.history && league.history.length > 1){
         const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
         html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
