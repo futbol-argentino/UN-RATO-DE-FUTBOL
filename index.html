@@ -5270,13 +5270,25 @@
     for(let i=0;i<(name||'').length;i++) h = (h*31 + name.charCodeAt(i)) % 360;
     return h;
   }
+  function nombreAArchivo(nombre){
+    return (nombre||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+  }
+
   function teamBadgeHtml(team, size){
     size = size || 26;
     if(!team) return `<div class="cs-badge" style="width:${size}px;height:${size}px;background:var(--line);"></div>`;
     const crest = crestUrls[crestKey(team.name)];
     if(crest) return `<div class="cs-badge cs-badge-img" style="width:${size}px;height:${size}px;"><img src="${crest}" alt="" draggable="false" style="width:100%;height:100%;object-fit:contain;display:block;"></div>`;
+    // Fallback: intentar escudos/ del repo de GitHub
     const hue = teamHue(team.name);
-    return `<div class="cs-badge" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.4)}px;background:hsl(${hue},58%,50%);">${escapeHtml(teamInitials(team.name))}</div>`;
+    const initials = escapeHtml(teamInitials(team.name));
+    const githubSrc = `escudos/${nombreAArchivo(team.name)}.png`;
+    const fallbackStyle = `width:${size}px;height:${size}px;font-size:${Math.round(size*0.4)}px;background:hsl(${hue},58%,50%);`;
+    return `<div class="cs-badge cs-badge-img" style="width:${size}px;height:${size}px;" data-badge-name="${escapeHtml(team.name)}">
+      <img src="${githubSrc}" alt="" draggable="false" style="width:100%;height:100%;object-fit:contain;display:block;"
+        onerror="this.parentElement.outerHTML='<div class=\\'cs-badge\\' style=\\'${fallbackStyle}\\'>${initials}</div>'">
+    </div>`;
   }
 
   // ---------- Próximo partido / últimos resultados (para el dashboard de Inicio) ----------
