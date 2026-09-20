@@ -115,6 +115,10 @@
     transition:border-color .15s ease;
   }
   .cs-fixture-card:hover{ border-color:var(--gold); }
+  .cs-badge-img{ background:transparent; border-radius:0; }
+  .crest-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:8px; margin-bottom:14px; }
+  .crest-row{ display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; }
+  .crest-row .nm{ flex:1; min-width:0; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .cs-badge{ border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-weight:600; color:#06121C; flex:0 0 auto; font-family:'Work Sans',sans-serif; }
   .cs-result-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-bottom:1px solid var(--line); font-size:13.5px; }
   .cs-result-row:last-child{ border-bottom:none; }
@@ -1817,6 +1821,7 @@
   function bindEvents(){
     els.app.addEventListener('click', onClick);
     els.app.addEventListener('change', onChange);
+    els.app.addEventListener('input', crestOnInput);
     const rangeEl = document.getElementById('cfgDrawProb');
     if(rangeEl){
       rangeEl.addEventListener('input', () => {
@@ -1836,6 +1841,12 @@
   }
 
   function onChange(e){
+    if(e.target.hasAttribute){
+      if(e.target.hasAttribute('data-crest-upload')){ crestHandleSingle(e.target); return; }
+      if(e.target.hasAttribute('data-crest-bulk')){ crestHandleBulk(e.target); return; }
+      if(e.target.hasAttribute('data-crest-import')){ crestImport(e.target); return; }
+      if(e.target.hasAttribute('data-crest-group')){ crestUi.group = e.target.value; render(); return; }
+    }
     if(e.target.hasAttribute && e.target.hasAttribute('data-career-elo')){
       const tid = e.target.getAttribute('data-career-elo');
       const t = careerTeamById(tid);
@@ -1890,6 +1901,20 @@
     const btn = e.target.closest('[data-action]');
     if(!btn) return;
     const action = btn.getAttribute('data-action');
+
+    // ---- Escudos de equipos ----
+    if(action === 'crest-remove'){
+      const k = btn.getAttribute('data-key');
+      crestDelete(k).then(() => { crestUi.msg = null; render(); });
+      return;
+    }
+    else if(action === 'crest-export'){ crestExport(); return; }
+    else if(action === 'crest-clear-all'){
+      if(Object.keys(crestUrls).length && confirm('¿Quitar todos los escudos cargados? Esto no se puede deshacer (si querés conservarlos, primero descargá una copia).')){
+        crestClearAll().then(() => { crestUi.msg = 'Se quitaron todos los escudos.'; render(); });
+      }
+      return;
+    }
 
     // ---- Modo Carrera ----
     if(action === 'go-carrera'){
@@ -4932,12 +4957,306 @@
       ${item('equipos-list','&#9917;','Equipos')}
       ${item('jugadores','&#128100;','Jugadores', {disabled:true})}
       ${item('campeones','&#127942;','Historia')}
+      ${item('escudos','&#128737;','Escudos')}
       ${item('configuracion','&#9881;','Configuración')}
     </aside>`;
   }
 
+  // ---------- Escudos de equipos (imágenes que sube el usuario) ----------
+  // Cada escudo se guarda en IndexedDB (no en localStorage: las carreras ya ocupan bastante lugar y
+  // las imágenes necesitan más), una por nombre de equipo normalizado (sin tildes, mayúsculas ni
+  // símbolos), así el mismo escudo sirve en todas las carreras y en cualquier competición donde
+  // aparezca el equipo. Las imágenes se achican a 128 px como máximo al subirlas. En memoria se
+  // guarda una URL de tipo blob: por equipo, así teamBadgeHtml (que es síncrono) la usa directo.
+  const CREST_DB = 'torneos-elo-escudos', CREST_STORE = 'escudos', CREST_MAX = 128;
+  const crestUrls = {}, crestBlobs = {};
+  const crestUi = { query:'', group:'', msg:null };
+  let crestDbPromise = null, crestPersistOk = true;
+  function crestKey(name){
+    return String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  }
+  function crestOpenDb(){
+    if(crestDbPromise) return crestDbPromise;
+    crestDbPromise = new Promise(resolve => {
+      try{
+        if(typeof indexedDB === 'undefined'){ crestPersistOk = false; resolve(null); return; }
+        const req = indexedDB.open(CREST_DB, 1);
+        req.onupgradeneeded = () => { req.result.createObjectStore(CREST_STORE); };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => { crestPersistOk = false; resolve(null); };
+      }catch(e){ crestPersistOk = false; resolve(null); }
+    });
+    return crestDbPromise;
+  }
+  function crestSetInMemory(key, blob){
+    if(crestUrls[key]){ try{ URL.revokeObjectURL(crestUrls[key]); }catch(e){} }
+    crestBlobs[key] = blob;
+    crestUrls[key] = URL.createObjectURL(blob);
+  }
+  function crestDropInMemory(key){
+    if(crestUrls[key]){ try{ URL.revokeObjectURL(crestUrls[key]); }catch(e){} }
+    delete crestUrls[key]; delete crestBlobs[key];
+  }
+  async function crestLoadAll(){
+    const db = await crestOpenDb();
+    if(!db) return;
+    await new Promise(resolve => {
+      try{
+        const rq = db.transaction(CREST_STORE, 'readonly').objectStore(CREST_STORE).openCursor();
+        rq.onsuccess = () => {
+          const cur = rq.result;
+          if(cur){ if(cur.value instanceof Blob) crestSetInMemory(cur.key, cur.value); cur.continue(); }
+          else resolve();
+        };
+        rq.onerror = () => resolve();
+      }catch(e){ resolve(); }
+    });
+  }
+  // Devuelven true si quedó guardado de forma permanente.
+  async function crestPut(key, blob){
+    crestSetInMemory(key, blob);
+    const db = await crestOpenDb();
+    if(!db) return false;
+    return new Promise(resolve => {
+      try{
+        const tx = db.transaction(CREST_STORE, 'readwrite');
+        tx.objectStore(CREST_STORE).put(blob, key);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+        tx.onabort = () => resolve(false);
+      }catch(e){ resolve(false); }
+    });
+  }
+  async function crestDelete(key){
+    crestDropInMemory(key);
+    const db = await crestOpenDb();
+    if(!db) return false;
+    return new Promise(resolve => {
+      try{
+        const tx = db.transaction(CREST_STORE, 'readwrite');
+        tx.objectStore(CREST_STORE).delete(key);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+        tx.onabort = () => resolve(false);
+      }catch(e){ resolve(false); }
+    });
+  }
+  async function crestClearAll(){
+    Object.keys(crestUrls).forEach(crestDropInMemory);
+    const db = await crestOpenDb();
+    if(!db) return false;
+    return new Promise(resolve => {
+      try{
+        const tx = db.transaction(CREST_STORE, 'readwrite');
+        tx.objectStore(CREST_STORE).clear();
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+        tx.onabort = () => resolve(false);
+      }catch(e){ resolve(false); }
+    });
+  }
+  // Lee la imagen elegida, la achica (sin deformarla ni agrandarla) y devuelve un Blob.
+  function crestProcessFile(file){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        try{
+          let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          if(!w || !h){ w = CREST_MAX; h = CREST_MAX; } // SVG sin medidas propias
+          const scale = Math.min(1, CREST_MAX / Math.max(w, h));
+          const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+          const cv = document.createElement('canvas');
+          cv.width = cw; cv.height = ch;
+          const ctx = cv.getContext('2d');
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, cw, ch);
+          // WebP conserva la transparencia y pesa poco; donde no se pueda codificar (Safari) sale PNG.
+          cv.toBlob(b => {
+            URL.revokeObjectURL(url);
+            if(b) resolve(b); else reject(new Error('sin imagen'));
+          }, 'image/webp', 0.92);
+        }catch(err){ URL.revokeObjectURL(url); reject(err); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('imagen ilegible')); };
+      img.src = url;
+    });
+  }
+  // Todos los equipos que hay en el juego, agrupados, sin repetir (el mismo nombre = el mismo escudo).
+  function crestCollectTeams(){
+    const c = state.career;
+    const groups = [], seen = new Set();
+    function add(label, teams){
+      const list = [];
+      (teams || []).forEach(t => {
+        if(!t || !t.name) return;
+        const k = crestKey(t.name);
+        if(!k || seen.has(k)) return;
+        seen.add(k);
+        list.push({ name:t.name, key:k });
+      });
+      if(list.length) groups.push({ label, teams:list });
+    }
+    careerAllRosterTeams().forEach(g => add(g.label + ' (Argentina)', g.teams));
+    add('Copa Argentina (otros equipos)', c.copaArgentina && c.copaArgentina.otherTeams);
+    const wl = careerWorldLeagues();
+    WORLD_LEAGUES_REGISTRY.forEach(def => {
+      let teams = wl[def.key] && wl[def.key].teams;
+      if(!teams || !teams.length) teams = def.teams || [];
+      add(def.country + ' \u00b7 ' + def.name, teams);
+    });
+    // Al final, los equipos del exterior que no juegan en ninguna liga cargada (los que sí, ya
+    // figuran en la suya, y comparten el mismo escudo).
+    add('Otros equipos del exterior (copas internacionales)', [].concat((c.libertadores && c.libertadores.foreignTeams) || [], CAREER_EXTERIOR_TEAMS));
+    return groups;
+  }
+  function crestOnInput(e){
+    const t = e.target;
+    if(!t || !t.hasAttribute || !t.hasAttribute('data-crest-search')) return;
+    crestUi.query = t.value;
+    const q = crestKey(t.value);
+    document.querySelectorAll('.crest-row').forEach(r => {
+      r.style.display = (!q || r.getAttribute('data-key').indexOf(q) !== -1) ? '' : 'none';
+    });
+    document.querySelectorAll('.crest-group').forEach(g => {
+      const hayVisibles = Array.from(g.querySelectorAll('.crest-row')).some(r => r.style.display !== 'none');
+      g.style.display = hayVisibles ? '' : 'none';
+    });
+  }
+  async function crestHandleSingle(input){
+    const file = input.files && input.files[0];
+    const key = input.getAttribute('data-crest-key'), name = input.getAttribute('data-crest-name');
+    input.value = '';
+    if(!file || !key) return;
+    try{
+      const blob = await crestProcessFile(file);
+      const saved = await crestPut(key, blob);
+      crestUi.msg = saved ? `Escudo de ${name} cargado.` : `Escudo de ${name} cargado, pero este navegador no permite guardarlo de forma permanente: se va a perder al cerrar la página.`;
+    }catch(err){
+      crestUi.msg = `No se pudo leer la imagen de ${name}. Probá con un PNG, JPG, WEBP o SVG.`;
+    }
+    render();
+  }
+  // Carga varios a la vez: cada archivo se asigna al equipo cuyo nombre coincide con el del archivo.
+  async function crestHandleBulk(input){
+    const files = Array.from(input.files || []);
+    input.value = '';
+    if(!files.length) return;
+    const known = {};
+    crestCollectTeams().forEach(g => g.teams.forEach(t => { known[t.key] = t.name; }));
+    let ok = 0, persistFail = false;
+    const unmatched = [], failed = [];
+    for(let i = 0; i < files.length; i++){
+      const f = files[i];
+      const key = crestKey(f.name.replace(/\.[^.]+$/, ''));
+      if(!known[key]){ unmatched.push(f.name); continue; }
+      try{
+        const blob = await crestProcessFile(f);
+        if(!(await crestPut(key, blob))) persistFail = true;
+        ok++;
+      }catch(err){ failed.push(f.name); }
+    }
+    let msg = `Se cargaron ${ok} escudo${ok === 1 ? '' : 's'}.`;
+    if(unmatched.length) msg += ` Sin equipo con ese nombre (${unmatched.length}): ${unmatched.slice(0,12).join(', ')}${unmatched.length > 12 ? '\u2026' : ''}. Renombralos como el equipo, o subilos de a uno.`;
+    if(failed.length) msg += ` No se pudieron leer (${failed.length}): ${failed.slice(0,12).join(', ')}.`;
+    if(persistFail) msg += ' Este navegador no permite guardarlos de forma permanente: se van a perder al cerrar la página.';
+    crestUi.msg = msg;
+    render();
+  }
+  async function crestExport(){
+    const keys = Object.keys(crestBlobs);
+    if(!keys.length){ crestUi.msg = 'Todavía no cargaste ningún escudo.'; render(); return; }
+    const out = {};
+    for(let i = 0; i < keys.length; i++){
+      out[keys[i]] = await new Promise(res => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = () => res(null);
+        r.readAsDataURL(crestBlobs[keys[i]]);
+      });
+    }
+    const blob = new Blob([JSON.stringify({ version:1, escudos:out })], { type:'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'escudos-torneos-elo.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    crestUi.msg = `Copia de seguridad descargada (${keys.length} escudos).`;
+    render();
+  }
+  async function crestImport(input){
+    const file = input.files && input.files[0];
+    input.value = '';
+    if(!file) return;
+    let ok = 0;
+    try{
+      const data = JSON.parse(await file.text());
+      const escudos = data && data.escudos;
+      if(!escudos || typeof escudos !== 'object') throw new Error('formato');
+      const keys = Object.keys(escudos);
+      for(let i = 0; i < keys.length; i++){
+        const v = escudos[keys[i]];
+        if(typeof v !== 'string' || v.indexOf('data:image/') !== 0) continue;
+        const blob = await (await fetch(v)).blob();
+        await crestPut(keys[i], blob);
+        ok++;
+      }
+      crestUi.msg = `Se importaron ${ok} escudo${ok === 1 ? '' : 's'}.`;
+    }catch(err){
+      crestUi.msg = 'No se pudo importar: el archivo no es una copia de escudos de este juego.';
+    }
+    render();
+  }
+
+  function renderCareraEscudos(){
+    const groups = crestCollectTeams();
+    const total = groups.reduce((s,g) => s + g.teams.length, 0);
+    const con = groups.reduce((s,g) => s + g.teams.filter(t => crestUrls[t.key]).length, 0);
+    const q = crestKey(crestUi.query);
+    let html = `<div class="panel"><h2>Escudos</h2>
+      <p class="hint">Subí la imagen del escudo de cada equipo y se va a mostrar en todas las tablas, fixtures y fichas en lugar de las iniciales. Se guardan en este navegador (no dentro de la carrera), así que sirven para todas tus carreras, y se achican solos a 128 px. Tenés ${con} de ${total} equipos con escudo.</p>
+      <div class="btn-row">
+        <label class="btn primary small" style="cursor:pointer;">Subir varios escudos<input type="file" accept="image/*" multiple hidden data-crest-bulk></label>
+        <button class="btn ghost small" data-action="crest-export">Descargar copia</button>
+        <label class="btn ghost small" style="cursor:pointer;">Importar copia<input type="file" accept="application/json,.json" hidden data-crest-import></label>
+        <button class="btn ghost small" data-action="crest-clear-all">Quitar todos</button>
+      </div>
+      <p class="hint" style="margin-top:10px;">Para subir muchos juntos, el nombre de cada archivo tiene que ser el del equipo (por ejemplo <em>Colo Colo.png</em> o <em>colo-colo.png</em>: no importan mayúsculas, tildes, guiones ni espacios). Los que no coincidan te los aviso. Como los escudos viven en este navegador, conviene bajar una copia de vez en cuando.</p>
+      ${crestPersistOk ? '' : '<p class="hint" style="color:var(--red);">Este navegador no deja guardar datos de forma permanente: los escudos que subas se pierden al cerrar la página.</p>'}
+    </div>`;
+    if(crestUi.msg) html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">${escapeHtml(crestUi.msg)}</div>`;
+    html += `<div class="panel"><div class="btn-row" style="margin-top:0;align-items:center;">
+      <input type="text" id="crestSearch" data-crest-search placeholder="Buscar equipo&hellip;" value="${escapeHtml(crestUi.query)}" style="flex:1;min-width:180px;">
+      <select data-crest-group>
+        <option value="">Todas las competiciones</option>
+        ${groups.map(g => `<option value="${escapeHtml(g.label)}" ${crestUi.group === g.label ? 'selected' : ''}>${escapeHtml(g.label)}</option>`).join('')}
+      </select>
+    </div></div>`;
+    groups.forEach(g => {
+      if(crestUi.group && crestUi.group !== g.label) return;
+      const gCon = g.teams.filter(t => crestUrls[t.key]).length;
+      const gVisible = !q || g.teams.some(t => t.key.indexOf(q) !== -1);
+      html += `<div class="crest-group" style="${gVisible ? '' : 'display:none;'}"><div class="cs-section-title">${escapeHtml(g.label)} &middot; ${gCon}/${g.teams.length}</div><div class="crest-grid">`;
+      g.teams.forEach(t => {
+        const has = !!crestUrls[t.key];
+        const hidden = q && t.key.indexOf(q) === -1;
+        html += `<div class="crest-row" data-key="${t.key}" style="${hidden ? 'display:none;' : ''}">
+          ${teamBadgeHtml({ name:t.name }, 40)}
+          <div class="nm" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</div>
+          <label class="btn ghost small" style="cursor:pointer;">${has ? 'Cambiar' : 'Subir'}<input type="file" accept="image/*" hidden data-crest-upload data-crest-key="${t.key}" data-crest-name="${escapeHtml(t.name)}"></label>
+          ${has ? `<button class="btn ghost small" data-action="crest-remove" data-key="${t.key}" title="Quitar escudo">&times;</button>` : ''}
+        </div>`;
+      });
+      html += `</div></div>`;
+    });
+    return html;
+  }
+
   // ---------- Insignias de equipo (iniciales + color derivado del nombre) ----------
-  // No hay escudos reales cargados: se genera una insignia estable a partir del nombre.
+  // Si el equipo tiene un escudo subido (ver "Escudos de equipos" más abajo) se usa ese; si no, se
+  // genera una insignia estable a partir del nombre (iniciales + color).
   function teamInitials(name){
     if(!name) return '?';
     const stop = new Set(['de','del','la','los','las','el','y']);
@@ -4954,6 +5273,8 @@
   function teamBadgeHtml(team, size){
     size = size || 26;
     if(!team) return `<div class="cs-badge" style="width:${size}px;height:${size}px;background:var(--line);"></div>`;
+    const crest = crestUrls[crestKey(team.name)];
+    if(crest) return `<div class="cs-badge cs-badge-img" style="width:${size}px;height:${size}px;"><img src="${crest}" alt="" draggable="false" style="width:100%;height:100%;object-fit:contain;display:block;"></div>`;
     const hue = teamHue(team.name);
     return `<div class="cs-badge" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.4)}px;background:hsl(${hue},58%,50%);">${escapeHtml(teamInitials(team.name))}</div>`;
   }
@@ -5066,6 +5387,7 @@
     if(c.view === 'copa-argentina') return renderCareraCopaArgentina();
     if(c.view === 'internacionales') return renderCareraCopasInternacionales();
     if(c.view === 'ligas-mundo') return renderCareraLigasMundo();
+    if(c.view === 'escudos') return renderCareraEscudos();
     if(c.view === 'copas') return renderCareraCopasNacionales();
     if(c.view === 'campeones') return renderCareraHistorialCampeones();
     if(c.view === 'liga') return renderCareraLiga();
@@ -5711,7 +6033,8 @@
       key: 'supercopa-brasil',
       country: 'Brasil',
       name: 'Supercopa do Brasil',
-      format: 'partido-unico'
+      format: 'partido-unico',
+      pendingHint: 'Se arma cuando ya están el campeón del Brasileirão y el campeón de la Copa do Brasil de la temporada (si es el mismo equipo, se corona directo).'
     },
     {
       // Primera División de Uruguay (Liga AUF), por ahora sola — todavía no están cargadas la
@@ -5834,6 +6157,49 @@
       name: 'Supercopa Uruguaya',
       format: 'uruguay-supercopa',
       pendingHint: 'Se arma apenas termina la temporada de la Primera División.'
+    },
+    {
+      // Primera División de Chile (Liga de Primera), por ahora sola: todavía no están cargadas la
+      // Primera B ni las demás categorías, así que no hay ascensos ni descensos reales (se marca
+      // quiénes bajarían, pero los 16 se quedan de una temporada a la otra). Todos contra todos a
+      // dos ruedas. Arranca 9 semanas después del inicio de la temporada porque antes se juega la
+      // Copa de la Liga (careerEnsureCopaLigaChile): 6 fechas de grupos + 2 de semis + la final.
+      // `keepPrevTable` guarda la tabla final en la temporada siguiente (`prevTableIds`) para armar
+      // los grupos de la Copa de la Liga por posición.
+      key: 'chile-primera',
+      country: 'Chile',
+      name: 'Liga de Primera',
+      format: 'liga-ida-vuelta',
+      descensos: 2,
+      startOffsetWeeks: 9,
+      keepPrevTable: true,
+      libertadoresGrupos: [1,2],
+      libertadoresDefinicion: [3],   // 3° juega un partido único con el campeón de la Copa Chile (todavía no cargada)
+      sudamericanaGrupos: [4,5,6],
+      zonas: [
+        { posiciones: [1,2], color: 'var(--green-win)', tag: 'Libertadores' },
+        { posiciones: [3], color: 'var(--gold)', tag: 'define Libertadores' },
+        { posiciones: [4,5,6], color: '#4a9eff', tag: 'Sudamericana' }
+      ],
+      clasificacionNota: '1° campeón de Chile y Libertadores (fase de grupos) &middot; 2° Libertadores (fase de grupos) &middot; 3° juega un partido único con el campeón de la Copa Chile por el tercer cupo a la Libertadores &middot; 4° a 6° Copa Sudamericana (fase de grupos) &middot; 15° y 16° descienden.',
+      // Grupos de la Copa de la Liga de la primera temporada (índices en `teams`).
+      copaLigaGruposIniciales: { A:[3,0,14,9], B:[2,15,7,11], C:[5,6,8,4], D:[1,13,12,10] },
+      teams: [
+        { name:'Colo Colo', elo:1832 }, { name:'Universidad de Chile', elo:1808 }, { name:'Universidad Católica', elo:1765 },
+        { name:'Coquimbo Unido', elo:1751 }, { name:'Everton de Viña del Mar', elo:1701 }, { name:'O´Higgins', elo:1675 },
+        { name:'Palestino', elo:1666 }, { name:'Ñublense', elo:1657 }, { name:'Deportes Limache', elo:1631 },
+        { name:'Deportes Concepción', elo:1622 }, { name:'Deportes La Serena', elo:1612 }, { name:'Universidad de Concepción', elo:1607 },
+        { name:'Unión La Calera', elo:1607 }, { name:'Audax Italiano', elo:1603 }, { name:'Huachipato', elo:1556 }, { name:'Cobresal', elo:1525 }
+      ]
+    },
+    {
+      // Copa de la Liga de Chile. Sin planteles propios: usa los 16 de la Liga de Primera y se arma
+      // junto con cada temporada (careerEnsureCopaLigaChile).
+      key: 'chile-copa-liga',
+      country: 'Chile',
+      name: 'Copa de la Liga',
+      format: 'chile-copa-liga',
+      pendingHint: 'Se arma junto con la temporada de la Liga de Primera.'
     }
   ];
 
@@ -5946,7 +6312,10 @@
     }
     // Arranca la misma semana que el Apertura argentino y juega una fecha por semana; así una
     // liga de ~38 fechas queda repartida a lo largo de todo el año, en paralelo al torneo local.
-    const startDate = careerSeasonStart(c.year, 'apertura');
+    const startBase = careerWorldSeasonStart(!!prev);
+    // Algunas ligas (la Liga de Primera de Chile) arrancan unas semanas después del inicio de
+    // temporada porque antes se juega una copa (`startOffsetWeeks`).
+    const startDate = def.startOffsetWeeks ? addDaysISO(startBase, def.startOffsetWeeks * 7) : startBase;
     const matches = [];
     rounds.forEach((round, ri) => {
       const date = addDaysISO(startDate, ri*7);
@@ -5971,8 +6340,10 @@
       // do Brasil usan esto (no el año) para saber si el plantel de esta liga que tienen cargado
       // sigue siendo el vigente.
       season: (prev && prev.season) ? prev.season + 1 : 1,
-      year: c.year, teams, matches, table: [], championId: null, relegatedIds: [], promotedIds: [],
+      year: Number(startDate.slice(0,4)), teams, matches, table: [], championId: null, relegatedIds: [], promotedIds: [],
       playoff: null, stage: def.format === 'fases-grupos' ? 'fase1' : 'liga', fase2Groups: null, final: null,
+      startBase, zonas: def.zonas || null,
+      prevTableIds: (def.keepPrevTable && prev && prev.table && prev.table.length) ? prev.table.map(r => r.id) : null,
       history
     };
   }
@@ -5987,7 +6358,7 @@
     const c = state.career;
     const wl = careerWorldLeagues();
     const prev = wl[def.key];
-    const startDate = careerSeasonStart(c.year, 'apertura');
+    const startDate = careerWorldSeasonStart(!!prev);
     const grupos = {};
     const allTeams = [];
     function armarGrupo(nombre, gi, teams){
@@ -6028,7 +6399,7 @@
     wl[def.key] = {
       key: def.key, country: def.country, name: def.name, format: def.format,
       season: (prev && prev.season) ? prev.season + 1 : 1,
-      year: c.year, teams: allTeams, grupos, stage: 'grupos', groupWinners: [], championId: null,
+      year: Number(startDate.slice(0,4)), teams: allTeams, grupos, stage: 'grupos', groupWinners: [], championId: null,
       relegatedIds: [], promotedIds: [],
       history
     };
@@ -6418,7 +6789,7 @@
       // La Copa do Brasil y la Supercopa do Brasil no tienen fixture propio armado por adelantado
       // (dependen de los planteles/campeones de las otras ligas de este mismo año), así que se
       // procesan aparte, después de que el resto ya esté al día — ver más abajo.
-      if(def.format === 'copa-eliminacion' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta' || def.format === 'uruguay-copa' || def.format === 'uruguay-supercopa') return;
+      if(def.format === 'copa-eliminacion' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta' || def.format === 'uruguay-copa' || def.format === 'uruguay-supercopa' || def.format === 'chile-copa-liga') return;
       let league = wl[def.key];
       // El arranque de la temporada siguiente de cada división depende de que esa división (y,
       // si es parte de la pirámide brasileña, las otras 3) ya haya terminado la suya — no de que
@@ -6440,6 +6811,158 @@
     careerEnsureCopaBrasil();
     careerEnsureSupercopaBrasil();
     careerEnsureUruguayLeagues();
+    // Copa de la Liga de Chile: se arma y avanza después de la Liga de Primera (usa sus 16 equipos
+    // y su tabla de la temporada anterior).
+    careerEnsureCopaLigaChile();
+  }
+  // ---------- Chile: Copa de la Liga ----------
+  // Se juega ANTES de la Liga de Primera, con los mismos 16 equipos: 4 grupos de 4 (todos contra
+  // todos, ida y vuelta = 6 fechas), el 1° de cada grupo pasa a semifinales, semis ida y vuelta y
+  // final a partido único en cancha neutral (penales directos si empatan en cualquier cruce).
+  //  - Los grupos se arman por la posición en la temporada anterior (CHILE_COPA_LIGA_GRUPOS_POR_POSICION).
+  //    El "primer" y "segundo ascendido" son de la Primera B, que todavía no está cargada: hasta
+  //    entonces la pirámide chilena no se mueve (los 16 se quedan), así que esos dos lugares los
+  //    ocupan el 15° y el 16° de la temporada anterior, que serían los reemplazados. En la primera
+  //    temporada, sin año anterior, se usan los grupos que dio el reglamento (`copaLigaGruposIniciales`
+  //    en el registro) y el orden del ELO de la carga hace de "clasificación anterior".
+  //  - Semifinales: mejor clasificado vs cuarto mejor, segundo vs tercero (por clasificación de la
+  //    temporada anterior, entre los 4 ganadores de grupo). El mejor clasificado juega la vuelta de local.
+  //  - Cupo a la Libertadores (fase de grupos) para el campeón de la Copa de la Liga; si ya estaba
+  //    clasificado por la tabla de la Liga (1° o 2°), pasa al subcampeón, y así con los semifinalistas
+  //    hasta encontrar uno que no esté clasificado (careerChileCopaLigaCupo).
+  // La Liga de Primera de la misma temporada arranca 9 semanas después del inicio de la Copa
+  // (`startOffsetWeeks` en el registro): 6 fechas de grupos + 2 de semis + la final.
+  const CHILE_COPA_LIGA_GRUPO_ORDEN = ['A','B','C','D'];
+  const CHILE_COPA_LIGA_GRUPOS_POR_POSICION = { A:[1,8,9,16], B:[2,7,10,15], C:[3,6,11,14], D:[4,5,12,13] };
+  function careerEnsureCopaLigaChile(){
+    const wl = careerWorldLeagues();
+    const P = wl['chile-primera'];
+    if(!P) return;
+    let copa = wl['chile-copa-liga'];
+    if(!copa || copa.primeraSeason !== P.season) careerWorldLeagueBuildCopaLigaChile(P);
+    copa = wl['chile-copa-liga'];
+    if(copa.stage !== 'done') careerWorldLeagueCatchUpCopaLigaChile(copa);
+    if(copa.stage === 'done' && P.championId && P.table && P.table.length && !copa.libertadoresListo) careerChileCopaLigaCupo(copa, P);
+  }
+  function careerWorldLeagueBuildCopaLigaChile(P){
+    const wl = careerWorldLeagues();
+    const def = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'chile-primera');
+    const prev = wl['chile-copa-liga'];
+    let prevSummary = (prev && prev.prevSummary) ? prev.prevSummary : null;
+    if(prev && prev.championId){
+      const pb = {}; prev.teams.forEach(t => pb[t.id] = t);
+      prevSummary = { year: prev.year, championName: pb[prev.championId].name, runnerUpName: pb[prev.runnerUpId].name,
+        libertadoresName: prev.libertadoresId ? pb[prev.libertadoresId].name : null };
+    }
+    const ids = P.teams.map(t => t.id);
+    const gruposIds = {};
+    let posIds;
+    if(P.prevTableIds && P.prevTableIds.length === ids.length){
+      posIds = P.prevTableIds;
+      CHILE_COPA_LIGA_GRUPO_ORDEN.forEach(g => { gruposIds[g] = CHILE_COPA_LIGA_GRUPOS_POR_POSICION[g].map(pos => posIds[pos-1]); });
+    } else {
+      posIds = ids;
+      CHILE_COPA_LIGA_GRUPO_ORDEN.forEach(g => { gruposIds[g] = def.copaLigaGruposIniciales[g].map(i => 'wl_'+def.key+'_'+i); });
+    }
+    const seed = {}; posIds.forEach((id, i) => seed[id] = i + 1);
+    const base = P.startBase || addDaysISO(P.matches[0].date, -7 * (def.startOffsetWeeks || 0));
+    const season = (prev && prev.season) ? prev.season + 1 : 1;
+    const grupos = {};
+    CHILE_COPA_LIGA_GRUPO_ORDEN.forEach(g => {
+      const gids = gruposIds[g];
+      let rounds = roundRobinRounds(gids);
+      rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+      const matches = [];
+      rounds.forEach((round, ri) => {
+        const date = addDaysISO(base, ri * 7);
+        round.forEach(m => {
+          if(m.home === null || m.away === null) return;
+          matches.push({ id:'wl_chile-copa-liga_'+season+'_'+g+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+        });
+      });
+      grupos[g] = { nombre:'Grupo '+g, teamIds:gids, matches, table:[] };
+    });
+    wl['chile-copa-liga'] = {
+      key:'chile-copa-liga', country:'Chile', name:'Copa de la Liga', format:'chile-copa-liga',
+      season, primeraSeason:P.season, year:P.year, startBase:base,
+      // Mismos objetos de equipo que la Liga: el ELO de la Copa también se refleja en ella.
+      teams:P.teams.slice(), seed, grupos, semis:null, final:null, stage:'grupos',
+      championId:null, runnerUpId:null, libertadoresId:null, libertadoresListo:false,
+      prevSummary, history:(prev && prev.history) ? prev.history.slice() : []
+    };
+  }
+  function careerWorldLeagueCatchUpCopaLigaChile(league){
+    const c = state.career;
+    if(!c.calendarDate) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const base = league.startBase;
+    let guard = 0, progressed = true;
+    while(progressed && guard < 6 && league.stage !== 'done'){
+      progressed = false; guard++;
+      if(league.stage === 'grupos'){
+        let todos = true;
+        CHILE_COPA_LIGA_GRUPO_ORDEN.forEach(g => {
+          const grp = league.grupos[g];
+          const jugo = careerWorldLeaguePlayDue(grp.matches, byId, c.calendarDate, {});
+          if(jugo || !grp.table.length) grp.table = computeGenericStandings(grp.matches, grp.teamIds.map(id => byId[id]));
+          if(!grp.matches.every(m => m.played)) todos = false;
+        });
+        if(todos){
+          // Los 4 ganadores de grupo, ordenados por clasificación anterior: 1° vs 4°, 2° vs 3°.
+          const ws = CHILE_COPA_LIGA_GRUPO_ORDEN.map(g => league.grupos[g].table[0].id).sort((a,b) => league.seed[a] - league.seed[b]);
+          const mk = (A, B, i) => ({
+            teamA:A, teamB:B, winnerId:null, wentToPenalties:false,
+            legs:[
+              { id:'wl_chile-copa-liga_'+league.season+'_semi'+i+'_1', home:B, away:A, leg:1, date:addDaysISO(base, 6*7), homeScore:null, awayScore:null, played:false },
+              { id:'wl_chile-copa-liga_'+league.season+'_semi'+i+'_2', home:A, away:B, leg:2, date:addDaysISO(base, 7*7), homeScore:null, awayScore:null, played:false }
+            ]
+          });
+          league.semis = [ mk(ws[0], ws[3], 0), mk(ws[1], ws[2], 1) ];
+          league.stage = 'semis';
+          progressed = true;
+        }
+      } else if(league.stage === 'semis'){
+        league.semis.forEach(tie => {
+          if(tie.winnerId) return;
+          careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {});
+          if(tie.legs.every(l => l.played)){
+            const golesA = tie.legs[0].awayScore + tie.legs[1].homeScore;
+            const golesB = tie.legs[0].homeScore + tie.legs[1].awayScore;
+            if(golesA > golesB) tie.winnerId = tie.teamA;
+            else if(golesB > golesA) tie.winnerId = tie.teamB;
+            else { tie.wentToPenalties = true; tie.winnerId = worldLeaguePenaltyWinner(byId[tie.teamA].elo, byId[tie.teamB].elo) === 'A' ? tie.teamA : tie.teamB; }
+          }
+        });
+        if(league.semis.every(t => t.winnerId)){
+          const fin = league.semis.map(t => t.winnerId).sort((a,b) => league.seed[a] - league.seed[b]);
+          league.final = { id:'wl_chile-copa-liga_'+league.season+'_final', home:fin[0], away:fin[1], date:addDaysISO(base, 8*7), neutral:true, homeScore:null, awayScore:null, played:false, wentToPenalties:false, winnerId:null };
+          league.stage = 'final';
+          progressed = true;
+        }
+      } else if(league.stage === 'final'){
+        const f = league.final;
+        careerWorldLeaguePlayDue([f], byId, c.calendarDate, {neutral:true});
+        if(f.played){
+          if(f.homeScore > f.awayScore) f.winnerId = f.home;
+          else if(f.awayScore > f.homeScore) f.winnerId = f.away;
+          else { f.wentToPenalties = true; f.winnerId = worldLeaguePenaltyWinner(byId[f.home].elo, byId[f.away].elo) === 'A' ? f.home : f.away; }
+          league.championId = f.winnerId;
+          league.runnerUpId = f.winnerId === f.home ? f.away : f.home;
+          league.history.unshift({ year:league.year, championId:league.championId, championName:byId[league.championId].name });
+          if(league.history.length > 15) league.history.length = 15;
+          league.stage = 'done';
+        }
+      }
+    }
+  }
+  // Cupo a la fase de grupos de la Libertadores para la Copa de la Liga: campeón, y si ya clasificó
+  // por tabla (1° o 2° de la Liga), el subcampeón, y después los semifinalistas por clasificación anterior.
+  function careerChileCopaLigaCupo(copa, P){
+    const top2 = P.table.slice(0,2).map(r => r.id);
+    const perdedoresSemi = (copa.semis || []).map(t => t.winnerId === t.teamA ? t.teamB : t.teamA).sort((a,b) => copa.seed[a] - copa.seed[b]);
+    const orden = [copa.championId, copa.runnerUpId].concat(perdedoresSemi);
+    copa.libertadoresId = orden.find(id => !top2.includes(id)) || null;
+    copa.libertadoresListo = true;
   }
   // ---------- Uruguay: Primera, Segunda, Tercera y Cuarta División ----------
   // Cuatro formatos propios (Primera: Apertura -> Intermedio -> Clausura -> Tabla Anual ->
@@ -6549,7 +7072,7 @@
         ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
         : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
     const ids = teams.map(t=>t.id);
-    const startDate = careerSeasonStart(c.year, 'apertura');
+    const startDate = careerWorldSeasonStart(!!prevLeague);
     const rounds = roundRobinRounds(ids);
     const matches = [];
     rounds.forEach((round, ri) => {
@@ -6562,7 +7085,7 @@
     wl[def.key] = {
       key: def.key, country: def.country, name: def.name, format: def.format,
       season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
-      year: c.year, teams,
+      year: Number(startDate.slice(0,4)), teams,
       stage: 'apertura',
       apertura: { matches, table: [] },
       serieA: null, serieB: null, intermedioFinal: null,
@@ -6708,7 +7231,7 @@
       }).sort((a,b)=> a.avg-b.avg || byId[a.id].elo - byId[b.id].elo);
       league.promediosTable = promedios;
       league.relegatedIds = promedios.slice(0,3).map(r=>r.id);
-      league.history.unshift({ year: c.year, championId: league.championId, championName: byId[league.championId].name });
+      league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
       if(league.history.length > 15) league.history.length = 15;
       league.stage = 'done';
     }
@@ -6760,7 +7283,7 @@
     // el criterio, así que se hace al azar, como el resto de los sorteos de grupos de este motor).
     const shuffled = shuffleArr(teams.slice());
     const zonaA = shuffled.slice(0,7), zonaB = shuffled.slice(7,14);
-    const startDate = careerSeasonStart(c.year, 'apertura');
+    const startDate = careerWorldSeasonStart(!!prevLeague);
     function buildZona(zonaTeams, tag){
       const ids = zonaTeams.map(t=>t.id);
       const rounds = roundRobinRounds(ids);
@@ -6777,7 +7300,7 @@
     wl[def.key] = {
       key: def.key, country: def.country, name: def.name, format: def.format,
       season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
-      year: c.year, teams,
+      year: Number(startDate.slice(0,4)), teams,
       stage: 'competencia',
       zonaA: buildZona(zonaA,'A'), zonaB: buildZona(zonaB,'B'), competenciaFinal: null,
       regular: null, tablaAnual: [], promediosTable: [],
@@ -6908,8 +7431,12 @@
         return { id:t.id, avg: totalPj>0 ? totalPts/totalPj : 0 };
       }).sort((a,b)=> a.avg-b.avg || byId[a.id].elo - byId[b.id].elo);
       league.promediosTable = promedios;
-      league.relegatedIds = promedios.slice(0,2).map(r=>r.id);
-      league.history.unshift({ year: c.year, championId: league.championId, championName: byId[league.championId].name });
+      // Un equipo que asciende (directo o por el reducido) no puede a la vez descender por promedios:
+      // bajan los 2 peores de los que NO ascendieron. Sin esto el mismo equipo terminaba en dos
+      // divisiones a la vez.
+      const ascendidos = new Set(league.promotedIds || []);
+      league.relegatedIds = promedios.filter(r => !ascendidos.has(r.id)).slice(0,2).map(r=>r.id);
+      league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
       if(league.history.length > 15) league.history.length = 15;
       league.stage = 'done';
     }
@@ -6925,7 +7452,7 @@
     // Las 3 series se sortean cada temporada (Serie A y B de 10, Serie C de 9).
     const shuffled = shuffleArr(teams.slice());
     const serieA = shuffled.slice(0,10), serieB = shuffled.slice(10,20), serieC = shuffled.slice(20,29);
-    const startDate = careerSeasonStart(c.year, 'apertura');
+    const startDate = careerWorldSeasonStart(!!prevLeague);
     function buildSerie(serieTeams, tag){
       const ids = serieTeams.map(t=>t.id);
       const rounds = roundRobinRounds(ids);
@@ -6942,7 +7469,7 @@
     wl[def.key] = {
       key: def.key, country: def.country, name: def.name, format: def.format,
       season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
-      year: c.year, teams,
+      year: Number(startDate.slice(0,4)), teams,
       stage: 'series',
       serieA: buildSerie(serieA,'A'), serieB: buildSerie(serieB,'B'), serieC: buildSerie(serieC,'C'),
       torneoInicial: null, torneoFinal: null,
@@ -7033,6 +7560,14 @@
           league.promotedIds = [primerAscenso, segundoFinal];
           league.segundoAscenso = { scenario: 1 };
           league.stage = 'definicion-lista';
+        } else if(primerAscenso === ti.championId){
+          // El campeón del Torneo Inicial ya ascendió directo por ser 1° del Torneo Final: no hay
+          // definición posible (jugaría contra sí mismo) y el segundo ascenso es para el 2° del
+          // Torneo Final. Sin este caso el mismo equipo quedaba ascendido dos veces y aparecía
+          // duplicado en la pirámide.
+          league.promotedIds = [primerAscenso, segundoFinal];
+          league.segundoAscenso = { scenario: 3 };
+          league.stage = 'definicion-lista';
         } else {
           const date = addDaysISO(league.torneoFinal.matches[league.torneoFinal.matches.length-1].date, 7);
           league.segundoAscenso = { scenario: 2, match: { home:segundoFinal, away:ti.championId, date, homeScore:null, awayScore:null, played:false, wentToPenalties:false, winnerId:null } };
@@ -7056,8 +7591,12 @@
     if(league.stage === 'definicion-lista'){
       // Desciende el último del Torneo Final, a la Divisional D (careerEnsureUruguayLeagues se
       // encarga del movimiento real).
-      league.relegatedIds = [league.torneoFinal.table[league.torneoFinal.table.length-1].id];
-      league.history.unshift({ year: c.year, championId: league.championId, championName: byId[league.championId].name });
+      // Si el campeón del Torneo Inicial ganó la definición y ascendió pero terminó último en el
+      // Torneo Final, desciende el peor de los que NO ascendieron.
+      const ascendidosT = new Set(league.promotedIds || []);
+      const tablaDesc = league.torneoFinal.table.filter(r => !ascendidosT.has(r.id));
+      league.relegatedIds = [tablaDesc[tablaDesc.length-1].id];
+      league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
       if(league.history.length > 15) league.history.length = 15;
       league.stage = 'done';
     }
@@ -7071,7 +7610,7 @@
         ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
         : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
     const ids = teams.map(t=>t.id);
-    const startDate = careerSeasonStart(c.year, 'apertura');
+    const startDate = careerWorldSeasonStart(!!prevLeague);
     const rounds = roundRobinRounds(ids);
     const matches = [];
     rounds.forEach((round, ri) => {
@@ -7084,7 +7623,7 @@
     wl[def.key] = {
       key: def.key, country: def.country, name: def.name, format: def.format,
       season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
-      year: c.year, teams,
+      year: Number(startDate.slice(0,4)), teams,
       stage: 'regular',
       regular: { matches, table: [] },
       regularChampionId: null, playoff: null, ascensoFinal: null,
@@ -7185,7 +7724,7 @@
 
     if(league.stage === 'definicion-lista'){
       // La Cuarta es la última categoría cargada por ahora: no hay descenso que resolver acá.
-      league.history.unshift({ year: c.year, championId: league.championId, championName: byId[league.championId].name });
+      league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
       if(league.history.length > 15) league.history.length = 15;
       league.stage = 'done';
     }
@@ -7234,6 +7773,19 @@
   const URUGUAY_COPA_TERCERA_CANDIDATOS = 8;
   const URUGUAY_COPA_CUARTA_INICIAL = ['Real Montevideo', 'Rincon'];
 
+  // Inicio de temporada de las ligas del exterior (Uruguay y Brasil): primer domingo de febrero.
+  // Cuando se arma la temporada SIGUIENTE (`isNext`) y ese domingo del año de carrera ya pasó según
+  // el calendario (la anterior terminó en noviembre o diciembre), arranca en el febrero que viene.
+  // Si no, las fechas quedaban en el pasado y la temporada entera se simulaba de golpe.
+  function careerWorldSeasonStart(isNext){
+    const c = state.career;
+    let start = careerSeasonStart(c.year, 'apertura');
+    let guard = 0;
+    while(isNext && c.calendarDate && start <= c.calendarDate && guard++ < 5){
+      start = careerSeasonStart(Number(start.slice(0,4)) + 1, 'apertura');
+    }
+    return start;
+  }
   // Los 2 mejores de la tabla de la Divisional D de la temporada que termina, sin contar al que
   // ascendió. Devuelve null si no hay temporada anterior (primera temporada).
   function careerUruguayCuartaCopaSlots(prevLeague){
@@ -7323,7 +7875,7 @@
     const league = {
       key:'uruguay-copa', country:'Uruguay', name:'Copa Uruguay', format:'uruguay-copa',
       season: (prev && prev.season) ? prev.season + 1 : 1,
-      primeraSeason: P.season, year: c.year,
+      primeraSeason: P.season, year: P.year,
       // Mismos objetos de equipo que usan las ligas (así el ELO de los partidos de Copa también
       // se refleja en ellas mientras dure la temporada).
       teams: [].concat(teamsP, teamsS, teamsT, teamsC), levels,
@@ -7449,12 +8001,12 @@
       const base = {
         key:'uruguay-supercopa', country:'Uruguay', name:'Supercopa Uruguaya', format:'uruguay-supercopa',
         season: (sc && sc.season) ? sc.season + 1 : 1,
-        primeraSeason: P.season, year: c.year, mismoEquipo
+        primeraSeason: P.season, year: P.year, mismoEquipo
       };
       if(!teamB || teamB.id === teamA.id){
         // No debería pasar (siempre hay un subcampeón del Intermedio distinto), pero si faltara el
         // rival se corona directo al Campeón Uruguayo en vez de trabar la pirámide.
-        prevHistory.unshift({ year:c.year, championId:teamA.id, championName:teamA.name });
+        prevHistory.unshift({ year:P.year, championId:teamA.id, championName:teamA.name });
         if(prevHistory.length > 15) prevHistory.length = 15;
         wl['uruguay-supercopa'] = Object.assign({}, base, { teams:[teamA], match:null, championId:teamA.id, wentToPenalties:false, history:prevHistory });
       } else {
@@ -7516,14 +8068,15 @@
     // el resto de los cruces ida y vuelta de estas ligas); careerWorldLeagueBuildKoGruposRound sirve
     // la primera ronda con roundIdx 0, o sea ida en lastDate+14 y vuelta en lastDate+21 — por eso acá
     // el "lastDate" de referencia se calcula 14 días antes de esa fecha de ida deseada.
-    const idaDate = nextWeekdayAfter(careerSeasonStart(c.year, 'apertura'), 3);
+    const copaStart = careerWorldSeasonStart(!!wl['copa-brasil']);
+    const idaDate = nextWeekdayAfter(copaStart, 3);
     const lastDate = addDaysISO(idaDate, -14);
     const prev = wl['copa-brasil'];
     const league = {
       key:'copa-brasil', country:'Brasil', name:'Copa do Brasil', format:'copa-eliminacion',
       season: (prev && prev.season) ? prev.season + 1 : 1,
       aSeason: a.season, bSeason: b.season, ccSeason: cc.season,
-      year:c.year, teams, knockoutRounds:[], championId:null, stage:'knockout',
+      year:Number(copaStart.slice(0,4)), teams, knockoutRounds:[], championId:null, stage:'knockout',
       history: (prev && prev.history) ? prev.history.slice() : []
     };
     league.knockoutRounds = [ careerWorldLeagueBuildKoGruposRound(league, pairs0, 'primera-fase', lastDate, 0) ];
@@ -7549,7 +8102,7 @@
           if(m.homeScore > m.awayScore) sc.championId = m.home;
           else if(m.awayScore > m.homeScore) sc.championId = m.away;
           else { sc.wentToPenalties = true; sc.championId = worldLeaguePenaltyWinner(byIdAll[m.home].elo, byIdAll[m.away].elo) === 'A' ? m.home : m.away; }
-          sc.history.unshift({ year:c.year, championId:sc.championId, championName:byIdAll[sc.championId].name });
+          sc.history.unshift({ year:sc.year, championId:sc.championId, championName:byIdAll[sc.championId].name });
           if(sc.history.length > 10) sc.history.length = 10;
         }
       }
@@ -7559,15 +8112,15 @@
     const teamB = copa.teams.find(t=>t.id===copa.championId);
     if(!teamA || !teamB) return;
     const prevHistory = (wl['supercopa-brasil'] && wl['supercopa-brasil'].history) ? wl['supercopa-brasil'].history.slice() : [];
-    const base = { key:'supercopa-brasil', country:'Brasil', name:'Supercopa do Brasil', format:'partido-unico', year:c.year, aSeason:brasileirao.season, copaSeason:copa.season };
+    const base = { key:'supercopa-brasil', country:'Brasil', name:'Supercopa do Brasil', format:'partido-unico', year:brasileirao.year, aSeason:brasileirao.season, copaSeason:copa.season };
     if(teamA.id === teamB.id){
-      prevHistory.unshift({ year:c.year, championId:teamA.id, championName:teamA.name });
+      prevHistory.unshift({ year:brasileirao.year, championId:teamA.id, championName:teamA.name });
       if(prevHistory.length > 10) prevHistory.length = 10;
       wl['supercopa-brasil'] = Object.assign({}, base, { teams:[teamA], match:null, championId:teamA.id, wentToPenalties:false, history:prevHistory });
       return;
     }
     const date = nextWeekdayAfter(c.calendarDate, 3);
-    const match = { id:'wl_supercopa-brasil_'+c.year+'_'+copa.season, home:teamA.id, away:teamB.id, date, homeScore:null, awayScore:null, played:false };
+    const match = { id:'wl_supercopa-brasil_'+brasileirao.year+'_'+copa.season, home:teamA.id, away:teamB.id, date, homeScore:null, awayScore:null, played:false };
     wl['supercopa-brasil'] = Object.assign({}, base, { teams:[teamA,teamB], match, championId:null, wentToPenalties:false, history:prevHistory });
   }
   function renderWorldLeagueTable(league){
@@ -7581,11 +8134,14 @@
       const isPromoDirect = promoDirectIds.includes(r.id);
       const isPromoPlayoff = !isPromoDirect && league.promocionPlayoffPositions && league.promocionPlayoffPositions.includes(i+1);
       const isPromoted = league.promotedIds && league.promotedIds.includes(r.id);
+      const zona = (!isRel && !isPromoDirect && !isPromoPlayoff && league.zonas) ? league.zonas.find(z => z.posiciones.includes(i+1)) : null;
       let style = '';
       if(isRel) style = 'border-left:4px solid var(--red);';
       else if(isPromoDirect) style = 'border-left:4px solid var(--green-win);';
       else if(isPromoPlayoff) style = 'border-left:4px solid var(--gold);';
+      else if(zona) style = 'border-left:4px solid '+zona.color+';';
       let tag = '';
+      if(zona) tag += ' <span style="color:'+zona.color+';font-size:11px;">'+zona.tag+'</span>';
       if(isChamp) tag += ' <span style="color:var(--gold-bright);font-size:11px;">&#127942; campeón</span>';
       if(isRel) tag += ' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>';
       if(isPromoted) tag += ' <span style="color:var(--green-win);font-size:11px;">&#9650; asciende</span>';
@@ -7807,6 +8363,9 @@
     if(league.segundoAscenso && league.segundoAscenso.scenario === 2){
       html += `<div class="panel"><h3>Definición del segundo ascenso</h3>${matchLine(league.segundoAscenso.match, '2° del Torneo Final vs campeón del Inicial')}</div>`;
     }
+    if(league.segundoAscenso && league.segundoAscenso.scenario === 3){
+      html += `<div class="panel"><h3>Definición del segundo ascenso</h3><p class="hint">El campeón del Torneo Inicial ya había ascendido como 1° del Torneo Final, así que el segundo ascenso es directo para el 2° del Torneo Final.</p></div>`;
+    }
     if(league.championId){
       html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de Primera Divisional C ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong>${league.promotedIds && league.promotedIds.length ? ` &middot; ascienden: ${league.promotedIds.map(id=>escapeHtml(byId[id].name)).join(', ')}` : ''}</div></div>`;
     }
@@ -7909,8 +8468,52 @@
     }
     return html;
   }
+  // Copa de la Liga de Chile: 4 tablas de grupo, semifinales ida y vuelta y final.
+  function renderWorldLeagueChileCopaLiga(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const seedTxt = id => `<span class="hint">(cl. ant. ${league.seed[id]}°)</span>`;
+    let html = `<div class="panel"><p class="hint">4 grupos de 4, todos contra todos ida y vuelta. El 1° de cada grupo pasa a semifinales (ida y vuelta, penales si empatan) y la final es a partido único en cancha neutral. Los grupos y los cruces de semifinales salen de la clasificación de la temporada anterior${league.season === 1 ? ' (en la primera temporada, sin año anterior, se usa el orden del ELO)' : ''}. Se juega antes de la Liga de Primera.</p></div>`;
+    CHILE_COPA_LIGA_GRUPO_ORDEN.forEach(g => {
+      const grp = league.grupos[g];
+      const cerrado = grp.matches.length > 0 && grp.matches.every(m => m.played);
+      const rows = grp.table.length ? grp.table : grp.teamIds.map(id => ({ id, pj:0, pg:0, pe:0, pp:0, gf:0, gc:0, pts:0 }));
+      html += `<div class="panel"><h3>${grp.nombre}</h3><table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        const pasa = cerrado && i === 0;
+        const style = pasa ? 'border-left:4px solid var(--green-win);' : '';
+        const tag = pasa ? ' <span style="color:var(--green-win);font-size:11px;">&#9650; a semifinales</span>' : '';
+        return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)} ${seedTxt(r.id)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.gf-r.gc}</td><td class="num"><strong>${r.pts}</strong></td></tr>`;
+      }).join('')}
+      </tbody></table></div>`;
+    });
+    if(league.semis){
+      html += `<div class="panel"><h3>Semifinales</h3><p class="hint">Ida y vuelta; el mejor clasificado juega la vuelta de local. Si empatan el global, penales.</p>`;
+      league.semis.forEach(tie => {
+        const A = byId[tie.teamA], B = byId[tie.teamB];
+        const legs = tie.legs.map(l => l.played ? `${l.homeScore}-${l.awayScore}` : `${formatCareerDate(l.date)}`).join(' &middot; ');
+        const win = tie.winnerId ? ` &middot; <span style="color:var(--gold-bright);">avanza ${escapeHtml(byId[tie.winnerId].name)}${tie.wentToPenalties ? ' (penales)' : ''}</span>` : '';
+        html += `<div class="cs-fixture-card"><div>${escapeHtml(A.name)} ${seedTxt(tie.teamA)} vs ${escapeHtml(B.name)} ${seedTxt(tie.teamB)}<div class="hint" style="font-size:11.5px;">ida en cancha de ${escapeHtml(B.name)}, vuelta en cancha de ${escapeHtml(A.name)}</div></div><div class="num">${legs}${win}</div></div>`;
+      });
+      html += `</div>`;
+    }
+    if(league.final){
+      const f = league.final;
+      const res = f.played ? `${f.homeScore} &ndash; ${f.awayScore}${f.wentToPenalties ? ' (penales)' : ''} &middot; <span style="color:var(--gold-bright);">campeón ${escapeHtml(byId[f.winnerId].name)}</span>` : `se juega el ${formatCareerDate(f.date)}`;
+      html += `<div class="panel"><h3>Final</h3><p class="hint">Partido único en cancha neutral; si empatan, penales.</p><div class="cs-fixture-card"><div>${escapeHtml(byId[f.home].name)} vs ${escapeHtml(byId[f.away].name)}</div><div class="num">${res}</div></div></div>`;
+    }
+    if(league.championId){
+      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Copa de la Liga ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong></div>`;
+      html += `<div class="panel"><p class="hint">Cupo a la fase de grupos de la Copa Libertadores: ${league.libertadoresListo ? (league.libertadoresId ? `<strong style="color:var(--ink);">${escapeHtml(byId[league.libertadoresId].name)}</strong>${league.libertadoresId !== league.championId ? ' (el campeón ya clasificó por la tabla de la Liga, así que el cupo pasa al siguiente)' : ''}` : 'sin definir') : 'se define al terminar la Liga de Primera (si el campeón ya clasificó por la tabla, pasa al subcampeón, y así sucesivamente).'}</p></div>`;
+    }
+    if(league.prevSummary){
+      const ps = league.prevSummary;
+      html += `<div class="panel"><h3>Edición anterior (${ps.year})</h3><p class="hint">Campeón: <strong style="color:var(--ink);">${escapeHtml(ps.championName)}</strong> &middot; Subcampeón: ${escapeHtml(ps.runnerUpName)}${ps.libertadoresName ? ` &middot; Cupo a la Libertadores: ${escapeHtml(ps.libertadoresName)}` : ''}</p></div>`;
+    }
+    return html;
+  }
   // Íconos de país para las tarjetas de "Ligas del Mundo" (fallback: globo terráqueo).
-  const COUNTRY_FLAGS = { 'Brasil': '&#127463;&#127479;', 'Uruguay': '&#127482;&#127466;' };
+  const COUNTRY_FLAGS = { 'Brasil': '&#127463;&#127479;', 'Uruguay': '&#127482;&#127466;', 'Chile': '&#127464;&#127473;' };
   // Tarjeta clicable genérica, misma pinta que competitionCard pero con una data-action propia.
   function worldNavCard(icon, title, subtitle, action, dataAttrs){
     return `<div class="cs-comp-card" data-action="${action}" ${dataAttrs}>
@@ -7923,6 +8526,14 @@
   // Frase de estado de una liga/copa para las tarjetas de selección de competición.
   function worldLeagueStatusLabel(league){
     const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    if(league.format === 'chile-copa-liga'){
+      if(league.stage === 'done' || league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
+      if(league.stage === 'grupos'){
+        const jugadas = Math.max.apply(null, CHILE_COPA_LIGA_GRUPO_ORDEN.map(g => league.grupos[g].matches.filter(m => m.played).length)) / 2;
+        return jugadas > 0 ? `Fase de grupos (${Math.min(6, Math.ceil(jugadas))}/6 fechas)` : 'Fase de grupos';
+      }
+      return league.stage === 'semis' ? 'Semifinales' : 'Final';
+    }
     if(league.format === 'uruguay-primera'){
       if(league.stage === 'done' || league.championId) return `Campeón Uruguayo ${league.year}: ${escapeHtml(byId[league.championId].name)}`;
       const labels = { apertura:'Torneo Apertura', 'intermedio-series':'Torneo Intermedio (series)', 'intermedio-final':'Final del Intermedio', clausura:'Torneo Clausura', 'definicion-semifinal':'Definición del título (semifinal)', 'definicion-final':'Definición del título (final)' };
@@ -8184,7 +8795,7 @@
       html += `<div class="cs-comp-grid">`;
       Object.keys(byCountry).forEach(country => {
         const defs = byCountry[country];
-        html += worldNavCard(COUNTRY_FLAGS[country] || '&#127760;', country, `${defs.length} competición${defs.length===1?'':'es'}`, 'career-wl-set-pais', `data-pais="${escapeHtml(country)}"`);
+        html += worldNavCard(COUNTRY_FLAGS[country] || '&#127760;', country, `${defs.length} competici${defs.length===1?'ón':'ones'}`, 'career-wl-set-pais', `data-pais="${escapeHtml(country)}"`);
       });
       html += `</div>`;
       return html;
@@ -8202,7 +8813,7 @@
       html += `<div class="cs-comp-grid">`;
       defs.forEach(def => {
         const league = wl[def.key];
-        html += worldNavCard('&#127942;', def.name, league ? worldLeagueStatusLabel(league) : (def.pendingHint ? 'Todavía no arrancó' : 'Cargando&hellip;'), 'career-wl-set-comp', `data-comp="${escapeHtml(def.key)}"`);
+        html += worldNavCard('&#127942;', def.name, league ? worldLeagueStatusLabel(league) : 'Todavía no arrancó', 'career-wl-set-comp', `data-comp="${escapeHtml(def.key)}"`);
       });
       html += `</div>`;
       return html;
@@ -8211,11 +8822,11 @@
     const def = defs.find(d=>d.key===c.wlComp);
     const league = wl[def.key];
     if(!league){
-      if(!def.pendingHint) return `<div class="panel"><p class="hint">Cargando&hellip;</p></div>`;
+      // Competición todavía sin armar: siempre con botones para volver, así no queda trabada.
       return `<div class="panel"><div class="btn-row" style="margin-top:0;">
         <button class="btn ghost small" data-action="career-wl-back-pais">&larr; Ligas del Mundo</button>
         <button class="btn ghost small" data-action="career-wl-back-comp">&larr; ${escapeHtml(c.wlPais)}</button>
-      </div><h2>${escapeHtml(def.name)}</h2><p class="hint">${def.pendingHint}</p></div>`;
+      </div><h2>${escapeHtml(def.name)}</h2><p class="hint">${def.pendingHint || 'Todavía no se armó esta competición.'}</p></div>`;
     }
 
     const backBar = `<div class="btn-row" style="margin-top:0;">
@@ -8226,11 +8837,12 @@
 
     // Copa do Brasil y Supercopa do Brasil: eliminatoria/partido único sin pestañas de Tabla, ya
     // que no hay una tabla de posiciones que mostrar, solo el cuadro (o el partido) en sí.
-    if(league.format === 'copa-eliminacion' || league.format === 'partido-unico' || league.format === 'uruguay-copa' || league.format === 'uruguay-supercopa'){
+    if(league.format === 'copa-eliminacion' || league.format === 'partido-unico' || league.format === 'uruguay-copa' || league.format === 'uruguay-supercopa' || league.format === 'chile-copa-liga'){
       let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
       if(league.format === 'copa-eliminacion') html += renderWorldLeagueKnockoutCopa(league);
       else if(league.format === 'uruguay-copa') html += renderWorldLeagueUruguayCopa(league);
       else if(league.format === 'uruguay-supercopa') html += renderWorldLeagueUruguaySupercopa(league);
+      else if(league.format === 'chile-copa-liga') html += renderWorldLeagueChileCopaLiga(league);
       else html += renderWorldLeagueSupercopa(league);
       if(league.history && league.history.length > 1){
         const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
@@ -8279,6 +8891,7 @@
     } else {
       matches = worldLeagueAllMatchesFlat(league);
       tablaHtml = league.format === 'fases-grupos' ? renderWorldLeagueFasesGrupos(league) : `<div class="panel">${renderWorldLeagueTable(league)}</div>${renderWorldLeaguePlayoff(league)}`;
+      if(def.clasificacionNota) tablaHtml += `<div class="panel"><p class="hint">${def.clasificacionNota}</p></div>`;
     }
     const ctxBase = league.format === 'grupos-multiples' ? `wl_${def.key}_${c.wlGrupo}` : `wl_${def.key}`;
 
@@ -8407,6 +9020,8 @@
     }
   })();
   render();
+  // Los escudos guardados se leen de IndexedDB de forma asíncrona: cuando llegan se redibuja.
+  crestLoadAll().then(function(){ render(); });
 })();
 </script>
 </body>
