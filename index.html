@@ -273,9 +273,9 @@
 
   .match{
     display:grid;
-    grid-template-columns: 1fr auto auto auto 1fr;
+    grid-template-columns: 1fr auto auto auto auto auto auto 1fr;
     align-items:center;
-    gap:10px;
+    gap:6px;
     padding:12px 10px;
     border-bottom:1px solid rgba(51,71,58,0.5);
   }
@@ -284,13 +284,15 @@
   .match .side .elo-tag{ color:var(--ink-dim); font-size:11px; display:block; }
   .match .score-input{ width:38px; text-align:center; padding:6px 2px; }
   .match .vs{ color:var(--ink-dim); font-size:12px; }
-  .match .prob{ font-size:11px; color:var(--ink-dim); width:52px; text-align:center; }
+  .match .prob{ font-size:11px; color:var(--ink-dim); width:44px; text-align:center; }
   .match .bye-note{ color:var(--ink-dim); font-style:italic; font-size:12.5px; }
   .match.played .side.winner{ color:var(--gold-bright); font-weight:600; }
   .match .delta{ font-size:10.5px; color:var(--ink-dim); }
   .match .delta.pos{ color:var(--green-win); }
   .match .delta.neg{ color:var(--red); }
   .match-actions{ display:flex; gap:6px; justify-content:center; }
+  /* Escudo dentro de la fila de partido */
+  .match .badge-wrap{ display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 
   .round-header{ display:flex; align-items:center; justify-content:space-between; margin:20px 0 6px; }
   .round-header h3{ font-size:14.5px; margin:0; color:var(--ink); }
@@ -1456,22 +1458,29 @@
       const survivor = m.home !== null ? teamById(m.home) : teamById(m.away);
       return `<div class="match played">
         <div class="side">${survivor ? escapeHtml(survivor.name) : '&mdash;'}</div>
-        <div></div>
+        <div></div><div></div>
         <div class="bye-note">pase libre</div>
-        <div></div>
+        <div></div><div></div>
         <div class="side away"></div>
+        <div style="grid-column:1/-1"></div>
       </div>`;
     }
     const home = teamById(m.home), away = teamById(m.away);
     if(!home || !away) return '';
     const winnerHome = m.played && m.homeScore > m.awayScore;
     const winnerAway = m.played && m.awayScore > m.homeScore;
+    const eloDeltaHome = m.played && m.deltaHome !== undefined
+      ? ` <span class="delta ${m.deltaHome>0?'pos':m.deltaHome<0?'neg':''}">${m.deltaHome>=0?'+':''}${m.deltaHome}</span>` : '';
+    const eloDeltaAway = m.played && m.deltaAway !== undefined
+      ? ` <span class="delta ${m.deltaAway>0?'pos':m.deltaAway<0?'neg':''}">${m.deltaAway>=0?'+':''}${m.deltaAway}</span>` : '';
     return `<div class="match ${m.played?'played':''}" data-match="${m.id}">
-      <div class="side ${winnerHome?'winner':''}">${escapeHtml(home.name)}<span class="elo-tag num">${home.elo}${m.played && m.deltaHome!==undefined ? ` <span class="delta ${m.deltaHome>0?'pos':(m.deltaHome<0?'neg':'')}">${m.deltaHome>=0?'+':''}${m.deltaHome}</span>`:''}</span>${renderPosForm(m.home, meta)}</div>
+      <div class="side ${winnerHome?'winner':''}">${escapeHtml(home.name)}<span class="elo-tag num">${home.elo}${eloDeltaHome}</span>${renderPosForm(m.home, meta)}</div>
+      <div class="badge-wrap">${teamBadgeHtml(home, 28)}</div>
       <input type="number" min="0" class="score-input" data-role="home-score" value="${m.homeScore ?? ''}" ${m.played?'disabled':''}>
       <div class="vs">${m.played ? '&ndash;' : matchProbLabel(m)}</div>
       <input type="number" min="0" class="score-input" data-role="away-score" value="${m.awayScore ?? ''}" ${m.played?'disabled':''}>
-      <div class="side away ${winnerAway?'winner':''}">${escapeHtml(away.name)}<span class="elo-tag num">${away.elo}${m.played && m.deltaAway!==undefined ? ` <span class="delta ${m.deltaAway>0?'pos':(m.deltaAway<0?'neg':'')}">${m.deltaAway>=0?'+':''}${m.deltaAway}</span>`:''}</span>${renderPosForm(m.away, meta)}</div>
+      <div class="badge-wrap">${teamBadgeHtml(away, 28)}</div>
+      <div class="side away ${winnerAway?'winner':''}">${escapeHtml(away.name)}<span class="elo-tag num">${away.elo}${eloDeltaAway}</span>${renderPosForm(m.away, meta)}</div>
       <div class="match-actions" style="grid-column:1/-1;justify-content:flex-end;">
         ${!m.played ? `<button class="btn small" data-action="simulate-match" data-id="${m.id}">Simular</button>
         <button class="btn small primary" data-action="confirm-match" data-id="${m.id}">Confirmar resultado</button>` : ''}
@@ -1681,7 +1690,7 @@
   function renderBracketMatchCard(m){
     const home = teamById(m.home), away = m.away !== null ? teamById(m.away) : null;
     if(m.bye || m.away === null){
-      return `<div class="bracket-match"><div class="r bye">${home ? escapeHtml(home.name) : '?'} (pase libre)</div></div>`;
+      return `<div class="bracket-match"><div class="r bye"><div style="display:flex;align-items:center;gap:6px;">${home?teamBadgeHtml(home,18):''} ${home ? escapeHtml(home.name) : '?'} (pase libre)</div></div></div>`;
     }
     const winner = knockoutWinner(m);
     let aggNote = '';
@@ -1692,8 +1701,8 @@
       }
     }
     return `<div class="bracket-match">
-      <div class="r ${winner===m.home?'win':''}">${home?escapeHtml(home.name):'?'} ${m.played?`<span class="num">${m.homeScore}</span>`:''}</div>
-      <div class="r ${winner===m.away?'win':''}">${away?escapeHtml(away.name):'?'} ${m.played?`<span class="num">${m.awayScore}</span>`:''}</div>
+      <div class="r ${winner===m.home?'win':''}"><div style="display:flex;align-items:center;gap:6px;">${home?teamBadgeHtml(home,18):''} ${home?escapeHtml(home.name):'?'} ${m.played?`<span class="num">${m.homeScore}</span>`:''}</div></div>
+      <div class="r ${winner===m.away?'win':''}"><div style="display:flex;align-items:center;gap:6px;">${away?teamBadgeHtml(away,18):''} ${away?escapeHtml(away.name):'?'} ${m.played?`<span class="num">${m.awayScore}</span>`:''}</div></div>
       ${aggNote}
     </div>`;
   }
@@ -3004,7 +3013,7 @@
       const t = careerTeamById(r.id);
       const isRel = relegatedIds.includes(r.id);
       const style = isRel ? 'border-left:4px solid var(--red);' : '';
-      return `<tr><td style="${style}">${i+1}</td><td>${escapeHtml(t.name)}${isRel?' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>':''}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      return `<tr><td style="${style}">${i+1}</td><td><div style="display:flex;align-items:center;gap:7px;">${teamBadgeHtml(t,20)}${escapeHtml(t.name)}${isRel?' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>':''}</div></td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
     }).join('')}
     </tbody></table>`;
   }
@@ -3015,7 +3024,7 @@
       const t = careerTeamById(r.id);
       const isRel = relegatedIds.includes(r.id);
       const style = isRel ? 'border-left:4px solid var(--red);' : '';
-      return `<tr><td style="${style}">${i+1}</td><td>${escapeHtml(t.name)}${isRel?' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>':''}</td><td class="num">${r.totalPj}</td><td class="num" style="color:var(--gold);">${r.avg.toFixed(2)}</td></tr>`;
+      return `<tr><td style="${style}">${i+1}</td><td><div style="display:flex;align-items:center;gap:7px;">${teamBadgeHtml(t,20)}${escapeHtml(t.name)}${isRel?' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>':''}</div></td><td class="num">${r.totalPj}</td><td class="num" style="color:var(--gold);">${r.avg.toFixed(2)}</td></tr>`;
     }).join('')}
     </tbody></table>`;
   }
@@ -4730,9 +4739,11 @@
     const penTag = m.wentToPenalties ? ` <span style="color:var(--gold-bright);font-size:11px;">(pen.)</span>` : '';
     return `<div class="match ${m.played?'played':''}" data-match="${m.id}">
       <div class="side ${winnerHome?'winner':''}">${escapeHtml(home.name)}<span class="elo-tag num">${home.elo}${m.played && m.deltaHome!==undefined ? ` <span class="delta ${m.deltaHome>0?'pos':(m.deltaHome<0?'neg':'')}">${m.deltaHome>=0?'+':''}${m.deltaHome}</span>`:''}</span>${renderPosForm(m.home, meta)}</div>
+      <div class="badge-wrap">${teamBadgeHtml(home, 28)}</div>
       <input type="number" min="0" class="score-input" data-role="home-score" value="${m.homeScore ?? ''}" ${m.played?'disabled':''}>
       <div class="vs">${m.played ? '&ndash;'+penTag : careerMatchProbLabel(m)}</div>
       <input type="number" min="0" class="score-input" data-role="away-score" value="${m.awayScore ?? ''}" ${m.played?'disabled':''}>
+      <div class="badge-wrap">${teamBadgeHtml(away, 28)}</div>
       <div class="side away ${winnerAway?'winner':''}">${escapeHtml(away.name)}<span class="elo-tag num">${away.elo}${m.played && m.deltaAway!==undefined ? ` <span class="delta ${m.deltaAway>0?'pos':(m.deltaAway<0?'neg':'')}">${m.deltaAway>=0?'+':''}${m.deltaAway}</span>`:''}</span>${renderPosForm(m.away, meta)}</div>
       <div class="match-actions" style="grid-column:1/-1;justify-content:flex-end;">
         ${!m.played ? `<button class="btn small" data-action="career-simulate-match" data-id="${m.id}">Simular</button>
