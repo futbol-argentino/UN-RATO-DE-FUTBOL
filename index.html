@@ -6189,7 +6189,145 @@
       pendingHint: 'Se arma apenas termina la temporada de la Primera División.'
     },
     {
-      // Primera División de Chile (Liga de Primera). Todos contra todos a dos ruedas. Los 2 últimos
+      // Liga BetPlay DIMAYOR (Primera División de Colombia). Formato propio ('colombia-primera'),
+      // resuelto en careerEnsureColombiaPrimera / careerWorldLeagueCatchUpColombiaPrimera: dos
+      // torneos por año con reglas distintas cada uno.
+      // Apertura: fase regular a una rueda (19 fechas, los 20 equipos) -> cuartos de final entre
+      // los 8 primeros (4 llaves ida y vuelta; el sorteo arma las llaves pero el 1° va fijo a la
+      // Llave A y el 2° a la Llave D, los otros 6 clasificados se sortean para completar las cuatro
+      // llaves — en cualquier llave cierra de local, en la vuelta, el mejor ubicado de la fase
+      // regular, así que el 1° y el 2° ya tienen la localía de la vuelta asegurada) -> semifinales
+      // fijas por llave (ganador A vs ganador B, ganador C vs ganador D, también ida y vuelta,
+      // localía de la vuelta para el mejor ubicado de la fase regular entre los dos) -> final ida y
+      // vuelta entre los dos semifinalistas (la ida la juega el que sume menos puntos entre fase
+      // regular + cuartos + semis, la vuelta el que sume más) -> campeón del Apertura. Un global
+      // empatado en puntos y diferencia de gol se define por penales (careerWorldLeagueResolveTwoLegTie
+      // + worldLeaguePenaltyWinner, la misma simplificación sin alargue que usa el resto del juego).
+      // Clausura: fase regular a una rueda (19 fechas) con el mismo fixture del Apertura pero con
+      // las localías invertidas -> los 8 primeros se separan por sorteo en dos cuadrangulares de 4
+      // (el 1° va fijo al Grupo A y el 2° al Grupo B, los otros 6 se sortean; la letra chica agrega
+      // condiciones de localía especiales para la última fecha de cada grupo que acá se simplifican,
+      // como el resto de los sorteos y definiciones de este motor) jugados todos contra todos ida y
+      // vuelta -> el ganador de cada grupo pasa a la final (ida y vuelta, misma lógica de localía por
+      // rendimiento acumulado que la final del Apertura, y penales directos si el global sigue
+      // empatado) -> campeón del Clausura. Colombia corona DOS campeones por año — no hay una final
+      // entre ellos.
+      // Tabla de Reclasificación: suma los puntos de las dos fases regulares (Apertura + Clausura)
+      // nada más, sin contar cuartos/semis/finales/cuadrangulares. Define los cupos a la Libertadores
+      // (fase de grupos: los campeones del Apertura y del Clausura, uno solo si es el mismo equipo;
+      // fase 2: el/los mejores ubicados en la Reclasificación que no hayan salido campeones) y a la
+      // Sudamericana (el cupo del campeón de la Copa Colombia queda pendiente porque esa copa todavía
+      // no está cargada; los siguientes 3 mejores ubicados en la Reclasificación que no hayan
+      // clasificado a la Libertadores).
+      // Descenso: tabla de promedios de puntos por partido de hasta las últimas 3 temporadas
+      // (contando solo los partidos de fase regular de ambos torneos, igual que la Reclasificación);
+      // bajan los 2 últimos. Todavía no está cargada la Primera B colombiana, así que — mismo criterio
+      // que la Primera uruguaya — se marca quién bajaría pero los 20 equipos siguen en Primera de una
+      // temporada a la otra.
+      key: 'colombia-primera',
+      country: 'Colombia',
+      name: 'Liga BetPlay DIMAYOR',
+      format: 'colombia-primera',
+      teams: [
+        { name:'Atletico Nacional', elo:1910 }, { name:'America de Cali', elo:1835 },
+        { name:'Millonarios', elo:1831 }, { name:'Once Caldas', elo:1807 },
+        { name:'Deportes Tolima', elo:1801 }, { name:'Independiente Medellín', elo:1785 },
+        { name:'Atletico Bucaramanga', elo:1776 }, { name:'Junior', elo:1764 },
+        { name:'Santa Fe', elo:1761 }, { name:'Deportivo Cali', elo:1752 },
+        { name:'Aguilas Doradas', elo:1730 }, { name:'Llaneros', elo:1689 },
+        { name:'Fortaleza FC', elo:1675 }, { name:'Internacional de Bogotá', elo:1666 },
+        { name:'Deportivo Pasto', elo:1642 }, { name:'Alianza Petrolera', elo:1618 },
+        { name:'Cúcuta Deportivo', elo:1605 }, { name:'Jaguares', elo:1565 },
+        { name:'Chico FC', elo:1559 }, { name:'Deportivo Pereira', elo:1506 }
+      ]
+    },
+    {
+      // Torneo BetPlay DIMAYOR (Segunda División de Colombia). Formato propio
+      // ('colombia-segunda'), resuelto junto con la Primera en careerEnsureColombiaLeagues: dos
+      // torneos por temporada, cada uno una competencia independiente.
+      // Torneo I: fase regular a una rueda (15 fechas, los 16 equipos) -> los 8 primeros se separan
+      // por sorteo en dos cuadrangulares de 4 (el 1° de la fase regular es cabeza del Grupo A y el
+      // 2° cabeza del Grupo B, los otros 6 se sortean) jugados todos contra todos ida y vuelta —
+      // dentro de cada grupo, si la cabeza de grupo termina empatada en puntos con otro equipo del
+      // mismo cuadrangular, clasifica la cabeza de grupo por su mejor posición en la fase regular,
+      // sin mirar diferencia de gol (única excepción a los criterios de desempate genéricos del
+      // resto del juego) -> el ganador de cada cuadrangular pasa a la final (ida y vuelta; empate en
+      // el global va directo a penales) -> campeón del Torneo I.
+      // Torneo II: arranca apenas termina el Torneo I, con el mismo fixture de fase regular que el
+      // Torneo I pero las localías invertidas, y la misma estructura de cuadrangulares y final ->
+      // campeón del Torneo II.
+      // Tabla de Reclasificación Total: a diferencia de la de Primera, acá SÍ suma los puntos de
+      // TODAS las fases de ambos torneos (fase regular + cuadrangulares), con la única excepción de
+      // la Gran Final y el Repechaje por el ascenso, que no suman.
+      // Ascensos a Primera (siempre 2, resueltos en careerWorldLeagueCatchUpColombiaSegunda una vez
+      // que están los dos campeones y la Reclasificación Total):
+      //  - Si el mismo equipo ganó los dos torneos: asciende directo, y el segundo ascenso se define
+      //    en un Repechaje ida y vuelta entre el 1° y el 2° de la Reclasificación (sin contar al
+      //    bicampeón, que ya tiene su cupo).
+      //  - Si hay dos campeones distintos y ambos terminaron 1° y 2° de la Reclasificación (en
+      //    cualquier orden): ascienden los dos directo, sin Repechaje ni Gran Final.
+      //  - Si solo uno de los dos campeones terminó 1° o 2°: ese asciende directo: el otro campeón
+      //    juega un Repechaje ida y vuelta contra el mejor equipo disponible de la Reclasificación
+      //    (el que le queda del 1°/2° al campeón que sí clasificó directo).
+      //  - Si ninguno de los dos campeones terminó 1° o 2°: se juega una Gran Final ida y vuelta
+      //    entre ambos campeones; el ganador asciende directo y el perdedor NO queda eliminado — va
+      //    a un Repechaje ida y vuelta contra el mejor equipo disponible de la Reclasificación.
+      // Los empates en Repechaje y Gran Final se resuelven igual que el resto de las llaves del
+      // juego: primero puntos y diferencia de gol de las dos idas, y si sigue empatado, penales.
+      // Todavía no está cargada la Primera División C colombiana, así que no hay descenso desde acá.
+      key: 'colombia-segunda',
+      country: 'Colombia',
+      name: 'Torneo BetPlay DIMAYOR',
+      format: 'colombia-segunda',
+      teams: [
+        { name:'Real Cartagena', elo:1679 }, { name:'Unión Magdalena', elo:1605 },
+        { name:'Envigado', elo:1603 }, { name:'Internacional de Palmira', elo:1592 },
+        { name:'Real Cundinamarca', elo:1576 }, { name:'Deportes Quindío', elo:1550 },
+        { name:'Patriotas Boyacá', elo:1545 }, { name:'Independiente Yumbo', elo:1536 },
+        { name:'FC Bogotá', elo:1509 }, { name:'Tigres Zipaquirá', elo:1504 },
+        { name:'Orsomarso SC', elo:1481 }, { name:'Real Santander', elo:1467 },
+        { name:'Leones FC', elo:1445 }, { name:'Barranquilla FC', elo:1443 },
+        { name:'Boca Juniors de Cali', elo:1437 }, { name:'Atletico FC', elo:1401 }
+      ]
+    },
+    {
+      // Copa BetPlay (Copa Colombia). Sin plantel propio: usa los 20 equipos de la Liga BetPlay
+      // DIMAYOR y los 16 del Torneo BetPlay DIMAYOR (careerEnsureColombiaCopa). Se arma apenas la
+      // Primera define sus cuartos del Apertura y la Segunda sus cuadrangulares del Torneo I, porque
+      // esas dos clasificaciones son las que arman las llaves de la Fase 1B y las bolsas de la Fase 1A.
+      // Fase 1A: los 12 de Primera que quedaron afuera de los cuartos del Apertura + los 8 de Segunda
+      // que quedaron afuera de los cuadrangulares del Torneo I (20 equipos) se sortean en 4 grupos de
+      // 5, todos contra todos a una sola rueda (una fecha libre por equipo); clasifican los 2 primeros
+      // de cada grupo (8 en total). Fase 1B: los 8 de Primera que sí jugaron los cuartos y los 8 de
+      // Segunda que sí jugaron los cuadrangulares se cruzan ida y vuelta por posición (1° de Primera
+      // vs 8° de Segunda, 2° vs 7°, etc.); clasifican los 8 ganadores. Octavos y cuartos son partido
+      // único (sorteo entre todos los clasificados de las dos rutas); semifinales y final son ida y
+      // vuelta, con penales directos si la final sigue empatada. La localía de cada cruce sigue las
+      // reglas de la liga: si se enfrentan un equipo de Primera con uno de Segunda, el de Segunda es
+      // local (cierra de local en las llaves ida y vuelta); si son dos de Primera, es local el mejor
+      // ubicado en la tabla del Apertura; si son dos de Segunda, se sortea.
+      key: 'colombia-copa',
+      country: 'Colombia',
+      name: 'Copa BetPlay',
+      format: 'colombia-copa',
+      pendingHint: 'Se arma cuando la Liga BetPlay define los cuartos del Apertura y el Torneo BetPlay define los cuadrangulares del Torneo I.'
+    },
+    {
+      // Supercopa BetPlay (Supercopa de Colombia). Sin plantel propio: usa los 20 equipos de la Liga
+      // BetPlay DIMAYOR (careerEnsureSupercopaColombia). Ida y vuelta entre el campeón de la Liga
+      // BetPlay I (Apertura) y el campeón de la Liga BetPlay II (Clausura) de la misma temporada. Si
+      // un mismo equipo ganó los dos torneos, el segundo participante pasa a ser el mejor ubicado en
+      // la Tabla de Reclasificación que no haya sido campeón. Si la serie termina empatada, va directo
+      // a penales (sin alargue). La localía de la vuelta es del equipo mejor ubicado en la Tabla de
+      // Reclasificación entre los dos finalistas.
+      key: 'colombia-supercopa',
+      country: 'Colombia',
+      name: 'Supercopa BetPlay',
+      format: 'colombia-supercopa',
+      pendingHint: 'Se arma cuando termina la temporada de la Liga BetPlay DIMAYOR (Apertura y Clausura).'
+    },
+    {
+      // Primera División de Chile (Liga de Primera). Todos contra todos a dos ruedas. Los 2 últimos Los 2 últimos
       // (15° y 16°) descienden directo a la Primera B y los 2 ascendidos de la Primera B ocupan su
       // lugar (CHILE_PYRAMID + careerWorldLeaguePyramidNewRosters: la pirámide espera a que las dos
       // categorías terminen antes de mover a nadie). Arranca 9 semanas después del inicio de la
@@ -6382,20 +6520,139 @@
       // todos contra todos a dos ruedas = 22 fechas, uno detrás del otro). Los dos son campeonatos
       // oficiales (el 1° de cada tabla), sin final entre ellos. La tabla anual suma los puntos de los dos
       // torneos y define los cupos internacionales; los descensos salen de la tabla de promedios (las
-      // últimas 3 campañas). Todavía no está cargada la Segunda División de Paraguay, así que los 2
-      // descendidos quedan marcados pero se quedan. Tampoco está la Copa Paraguay (cupo a la fase 1 de la
+      // últimas 3 campañas). Ver PARAGUAY_PYRAMID: los 2 descendidos van a la División Intermedia (Segunda
+      // División) y de ahí suben los 2 que se van. Tampoco está la Copa Paraguay (cupo a la fase 1 de la
       // Libertadores).
       key: 'paraguay-primera',
       country: 'Paraguay',
       name: 'División de Honor',
       format: 'paraguay-primera',
-      holdUntilNextStart: true,
       teams: [
         { name:'Olimpia', elo:1814 }, { name:'Libertad', elo:1801 }, { name:'Cerro Porteño', elo:1773 },
         { name:'Nacional (PAR)', elo:1757 }, { name:'Sportivo Trinidense', elo:1703 }, { name:'Guarani', elo:1659 },
         { name:'Sportivo Ameliano', elo:1659 }, { name:'2 de Mayo', elo:1651 }, { name:'Sportivo Luqueño', elo:1633 },
         { name:'Rubio Ñú', elo:1622 }, { name:'Recoleta', elo:1619 }, { name:'Sportivo San Lorenzo', elo:1525 }
       ]
+    },
+    {
+      // Segunda División de Paraguay (División Intermedia). Formato propio ('paraguay-segunda'), ver
+      // careerWorldLeagueCatchUpParaguaySegunda: 16 equipos, todos contra todos a dos ruedas (30 fechas),
+      // en una sola tabla (no hay grupos ni reducido de ascenso). Ascienden directo el 1° y el 2°; si hay
+      // empate en puntos por el primer puesto se juega un partido extra en cancha neutral (solo define
+      // quién es el campeón, no cambia quiénes ascienden). El descenso no sale de esta tabla sino de una
+      // de promedios (puntos por partido de las últimas 3 temporadas en la categoría, igual que en la
+      // División de Honor): bajan los últimos 3. El reglamento separa el destino según la ubicación del
+      // club (Asunción/AMU a la Primera B, interior a la B Nacional), pero esas categorías todavía no
+      // están cargadas, así que por ahora los 3 descendidos quedan marcados pero se quedan. Ver
+      // PARAGUAY_PYRAMID: los 2 que bajan de la División de Honor entran acá y los 2 que ascienden de
+      // acá van a la División de Honor.
+      key: 'paraguay-segunda',
+      country: 'Paraguay',
+      name: 'División Intermedia',
+      format: 'paraguay-segunda',
+      promocionDirecta: 2,
+      teams: [
+        { name:'12 de Junio de Villa Hayes', elo:1639 }, { name:'Doctor Benjamin Aceval', elo:1587 }, { name:'Deportivo Santani', elo:1584 },
+        { name:'Sol de America', elo:1569 }, { name:'General Caballero', elo:1558 }, { name:'Independiente FBC', elo:1532 },
+        { name:'Resistencia FC', elo:1518 }, { name:'Fernando de la Mora', elo:1515 }, { name:'Tembetary', elo:1515 },
+        { name:'3 de Noviembre', elo:1507 }, { name:'Encarnación', elo:1501 }, { name:'Paraguarí', elo:1499 },
+        { name:'Deportivo Carapeguá', elo:1480 }, { name:'Deportivo Capiata', elo:1475 }, { name:'Guaireña', elo:1438 },
+        { name:'Tacuary', elo:1425 }
+      ]
+    },
+    {
+      // Primera División B de Paraguay (tercera categoría, rama de Asunción). Formato propio
+      // ('paraguay-primera-b'), ver careerWorldLeagueCatchUpParaguayPrimeraB: 17 equipos (impar, un
+      // libre por fecha), todos contra todos a dos ruedas. Asciende directo el campeón; el subcampeón
+      // define el tercer ascenso a la Intermedia en un cruce contra el subcampeón de la B Nacional (ver
+      // careerEnsureParaguayTerceraPromocion). Los descensos (2, por promedios) bajan a la Primera
+      // División C (ver PARAGUAY_TERCERA_PYRAMID).
+      key: 'paraguay-primera-b',
+      country: 'Paraguay',
+      name: 'Primera División B',
+      format: 'paraguay-primera-b',
+      holdUntilNextStart: true,
+      promocionDirecta: 1,
+      zonas: [
+        { posiciones: [2], color: 'var(--gold)', tag: 'define el tercer ascenso' }
+      ],
+      clasificacionNota: '1° asciende directo a la División Intermedia &middot; 2° juega un partido único contra el subcampeón de la B Nacional por el tercer ascenso &middot; los 2 últimos de la tabla de promedios descienden a la Primera División C.',
+      teams: [
+        { name:'12 de Octubre Itaugua', elo:1409 }, { name:'Sport Colombia', elo:1436 }, { name:'River Plate (PAR)', elo:1504 },
+        { name:'Atlántida SC', elo:1334 }, { name:'29 de Septiembre', elo:1453 }, { name:'Martin Ledesma', elo:1462 },
+        { name:'24 de Septiembre', elo:1519 }, { name:'1 de Marzo', elo:1515 }, { name:'12 de Octubre de San Domingo', elo:1543 },
+        { name:'Olimpia de Itá', elo:1598 }, { name:'3 de Febrero FBC', elo:1512 }, { name:'Cristóbal Colon', elo:1403 },
+        { name:'Colegiales (PAR)', elo:1319 }, { name:'Presidente Hayes', elo:1482 }, { name:'Silvio Pettirossi', elo:1428 },
+        { name:'Sportivo Iteño', elo:1258 }, { name:'Sportivo Limpeño', elo:1485 }
+      ]
+    },
+    {
+      // Primera División C de Paraguay (cuarta categoría). Formato propio ('paraguay-primera-c'), ver
+      // careerWorldLeagueCatchUpParaguayPrimeraC: usa el mismo constructor genérico que la Segunda y
+      // la Primera B (12 equipos, todos contra todos a dos ruedas). Ascienden directo el 1° y el 2° a
+      // la Primera División B (no hay reducido por el segundo ascenso). No hay descensos: es la base
+      // de la pirámide paraguaya cargada hasta ahora. Ver PARAGUAY_TERCERA_PYRAMID: los 2 descendidos
+      // por promedios de la Primera División B entran acá y los 2 que ascienden de acá suben a la
+      // Primera División B.
+      key: 'paraguay-primera-c',
+      country: 'Paraguay',
+      name: 'Primera División C',
+      format: 'paraguay-primera-c',
+      promocionDirecta: 2,
+      clasificacionNota: '1° y 2° ascienden directo a la Primera División B &middot; no hay descensos.',
+      teams: [
+        { name:'Pilcomayo FBC', elo:1259 }, { name:'General Caballero ZC', elo:1597 }, { name:'Sport Colonial', elo:1362 },
+        { name:'Fulgencio Yegros', elo:1419 }, { name:'Humaitá', elo:1345 }, { name:'Capitan Figari', elo:1417 },
+        { name:'Atletico Juventud', elo:1554 }, { name:'Oriental', elo:1280 }, { name:'Valois Rivarola', elo:1443 },
+        { name:'General Caballero CG', elo:1437 }, { name:'Deportivo Pinozá', elo:1438 }, { name:'General Diaz', elo:1263 }
+      ]
+    },
+    {
+      // B Nacional de Paraguay (tercera categoría, rama del interior). Formato propio
+      // ('paraguay-b-nacional'), ver careerWorldLeagueBuildSeasonBNacional/careerWorldLeagueCatchUpBNacional.
+      // El reglamento describe 14 equipos en 4 grupos (2 de 4 y 2 de 3); se cargaron 16, así que se
+      // ajustó a 4 grupos parejos de 4 (los primeros 4 de la lista son el Grupo A, los siguientes 4 el
+      // Grupo B, y así). Asciende directo el campeón; el subcampeón define el tercer ascenso a la
+      // Intermedia en un cruce contra el subcampeón de la Primera División B. No hay descensos.
+      key: 'paraguay-b-nacional',
+      country: 'Paraguay',
+      name: 'B Nacional',
+      format: 'paraguay-b-nacional',
+      holdUntilNextStart: true,
+      teams: [
+        { name:'RI 3 Corrales', elo:1519 }, { name:'3 de Febrero', elo:1468 }, { name:'15 de Mayo', elo:1450 }, { name:'Ciudad Nueva', elo:1500 },
+        { name:'Deportivo Minga Guazú', elo:1363 }, { name:'Deportivo Caaguazú', elo:1350 }, { name:'Sol del Este', elo:1350 }, { name:'JDK FC', elo:1300 },
+        { name:'Salto del Guairá', elo:1384 }, { name:'Patriotas', elo:1350 }, { name:'13 de Junio', elo:1300 }, { name:'Sportivo Campo 9', elo:1250 },
+        { name:'Ovetense', elo:1324 }, { name:'Guarani de Minga Guazú', elo:1500 }, { name:'General Garay', elo:1400 }, { name:'Nacional de Salto del Guairá', elo:1300 }
+      ]
+    },
+    {
+      // Copa Paraguay: no tiene plantel propio, se arma cada año a partir de los equipos de otras
+      // ligas paraguayas ya cargadas, en fases sucesivas (ver careerWorldLeagueBuildCopaParaguay /
+      // careerWorldLeagueCatchUpCopaParaguay). Fase 1: Primera División B (17) + Primera División C
+      // (12) = 29 equipos — a pedido explícito, sin la UFI/B Nacional, que en el reglamento real
+      // pone los otros 17 equipos de esta fase pero todavía no está integrada a la Copa acá. Fase 2:
+      // se suman los 16 de la División Intermedia. 16avos de Final: se suman los 12 de la División
+      // de Honor (Primera División), y de ahí es cuadro derecho (Octavos, Cuartos, Semis, Final).
+      // Todos los cruces son a partido único a cancha neutral (no ida y vuelta), con penales
+      // directos si hay empate; cuando una fase no completa una potencia de 2, se reparten libres
+      // sembrados por ELO (buildFirstKnockoutRound), igual que en la Copa do Brasil.
+      key: 'copa-paraguay',
+      country: 'Paraguay',
+      name: 'Copa Paraguay',
+      format: 'copa-paraguay',
+      pendingHint: 'Se arma apenas la Primera División B y la Primera División C ya tengan plantel armado para la temporada.'
+    },
+    {
+      // Partido único a cancha neutral entre el campeón de la Copa Paraguay y el campeón de
+      // Primera División (Apertura o Clausura) con más puntos en la tabla anual de la temporada
+      // (si es el mismo equipo, sale campeón directo, sin jugarla). Se arma en
+      // careerEnsureSupercopaParaguay.
+      key: 'supercopa-paraguay',
+      country: 'Paraguay',
+      name: 'Supercopa de Paraguay',
+      format: 'partido-unico',
+      pendingHint: 'Se arma cuando ya están el campeón de la Copa Paraguay y el campeón de Primera División (Apertura o Clausura) con más puntos de la temporada.'
     }
   ];
 
@@ -6642,6 +6899,30 @@
     semis: 'Semifinales',
     final: 'Final'
   };
+  // Orden de fases de la Copa Paraguay tal como quedó implementada acá (ver el comentario en el
+  // registro de 'copa-paraguay' más arriba para el detalle de qué equipos entran en cada una).
+  const COPA_PARAGUAY_ORDER = ['fase1','fase2','dieciseisavos','octavos','cuartos','semis','final'];
+  const COPA_PARAGUAY_LABELS = {
+    fase1: 'Fase 1',
+    fase2: 'Fase 2',
+    dieciseisavos: '16avos de Final',
+    octavos: 'Octavos de Final',
+    cuartos: 'Cuartos de Final',
+    semis: 'Semifinales',
+    final: 'Final'
+  };
+  // Arma una ronda de cruces a partido único (a diferencia de careerWorldLeagueBuildKoGruposRound,
+  // que es ida y vuelta): un solo partido por par, a cancha neutral. `pairs` puede traer libres
+  // (home o away null, cuando la fase no completa una potencia de 2) — ahí no se arma partido, el
+  // libre avanza directo (ver careerWorldLeagueCatchUpCopaParaguay).
+  function careerWorldLeagueBuildKoSingleRound(league, pairs, stageName, lastDate){
+    const built = pairs.map((p,i) => ({
+      teamA: p.home, teamB: p.away, winnerId: null, wentToPenalties: false,
+      match: (p.home === null || p.away === null) ? null :
+        { id:'wl_'+league.key+'_'+stageName+'_'+i, home:p.home, away:p.away, date:addDaysISO(lastDate, 14), homeScore:null, awayScore:null, played:false }
+    }));
+    return { stage: stageName, pairs: built, resolved:false };
+  }
   // Arma los 32 cruces de la Segunda Fase a partir de los 4 primeros de cada uno de los 16 grupos,
   // siguiendo el reglamento real: los grupos se toman de a pares consecutivos (Grupo 1 con Grupo 2,
   // Grupo 3 con Grupo 4, ..., Grupo 15 con Grupo 16) y dentro de cada par se cruzan las posiciones
@@ -6951,6 +7232,23 @@
     'chile-tercera-a': { up: 'chile-segunda', down: 'chile-tercera-b' },
     'chile-tercera-b': { up: 'chile-tercera-a' }
   };
+  // Pirámide paraguaya (2 categorías cargadas por ahora): los 2 descendidos de la División de Honor
+  // bajan a la División Intermedia y los 2 que ascienden de la Intermedia suben a la División de
+  // Honor. Como todavía no está cargada una tercera categoría, la Intermedia no tiene "down": sus 3
+  // descendidos por promedio se quedan marcados nomás (ver careerWorldLeaguePyramidNewRosters).
+  const PARAGUAY_PYRAMID = {
+    'paraguay-primera': { down: 'paraguay-segunda' },
+    'paraguay-segunda': { up: 'paraguay-primera' }
+  };
+  // Pirámide de la tercera/cuarta categoría de Paraguay (aparte de PARAGUAY_PYRAMID): los 2
+  // descendidos por promedios de la Primera División B bajan a la recién cargada Primera División C,
+  // y los 2 que ascienden de la Primera División C suben a la Primera División B. Va en un diccionario
+  // aparte porque la Primera B corre en su propio ciclo (`holdUntilNextStart`, por el cruce con la B
+  // Nacional) y no está sincronizada con la División de Honor / Intermedia.
+  const PARAGUAY_TERCERA_PYRAMID = {
+    'paraguay-primera-b': { down: 'paraguay-primera-c' },
+    'paraguay-primera-c': { up: 'paraguay-primera-b' }
+  };
   // Una liga está "terminada" cuando ya tiene campeón y, si tiene reducido de ascenso
   // (promocionPlayoff), ese reducido también ya se resolvió — si no se espera a esto último,
   // promotedIds todavía estaría incompleto (le faltarían los 2 ganadores del reducido) justo
@@ -6961,7 +7259,7 @@
     if(!league || !league.championId) return false;
     // Primera B de Chile: tiene campeón desde que termina la tabla, pero recién está terminada
     // cuando se resuelve la liguilla (falta el segundo ascendido).
-    if(league.format === 'chile-primera-b' || league.format === 'chile-segunda' || league.format === 'chile-tercera-a' || league.format === 'chile-tercera-b') return league.stage === 'done';
+    if(league.format === 'chile-primera-b' || league.format === 'chile-segunda' || league.format === 'chile-tercera-a' || league.format === 'chile-tercera-b' || league.format === 'paraguay-segunda' || league.format === 'paraguay-primera-b' || league.format === 'paraguay-b-nacional' || league.format === 'paraguay-primera-c') return league.stage === 'done';
     if(league.promocionPlayoff && league.promocionPlayoff.length){
       const expected = (league.promocionDirecta||0) + league.promocionPlayoff.length;
       if(!league.promotedIds || league.promotedIds.length < expected) return false;
@@ -7648,7 +7946,7 @@
   //    es del campeón de la Copa Paraguay (todavía no cargada).
   //  - Sudamericana, fase de grupos: los 4 mejores de la tabla anual sin cupo a la Libertadores.
   //  - Descensos: los 2 últimos de la tabla de promedios (puntos por partido de las últimas 3
-  //    temporadas, incluida la actual). Como no está la Segunda División, quedan marcados pero se quedan.
+  //    temporadas, incluida la actual). Bajan a la División Intermedia (ver PARAGUAY_PYRAMID).
   function careerWorldDaysToNextStart(){
     const c = state.career;
     if(!c.calendarDate) return 0;
@@ -7747,6 +8045,363 @@
       league.stage = 'done';
     }
   }
+  // ---------- Paraguay: División Intermedia (Segunda División) ----------
+  // 'liga' (todos contra todos a dos ruedas, 30 fechas en una sola tabla) -> 'definiciones' (solo si hay
+  // empate en puntos en el 1°: partido único en cancha neutral entre los dos primeros, penales si
+  // empatan; esto solo define quién es el campeón, los dos ascienden de todas formas) -> 'done'.
+  // Ascienden el 1° y el 2°. El descenso sale de la tabla de promedios (últimas 3 temporadas en la
+  // categoría, misma lógica que careerParaguayPromedios pero sobre `league.table` en vez de la tabla
+  // anual): bajan los 3 últimos.
+  // ---------- Paraguay: tabla de promedios genérica (Segunda División y Primera División B) ----------
+  // Puntos por partido de las últimas 3 temporadas (`league.promHist`, hasta 2 anteriores, + la tabla
+  // actual). La usan tanto la División Intermedia como la Primera División B: en ambas el descenso no
+  // sale de la tabla de posiciones sino de esta.
+  function careerParaguayTablaPromedios(league){
+    const filas = {};
+    league.teams.forEach(t => filas[t.id] = { id:t.id, pts:0, pj:0, ptsAct:0 });
+    (league.promHist || []).forEach(h => Object.keys(h.rows).forEach(id => {
+      if(filas[id]){ filas[id].pts += h.rows[id].pts; filas[id].pj += h.rows[id].pj; }
+    }));
+    (league.table || []).forEach(r => {
+      const f = filas[r.id]; if(!f) return;
+      f.pts += r.pts; f.pj += r.pj; f.ptsAct = r.pts;
+    });
+    const elo = {}; league.teams.forEach(t => elo[t.id] = t.elo);
+    const arr = Object.values(filas).map(f => Object.assign(f, { prom: f.pj ? f.pts / f.pj : 0 }));
+    arr.sort((a,b) => b.prom - a.prom || b.ptsAct - a.ptsAct || elo[b.id] - elo[a.id]);
+    return arr;
+  }
+  function careerWorldLeagueBuildSeasonParaguayLiga(def, newRoster){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const prev = wl[def.key];
+    const teams = newRoster ? newRoster.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+      : (prev && prev.teams && prev.teams.length)
+        ? prev.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    const ids = teams.map(t => t.id);
+    let rounds = roundRobinRounds(ids);
+    rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+    const startBase = careerWorldSeasonStart(!!prev);
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startBase, ri*7);
+      round.forEach(m => {
+        if(m.home === null || m.away === null) return;
+        matches.push({ id:'wl_'+def.key+'_'+c.year+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    // Campañas para los promedios: se guardan las 2 temporadas anteriores (con la actual son 3).
+    let promHist = (prev && prev.promHist) ? prev.promHist.slice() : [];
+    if(prev && prev.stage === 'done' && prev.table && prev.table.length){
+      const rows = {}; prev.table.forEach(r => rows[r.id] = { pts:r.pts, pj:r.pj });
+      promHist.push({ year:prev.year, rows });
+    }
+    promHist = promHist.slice(-2);
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      descensos: 0, promocionDirecta: def.promocionDirecta || 0, promocionPlayoff: null, promocionPlayoffPositions: [],
+      grupos: null, zonas: def.zonas || null,
+      season: (prev && prev.season) ? prev.season + 1 : 1,
+      year: Number(startBase.slice(0,4)), teams, matches, table: [], championId: null, relegatedIds: [], promotedIds: [],
+      defs: null, stage: 'liga', startBase, prevTableIds: null, promHist,
+      history: (prev && prev.history) ? prev.history.slice() : []
+    };
+  }
+  function careerWorldLeagueCatchUpParaguaySegunda(league){
+    const c = state.career;
+    if(!c.calendarDate) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const prefix = 'wl_'+league.key+'_'+league.season;
+    let guard = 0, progressed = true;
+    while(progressed && guard++ < 4 && league.stage !== 'done'){
+      progressed = false;
+      if(league.stage === 'liga'){
+        const jugo = careerWorldLeaguePlayDue(league.matches, byId, c.calendarDate, {});
+        if(jugo || !league.table.length) league.table = computeGenericStandings(league.matches, league.teams);
+        if(league.matches.length && league.matches.every(m => m.played)){
+          const t = league.table;
+          const lastDate = careerChileLastDate(league.matches);
+          league.defs = { campeon:null };
+          if(t[0].pts === t[1].pts) league.defs.campeon = careerChileSingleMatch(prefix+'_def_campeon', t[0].id, t[1].id, addDaysISO(lastDate, 7));
+          league.promotedIds = [t[0].id, t[1].id];
+          league.stage = 'definiciones';
+          progressed = true;
+        }
+      } else if(league.stage === 'definiciones'){
+        const d = league.defs;
+        if(!d.campeon || careerChileSingleDone(d.campeon, byId, c.calendarDate)){
+          if(d.campeon){
+            const rows = league.table.slice();
+            const w = rows.find(r => r.id === d.campeon.winnerId);
+            const l = rows.find(r => r.id === (d.campeon.winnerId === d.campeon.home ? d.campeon.away : d.campeon.home));
+            rows[0] = w; rows[1] = l;
+            league.table = rows;
+          }
+          league.championId = league.table[0].id;
+          league.relegatedIds = careerParaguayTablaPromedios(league).slice(-3).map(r => r.id);
+          league.history.unshift({ year:league.year, championId:league.championId, championName:byId[league.championId].name,
+            promotedNames: league.promotedIds.map(id=>byId[id].name), relegatedNames: league.relegatedIds.map(id=>byId[id].name) });
+          if(league.history.length > 10) league.history.length = 10;
+          league.stage = 'done';
+          progressed = true;
+        }
+      }
+    }
+  }
+  // ---------- Paraguay: Primera División B (tercera categoría, rama de Asunción) ----------
+  // Usa el mismo constructor genérico que la Segunda ('careerWorldLeagueBuildSeasonParaguayLiga'): 17
+  // equipos (número impar, un equipo libre por fecha), todos contra todos a dos ruedas. 'liga' ->
+  // 'definiciones' (solo si hay empate en puntos en el 1°: partido único en cancha neutral, penales si
+  // empatan) -> 'done'. El campeón asciende directo a la División Intermedia. El 2° (subcampeón) NO
+  // asciende directo: junto con el subcampeón de la B Nacional define, en un partido único aparte
+  // (ver careerEnsureParaguayTerceraPromocion), el tercer ascenso a la Intermedia. El descenso sale de
+  // la tabla de promedios (careerParaguayTablaPromedios): bajan los 2 últimos a la Primera División C
+  // (todavía no cargada, quedan marcados nomás). Como el ascenso a la Intermedia depende de un cruce
+  // con la B Nacional que puede tardar una semana más en resolverse, esta liga usa
+  // `holdUntilNextStart` para no rearmar la temporada (y perder el plantel/tabla que necesita el
+  // cruce) antes de que ese partido se juegue.
+  function careerWorldLeagueCatchUpParaguayPrimeraB(league){
+    const c = state.career;
+    if(!c.calendarDate) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const prefix = 'wl_'+league.key+'_'+league.season;
+    let guard = 0, progressed = true;
+    while(progressed && guard++ < 4 && league.stage !== 'done'){
+      progressed = false;
+      if(league.stage === 'liga'){
+        const jugo = careerWorldLeaguePlayDue(league.matches, byId, c.calendarDate, {});
+        if(jugo || !league.table.length) league.table = computeGenericStandings(league.matches, league.teams);
+        if(league.matches.length && league.matches.every(m => m.played)){
+          const t = league.table;
+          const lastDate = careerChileLastDate(league.matches);
+          league.defs = { campeon:null };
+          if(t[0].pts === t[1].pts) league.defs.campeon = careerChileSingleMatch(prefix+'_def_campeon', t[0].id, t[1].id, addDaysISO(lastDate, 7));
+          league.stage = 'definiciones';
+          progressed = true;
+        }
+      } else if(league.stage === 'definiciones'){
+        const d = league.defs;
+        if(!d.campeon || careerChileSingleDone(d.campeon, byId, c.calendarDate)){
+          if(d.campeon){
+            const rows = league.table.slice();
+            const w = rows.find(r => r.id === d.campeon.winnerId);
+            const l = rows.find(r => r.id === (d.campeon.winnerId === d.campeon.home ? d.campeon.away : d.campeon.home));
+            rows[0] = w; rows[1] = l;
+            league.table = rows;
+          }
+          league.championId = league.table[0].id;
+          league.subChampionId = league.table[1].id;
+          league.promotedIds = [league.championId];
+          league.relegatedIds = careerParaguayTablaPromedios(league).slice(-2).map(r => r.id);
+          league.promocionSegunda = null;
+          league.history.unshift({ year:league.year, championId:league.championId, championName:byId[league.championId].name,
+            relegatedNames: league.relegatedIds.map(id=>byId[id].name) });
+          if(league.history.length > 10) league.history.length = 10;
+          league.stage = 'done';
+          progressed = true;
+        }
+      }
+    }
+  }
+  // ---------- Paraguay: Primera División C (cuarta categoría) ----------
+  // Usa el mismo constructor genérico que la Segunda y la Primera B
+  // ('careerWorldLeagueBuildSeasonParaguayLiga'): 12 equipos, todos contra todos a dos ruedas (22
+  // fechas). 'liga' -> 'definiciones' (solo si hay empate en puntos en el 1°: partido único en cancha
+  // neutral, penales si empatan; esto solo define quién es el campeón, los dos ascienden de todas
+  // formas) -> 'done'. Ascienden directo el 1° y el 2° a la Primera División B; no hay reducido por el
+  // segundo ascenso. No hay descensos: es la base de la pirámide paraguaya cargada hasta ahora (ver
+  // PARAGUAY_TERCERA_PYRAMID).
+  function careerWorldLeagueCatchUpParaguayPrimeraC(league){
+    const c = state.career;
+    if(!c.calendarDate) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const prefix = 'wl_'+league.key+'_'+league.season;
+    let guard = 0, progressed = true;
+    while(progressed && guard++ < 4 && league.stage !== 'done'){
+      progressed = false;
+      if(league.stage === 'liga'){
+        const jugo = careerWorldLeaguePlayDue(league.matches, byId, c.calendarDate, {});
+        if(jugo || !league.table.length) league.table = computeGenericStandings(league.matches, league.teams);
+        if(league.matches.length && league.matches.every(m => m.played)){
+          const t = league.table;
+          const lastDate = careerChileLastDate(league.matches);
+          league.defs = { campeon:null };
+          if(t[0].pts === t[1].pts) league.defs.campeon = careerChileSingleMatch(prefix+'_def_campeon', t[0].id, t[1].id, addDaysISO(lastDate, 7));
+          league.promotedIds = [t[0].id, t[1].id];
+          league.stage = 'definiciones';
+          progressed = true;
+        }
+      } else if(league.stage === 'definiciones'){
+        const d = league.defs;
+        if(!d.campeon || careerChileSingleDone(d.campeon, byId, c.calendarDate)){
+          if(d.campeon){
+            const rows = league.table.slice();
+            const w = rows.find(r => r.id === d.campeon.winnerId);
+            const l = rows.find(r => r.id === (d.campeon.winnerId === d.campeon.home ? d.campeon.away : d.campeon.home));
+            rows[0] = w; rows[1] = l;
+            league.table = rows;
+          }
+          league.championId = league.table[0].id;
+          league.relegatedIds = [];
+          league.history.unshift({ year:league.year, championId:league.championId, championName:byId[league.championId].name,
+            promotedNames: league.promotedIds.map(id=>byId[id].name) });
+          if(league.history.length > 10) league.history.length = 10;
+          league.stage = 'done';
+          progressed = true;
+        }
+      }
+    }
+  }
+  // ---------- Paraguay: B Nacional (tercera categoría, rama del interior) ----------
+  // El reglamento habla de 14 equipos en 4 grupos (2 de 4 y 2 de 3), pero se cargaron 16: se ajustó a 4
+  // grupos parejos de 4, en el mismo orden en que se pasó la lista (los primeros 4, Grupo A; los
+  // siguientes 4, Grupo B; y así). Máquina de estados en `league.stage`:
+  //  'grupos' (fase 1, una sola rueda dentro de cada grupo, 3 fechas) -> 'fase2' (los 2 primeros de
+  //  cada grupo, 8 en total, en una única tabla todos contra todos a dos ruedas) -> 'semis' (1° vs 4° y
+  //  2° vs 3° de la fase 2, ida y vuelta) -> 'final' (partido único en cancha neutral, penales si
+  //  empatan) -> 'done'. El campeón obtiene el título y asciende directo a la División Intermedia; no
+  //  hay descensos. El subcampeón no asciende directo: junto con el subcampeón de la Primera División B
+  //  define el tercer ascenso (ver careerEnsureParaguayTerceraPromocion). `holdUntilNextStart` por el
+  //  mismo motivo que en la Primera B.
+  function careerWorldLeagueBuildSeasonBNacional(def, newRoster){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const prev = wl[def.key];
+    const teams = newRoster ? newRoster.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+      : (prev && prev.teams && prev.teams.length)
+        ? prev.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    const groupNames = ['A','B','C','D'];
+    const groups = {};
+    groupNames.forEach((g,gi) => { groups[g] = teams.slice(gi*4, gi*4+4).map(t=>t.id); });
+    const startBase = careerWorldSeasonStart(!!prev);
+    const matches = [];
+    groupNames.forEach(g => {
+      const rounds = roundRobinRounds(groups[g]);
+      rounds.forEach((round, ri) => {
+        const date = addDaysISO(startBase, ri*7);
+        round.forEach(m => {
+          if(m.home === null || m.away === null) return;
+          matches.push({ id:'wl_'+def.key+'_'+c.year+'_'+g+'_'+matches.length, home:m.home, away:m.away, round:ri+1, grupo:g, date, homeScore:null, awayScore:null, played:false });
+        });
+      });
+    });
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      descensos: 0, promocionDirecta: 0, promocionPlayoff: null, promocionPlayoffPositions: [],
+      season: (prev && prev.season) ? prev.season + 1 : 1,
+      year: Number(startBase.slice(0,4)), teams, matches, table: [], championId: null, subChampionId: null,
+      relegatedIds: [], promotedIds: [], promocionSegunda: null,
+      stage: 'grupos', startBase, zonas: null, prevTableIds: null,
+      groups, groupTables: { A:[], B:[], C:[], D:[] },
+      fase2Ids: null, fase2Matches: [], fase2Table: [], semis: null, finalMatch: null,
+      history: (prev && prev.history) ? prev.history.slice() : []
+    };
+  }
+  function careerWorldLeagueCatchUpBNacional(league){
+    const c = state.career;
+    if(!c.calendarDate) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const prefix = 'wl_'+league.key+'_'+league.season;
+    let guard = 0, progressed = true;
+    while(progressed && guard++ < 8 && league.stage !== 'done'){
+      progressed = false;
+      if(league.stage === 'grupos'){
+        const jugo = careerWorldLeaguePlayDue(league.matches, byId, c.calendarDate, {});
+        ['A','B','C','D'].forEach(g => {
+          const gm = league.matches.filter(m => m.grupo === g);
+          if(jugo || !league.groupTables[g].length) league.groupTables[g] = computeGenericStandings(gm, league.groups[g].map(id=>byId[id]));
+        });
+        if(league.matches.length && league.matches.every(m => m.played)){
+          const fase2Ids = ['A','B','C','D'].reduce((acc,g) => acc.concat(league.groupTables[g].slice(0,2).map(r=>r.id)), []);
+          league.fase2Ids = fase2Ids;
+          let rounds = roundRobinRounds(fase2Ids);
+          rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+          const start = careerChileLastDate(league.matches);
+          const fm = [];
+          rounds.forEach((round, ri) => {
+            const date = addDaysISO(start, (ri+1)*7);
+            round.forEach(m => {
+              if(m.home === null || m.away === null) return;
+              fm.push({ id:prefix+'_f2_'+fm.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+            });
+          });
+          league.fase2Matches = fm;
+          league.stage = 'fase2';
+          progressed = true;
+        }
+      } else if(league.stage === 'fase2'){
+        const jugo = careerWorldLeaguePlayDue(league.fase2Matches, byId, c.calendarDate, {});
+        if(jugo || !league.fase2Table.length) league.fase2Table = computeGenericStandings(league.fase2Matches, league.fase2Ids.map(id=>byId[id]));
+        if(league.fase2Matches.length && league.fase2Matches.every(m => m.played)){
+          const order = league.fase2Table.map(r=>r.id);
+          const start = addDaysISO(careerChileLastDate(league.fase2Matches), 7);
+          league.semis = [
+            careerChileMakeTie(prefix+'_sf_0', order[0], order[3], 1, 4, start),
+            careerChileMakeTie(prefix+'_sf_1', order[1], order[2], 2, 3, start)
+          ];
+          league.stage = 'semis';
+          progressed = true;
+        }
+      } else if(league.stage === 'semis'){
+        league.semis.forEach(t => careerChileTieDone(t, byId, c.calendarDate));
+        if(league.semis.every(t => t.winnerId)){
+          const order = league.fase2Table.map(r=>r.id);
+          const fin = league.semis.map(t=>t.winnerId).sort((a,b)=>order.indexOf(a)-order.indexOf(b));
+          league.finalMatch = careerChileSingleMatch(prefix+'_final', fin[0], fin[1], addDaysISO(careerChileLastDate(league.semis), 7));
+          league.stage = 'final';
+          progressed = true;
+        }
+      } else if(league.stage === 'final'){
+        const f = league.finalMatch;
+        if(careerChileSingleDone(f, byId, c.calendarDate)){
+          league.championId = f.winnerId;
+          league.subChampionId = f.winnerId === f.home ? f.away : f.home;
+          league.promotedIds = [league.championId];
+          league.history.unshift({ year:league.year, championId:league.championId, championName:byId[league.championId].name,
+            subChampionName:byId[league.subChampionId].name });
+          if(league.history.length > 10) league.history.length = 10;
+          league.stage = 'done';
+          progressed = true;
+        }
+      }
+    }
+  }
+  // ---------- Paraguay: definición del tercer ascenso a la Intermedia (Primera B vs B Nacional) ----------
+  // Una vez que la Primera División B y la B Nacional terminaron su temporada (las dos con
+  // `subChampionId` definido), se arma un partido único en cancha neutral entre sus subcampeones; el
+  // ganador es el tercer equipo que asciende a la División Intermedia (además de los dos campeones, que
+  // ascienden directo). El resultado se guarda en `promocionSegunda` de las dos ligas por igual. Este
+  // ascenso a la Intermedia sigue siendo solo para mostrarlo en pantalla (la B Nacional no tiene "up"
+  // real en ninguna pirámide todavía); los descensos de la Primera División B sí mueven planteles de
+  // verdad ahora, hacia la Primera División C (ver PARAGUAY_TERCERA_PYRAMID).
+  function careerEnsureParaguayTerceraPromocion(){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const pb = wl['paraguay-primera-b'], bn = wl['paraguay-b-nacional'];
+    if(!c.calendarDate) return;
+    // El plantel de las dos ligas es siempre el mismo (no hay pirámide todavía que las reparta), así
+    // que sus ids no cambian aunque alguna ya haya arrancado la temporada siguiente; por eso esta
+    // función no exige `pb.stage === 'done' && bn.stage === 'done'` para AVANZAR un cruce ya creado
+    // (solo para crearlo la primera vez) — si lo exigiera en cada llamada, un desfasaje entre los
+    // `holdUntilNextStart` de las dos ligas podría dejar el cruce sin jugarse para siempre.
+    if(pb && bn && pb.stage === 'done' && bn.stage === 'done' && !pb.promocionSegunda){
+      const start = addDaysISO(careerChileLastDate([bn.finalMatch]), 14);
+      const match = careerChileSingleMatch('wl_paraguay_promo_'+pb.year, pb.subChampionId, bn.subChampionId, start);
+      const promo = { year: pb.year, match, winnerId: null };
+      pb.promocionSegunda = promo; bn.promocionSegunda = promo;
+    }
+    const promo = pb && pb.promocionSegunda;
+    if(promo && !promo.winnerId){
+      const byId = {};
+      if(pb) pb.teams.forEach(t=>byId[t.id]=t);
+      if(bn) bn.teams.forEach(t=>byId[t.id]=t);
+      if(careerChileSingleDone(promo.match, byId, c.calendarDate)){
+        promo.winnerId = promo.match.winnerId;
+      }
+    }
+  }
   function careerEnsureWorldLeagues(){
     const c = state.career;
     const wl = careerWorldLeagues();
@@ -7760,11 +8415,13 @@
     careerEnsureChileCopas();
     const brasilRosters = careerWorldLeaguePyramidNewRosters(wl, BRASIL_PYRAMID);
     const chileRosters = careerWorldLeaguePyramidNewRosters(wl, CHILE_PYRAMID);
+    const paraguayRosters = careerWorldLeaguePyramidNewRosters(wl, PARAGUAY_PYRAMID);
+    const paraguayTerceraRosters = careerWorldLeaguePyramidNewRosters(wl, PARAGUAY_TERCERA_PYRAMID);
     WORLD_LEAGUES_REGISTRY.forEach(def => {
       // La Copa do Brasil y la Supercopa do Brasil no tienen fixture propio armado por adelantado
       // (dependen de los planteles/campeones de las otras ligas de este mismo año), así que se
       // procesan aparte, después de que el resto ya esté al día — ver más abajo.
-      if(def.format === 'copa-eliminacion' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta' || def.format === 'uruguay-copa' || def.format === 'uruguay-supercopa' || def.format === 'chile-copa-liga' || def.format === 'chile-copa' || def.format === 'chile-supercopa') return;
+      if(def.format === 'copa-eliminacion' || def.format === 'copa-paraguay' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta' || def.format === 'uruguay-copa' || def.format === 'uruguay-supercopa' || def.format === 'chile-copa-liga' || def.format === 'chile-copa' || def.format === 'chile-supercopa' || def.format === 'colombia-primera' || def.format === 'colombia-segunda' || def.format === 'colombia-copa' || def.format === 'colombia-supercopa') return;
       let league = wl[def.key];
       // El arranque de la temporada siguiente de cada división depende de que esa división (y,
       // si es parte de la pirámide brasileña, las otras 3) ya haya terminado la suya — no de que
@@ -7772,8 +8429,8 @@
       // llegar a cortar una Serie D a mitad de su propia eliminatoria de ascenso si el torneo
       // local terminaba antes; ahora cada una corre hasta el final, aunque eso lleve más de un
       // año calendario de por sí.
-      const pyramidRosters = BRASIL_PYRAMID[def.key] ? brasilRosters : (CHILE_PYRAMID[def.key] ? chileRosters : null);
-      const isBrasilPyramid = !!(BRASIL_PYRAMID[def.key] || CHILE_PYRAMID[def.key]);
+      const pyramidRosters = BRASIL_PYRAMID[def.key] ? brasilRosters : (CHILE_PYRAMID[def.key] ? chileRosters : (PARAGUAY_PYRAMID[def.key] ? paraguayRosters : (PARAGUAY_TERCERA_PYRAMID[def.key] ? paraguayTerceraRosters : null)));
+      const isBrasilPyramid = !!(BRASIL_PYRAMID[def.key] || CHILE_PYRAMID[def.key] || PARAGUAY_PYRAMID[def.key] || PARAGUAY_TERCERA_PYRAMID[def.key]);
       const done = !league ? true : careerWorldLeagueFullyDone(league);
       // Algunas ligas (`holdUntilNextStart`) dejan a la vista la temporada terminada (tablas, cupos a las
       // copas, descendidos) hasta pocas semanas antes de que arranque la siguiente.
@@ -7783,6 +8440,8 @@
         if(def.format === 'grupos-multiples') careerWorldLeagueBuildSeasonGrupos(def, newRoster);
         else if(def.format === 'chile-tercera-b') careerWorldLeagueBuildSeasonTerceraB(def, newRoster);
         else if(def.format === 'paraguay-primera') careerWorldLeagueBuildSeasonParaguay(def, newRoster);
+        else if(def.format === 'paraguay-segunda' || def.format === 'paraguay-primera-b' || def.format === 'paraguay-primera-c') careerWorldLeagueBuildSeasonParaguayLiga(def, newRoster);
+        else if(def.format === 'paraguay-b-nacional') careerWorldLeagueBuildSeasonBNacional(def, newRoster);
         else careerWorldLeagueBuildSeason(def, newRoster);
         league = wl[def.key];
       }
@@ -7792,11 +8451,21 @@
       else if(def.format === 'chile-tercera-a') careerWorldLeagueCatchUpChileTerceraA(league);
       else if(def.format === 'chile-tercera-b') careerWorldLeagueCatchUpChileTerceraB(league);
       else if(def.format === 'paraguay-primera') careerWorldLeagueCatchUpParaguay(league);
+      else if(def.format === 'paraguay-segunda') careerWorldLeagueCatchUpParaguaySegunda(league);
+      else if(def.format === 'paraguay-primera-b') careerWorldLeagueCatchUpParaguayPrimeraB(league);
+      else if(def.format === 'paraguay-primera-c') careerWorldLeagueCatchUpParaguayPrimeraC(league);
+      else if(def.format === 'paraguay-b-nacional') careerWorldLeagueCatchUpBNacional(league);
       else careerWorldLeagueCatchUp(league);
     });
+    careerEnsureParaguayTerceraPromocion();
     careerEnsureCopaBrasil();
     careerEnsureSupercopaBrasil();
+    careerEnsureCopaParaguay();
+    careerEnsureSupercopaParaguay();
     careerEnsureUruguayLeagues();
+    careerEnsureColombiaLeagues();
+    careerEnsureColombiaCopa();
+    careerEnsureSupercopaColombia();
     // Copa de la Liga de Chile: se arma y avanza después de la Liga de Primera (usa sus 16 equipos
     // y su tabla de la temporada anterior).
     careerEnsureCopaLigaChile();
@@ -9110,6 +9779,890 @@
     const match = { id:'wl_supercopa-brasil_'+brasileirao.year+'_'+copa.season, home:teamA.id, away:teamB.id, date, homeScore:null, awayScore:null, played:false };
     wl['supercopa-brasil'] = Object.assign({}, base, { teams:[teamA,teamB], match, championId:null, wentToPenalties:false, history:prevHistory });
   }
+  // ---------- Colombia: Liga BetPlay DIMAYOR ----------
+  // Suma los puntos (3/1/0) que un equipo sacó en un conjunto de listas de partidos ya jugados — se
+  // usa para decidir quién cierra de local la final del Apertura y la final del Clausura según el
+  // "rendimiento acumulado de las fases anteriores" (fase regular + cuartos + semis, o fase regular
+  // + cuadrangular, según el caso).
+  function colombiaCumulativePts(teamId, matchArrays){
+    let pts = 0;
+    matchArrays.forEach(arr => (arr || []).forEach(m => {
+      if(!m.played) return;
+      if(m.home === teamId) pts += m.homeScore > m.awayScore ? 3 : (m.homeScore === m.awayScore ? 1 : 0);
+      else if(m.away === teamId) pts += m.awayScore > m.homeScore ? 3 : (m.awayScore === m.homeScore ? 1 : 0);
+    }));
+    return pts;
+  }
+  // Arma las 4 llaves de cuartos de final a partir del orden 1°-8° de la fase regular: el 1° va fijo
+  // a la Llave A y el 2° a la Llave D, los otros 6 se sortean para completar las cuatro llaves. En
+  // cualquier llave cierra de local, en la vuelta, el mejor ubicado de la fase regular, así que el
+  // 1° y el 2° ya tienen la vuelta asegurada en su cancha.
+  function colombiaBuildCuartos(order, startDate){
+    const first = order[0], second = order[1];
+    const rest = shuffleArr(order.slice(2));
+    const partnerA = rest.pop(), partnerD = rest.pop();
+    const bTeams = [rest.pop(), rest.pop()], cTeams = [rest.pop(), rest.pop()];
+    const pares = [
+      { grupo:'A', a:first, b:partnerA },
+      { grupo:'B', a:bTeams[0], b:bTeams[1] },
+      { grupo:'C', a:cTeams[0], b:cTeams[1] },
+      { grupo:'D', a:second, b:partnerD }
+    ];
+    return pares.map(p => {
+      const better = order.indexOf(p.a) < order.indexOf(p.b) ? p.a : p.b;
+      const tie = careerWorldLeagueBuildTwoLegTie(p.a, p.b, better, startDate);
+      tie.grupo = p.grupo;
+      return tie;
+    });
+  }
+  // Semifinales fijas por llave (A vs B, C vs D) — no se resortean. Cierra de local, en la vuelta, el
+  // que haya quedado mejor ubicado en la fase regular entre los dos semifinalistas.
+  function colombiaBuildSemis(cuartos, order, startDate){
+    const byGrupo = {}; cuartos.forEach(t => byGrupo[t.grupo] = t.winnerId);
+    const pares = [ [byGrupo.A, byGrupo.B, 'Llave A vs Llave B'], [byGrupo.C, byGrupo.D, 'Llave C vs Llave D'] ];
+    return pares.map(p => {
+      const better = order.indexOf(p[0]) < order.indexOf(p[1]) ? p[0] : p[1];
+      const tie = careerWorldLeagueBuildTwoLegTie(p[0], p[1], better, startDate);
+      tie.label = p[2];
+      return tie;
+    });
+  }
+  // Resuelve una llave ida y vuelta ya jugada (cuartos, semis o cualquiera de las dos finales): la
+  // decide careerWorldLeagueResolveTwoLegTie (puntos y luego diferencia de gol) y, si sigue
+  // empatada, penales — misma simplificación sin alargue que usa el resto del juego.
+  function colombiaResolveTie(tie, byId){
+    if(tie.winnerId || !tie.legs.every(m=>m.played)) return;
+    let w = careerWorldLeagueResolveTwoLegTie(tie, byId);
+    if(!w){ tie.wentToPenalties = true; w = worldLeaguePenaltyWinner(byId[tie.teamA].elo, byId[tie.teamB].elo) === 'A' ? tie.teamA : tie.teamB; }
+    tie.winnerId = w;
+  }
+  function careerWorldLeagueBuildSeasonColombiaPrimera(def, prevLeague, forcedRoster){
+    const wl = careerWorldLeagues();
+    const teams = forcedRoster ? forcedRoster
+      : (prevLeague && prevLeague.teams && prevLeague.teams.length)
+        ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    const ids = teams.map(t=>t.id);
+    const startDate = careerWorldSeasonStart(!!prevLeague);
+    const rounds = roundRobinRounds(ids);
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home === null || m.away === null) return;
+        matches.push({ id:'wl_'+def.key+'_apertura_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
+      year: Number(startDate.slice(0,4)), teams,
+      stage: 'apertura-regular',
+      apertura: { matches, table: [], cuartos: null, cuartosOrder: null, semis: null, final: null, championId: null },
+      clausura: null,
+      reclasificacion: [], libertadoresGruposIds: [], libertadoresFase2Ids: [], sudamericanaIds: [],
+      descensoTable: [], relegatedIds: [],
+      seasonLog: (prevLeague && prevLeague.seasonLog) ? prevLeague.seasonLog : {},
+      history: (prevLeague && prevLeague.history) ? prevLeague.history.slice() : []
+    };
+  }
+  // Avanza la Liga BetPlay un paso por vez según su fase actual, jugando todo lo que ya corresponda
+  // según el calendario único de la carrera — mismo mecanismo de "catch up" que el resto de las
+  // ligas del exterior. Como cada `if` vuelve a mirar `league.stage`, una sola llamada puede
+  // encadenar varias transiciones (por ej. terminar la final del Apertura y arrancar de una el
+  // Clausura en el mismo tick).
+  function careerWorldLeagueCatchUpColombiaPrimera(league){
+    const c = state.career;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const A = league.apertura;
+
+    if(league.stage === 'apertura-regular'){
+      careerWorldLeaguePlayDue(A.matches, byId, c.calendarDate, {});
+      A.table = computeGenericStandings(A.matches, league.teams);
+      if(A.matches.length && A.matches.every(m=>m.played)){
+        const order = A.table.map(r=>r.id).slice(0,8);
+        const lastDate = A.matches.reduce((mx,m)=> m.date>mx?m.date:mx, A.matches[0].date);
+        A.cuartos = colombiaBuildCuartos(order, addDaysISO(lastDate,7));
+        A.cuartosOrder = order;
+        league.stage = 'apertura-cuartos';
+      }
+    }
+
+    if(league.stage === 'apertura-cuartos'){
+      A.cuartos.forEach(tie => { careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {}); colombiaResolveTie(tie, byId); });
+      if(A.cuartos.every(t=>t.winnerId)){
+        const lastDate = A.cuartos.reduce((mx,t)=> t.legs[1].date>mx?t.legs[1].date:mx, A.cuartos[0].legs[1].date);
+        A.semis = colombiaBuildSemis(A.cuartos, A.cuartosOrder, addDaysISO(lastDate,7));
+        league.stage = 'apertura-semis';
+      }
+    }
+
+    if(league.stage === 'apertura-semis'){
+      A.semis.forEach(tie => { careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {}); colombiaResolveTie(tie, byId); });
+      if(A.semis.every(t=>t.winnerId)){
+        const finalistas = A.semis.map(t=>t.winnerId);
+        const cuartosLegs = A.cuartos.reduce((acc,t)=>acc.concat(t.legs), []);
+        const semisLegs = A.semis.reduce((acc,t)=>acc.concat(t.legs), []);
+        const pts0 = colombiaCumulativePts(finalistas[0], [A.matches, cuartosLegs, semisLegs]);
+        const pts1 = colombiaCumulativePts(finalistas[1], [A.matches, cuartosLegs, semisLegs]);
+        let better;
+        if(pts0 !== pts1) better = pts0 > pts1 ? finalistas[0] : finalistas[1];
+        else better = A.cuartosOrder.indexOf(finalistas[0]) < A.cuartosOrder.indexOf(finalistas[1]) ? finalistas[0] : finalistas[1];
+        const lastDate = A.semis.reduce((mx,t)=> t.legs[1].date>mx?t.legs[1].date:mx, A.semis[0].legs[1].date);
+        A.final = careerWorldLeagueBuildTwoLegTie(finalistas[0], finalistas[1], better, addDaysISO(lastDate,7));
+        league.stage = 'apertura-final';
+      }
+    }
+
+    if(league.stage === 'apertura-final'){
+      careerWorldLeaguePlayDue(A.final.legs, byId, c.calendarDate, {});
+      colombiaResolveTie(A.final, byId);
+      if(A.final.winnerId){
+        A.championId = A.final.winnerId;
+        const lastDate = A.final.legs[1].date;
+        const clausuraMatches = A.matches.map((am,i) => ({
+          id:'wl_'+league.key+'_clausura_'+i, home:am.away, away:am.home, round:am.round,
+          date: addDaysISO(lastDate, 7 + (am.round-1)*7), homeScore:null, awayScore:null, played:false
+        }));
+        league.clausura = { matches: clausuraMatches, table: [], grupos: null, gruposOrder: null, final: null, championId: null };
+        league.stage = 'clausura-regular';
+      }
+    }
+
+    if(!league.clausura) return; // todavía en el Apertura, no hay nada más para avanzar este tick
+    const CL = league.clausura;
+
+    if(league.stage === 'clausura-regular'){
+      careerWorldLeaguePlayDue(CL.matches, byId, c.calendarDate, {});
+      CL.table = computeGenericStandings(CL.matches, league.teams);
+      if(CL.matches.every(m=>m.played)){
+        const order = CL.table.map(r=>r.id).slice(0,8);
+        const rest = shuffleArr(order.slice(2));
+        const grupoA = [order[0], rest.pop(), rest.pop(), rest.pop()];
+        const grupoB = [order[1], rest.pop(), rest.pop(), rest.pop()];
+        const lastDate = CL.matches.reduce((mx,m)=> m.date>mx?m.date:mx, CL.matches[0].date);
+        const startDate = addDaysISO(lastDate, 7);
+        function buildGrupo(idsGrupo, tag){
+          let rounds = roundRobinRounds(idsGrupo);
+          rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+          const matches = [];
+          rounds.forEach((round, ri) => {
+            const date = addDaysISO(startDate, ri*7);
+            round.forEach(m => {
+              if(m.home===null||m.away===null) return;
+              matches.push({ id:'wl_'+league.key+'_grupo'+tag+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+            });
+          });
+          return { nombre:'Grupo '+tag, teamIds: idsGrupo, matches, table: [] };
+        }
+        CL.grupos = { A: buildGrupo(grupoA,'A'), B: buildGrupo(grupoB,'B') };
+        CL.gruposOrder = order;
+        league.stage = 'clausura-grupos';
+      }
+    }
+
+    if(league.stage === 'clausura-grupos'){
+      ['A','B'].forEach(g => {
+        const grupo = CL.grupos[g];
+        careerWorldLeaguePlayDue(grupo.matches, byId, c.calendarDate, {});
+        grupo.table = computeGenericStandings(grupo.matches, grupo.teamIds.map(id=>byId[id]));
+      });
+      if(CL.grupos.A.matches.every(m=>m.played) && CL.grupos.B.matches.every(m=>m.played)){
+        const winA = CL.grupos.A.table[0].id, winB = CL.grupos.B.table[0].id;
+        const ptsA = colombiaCumulativePts(winA, [CL.matches, CL.grupos.A.matches]);
+        const ptsB = colombiaCumulativePts(winB, [CL.matches, CL.grupos.B.matches]);
+        let better;
+        if(ptsA !== ptsB) better = ptsA > ptsB ? winA : winB;
+        else better = CL.gruposOrder.indexOf(winA) < CL.gruposOrder.indexOf(winB) ? winA : winB;
+        const lastDate = [].concat(CL.grupos.A.matches, CL.grupos.B.matches).reduce((mx,m)=> m.date>mx?m.date:mx, CL.grupos.A.matches[0].date);
+        CL.final = careerWorldLeagueBuildTwoLegTie(winA, winB, better, addDaysISO(lastDate,7));
+        league.stage = 'clausura-final';
+      }
+    }
+
+    if(league.stage === 'clausura-final'){
+      careerWorldLeaguePlayDue(CL.final.legs, byId, c.calendarDate, {});
+      colombiaResolveTie(CL.final, byId);
+      if(CL.final.winnerId){
+        CL.championId = CL.final.winnerId;
+        league.stage = 'post';
+      }
+    }
+
+    if(league.stage === 'post'){
+      league.reclasificacion = computeGenericStandings([].concat(A.matches, CL.matches), league.teams);
+      const champions = A.championId === CL.championId ? [A.championId] : [A.championId, CL.championId];
+      const reclasOrder = league.reclasificacion.map(r=>r.id).filter(id => champions.indexOf(id)===-1);
+      const fase2 = reclasOrder.slice(0,2);
+      league.libertadoresGruposIds = champions;
+      league.libertadoresFase2Ids = fase2;
+      const excluidos = champions.concat(fase2);
+      league.sudamericanaIds = league.reclasificacion.map(r=>r.id).filter(id => excluidos.indexOf(id)===-1).slice(0,3);
+      league.teams.forEach(t => {
+        const row = league.reclasificacion.find(r=>r.id===t.id);
+        if(!league.seasonLog[t.id]) league.seasonLog[t.id] = [];
+        if(row) league.seasonLog[t.id].push({ pts: row.pts, pj: row.pj });
+        if(league.seasonLog[t.id].length > 3) league.seasonLog[t.id] = league.seasonLog[t.id].slice(-3);
+      });
+      const promedios = league.teams.map(t => {
+        const log = league.seasonLog[t.id] || [];
+        const totalPts = log.reduce((s,x)=>s+x.pts,0), totalPj = log.reduce((s,x)=>s+x.pj,0);
+        return { id:t.id, avg: totalPj>0 ? totalPts/totalPj : 0 };
+      }).sort((a,b)=> a.avg-b.avg || byId[a.id].elo - byId[b.id].elo);
+      league.descensoTable = promedios;
+      league.relegatedIds = promedios.slice(0,2).map(r=>r.id);
+      league.history.unshift({
+        year: league.year, aperturaChampionId: A.championId, clausuraChampionId: CL.championId,
+        championName: byId[A.championId].name + (CL.championId===A.championId ? ' (bicampeón)' : ' / ' + byId[CL.championId].name)
+      });
+      if(league.history.length > 15) league.history.length = 15;
+      league.stage = 'done';
+    }
+  }
+  // Colombia todavía no tiene otras categorías cargadas además de la Primera y la Segunda, así que
+  // el enganche entre las dos se resuelve directo acá (mismo criterio que careerEnsureUruguayLeagues
+  // con sus cuatro divisiones): se espera a que AMBAS terminen su temporada antes de mover un solo
+  // equipo. Ascienden 2 de la Segunda a la Primera y los 2 que descienden de la Primera ocupan su
+  // lugar en la Segunda; solo los que ascienden pierden 100 de ELO.
+  function careerEnsureColombiaLeagues(){
+    const wl = careerWorldLeagues();
+    const defP = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'colombia-primera');
+    const defS = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'colombia-segunda');
+    if(!defP || !defS) return;
+    const primeraPrev = wl['colombia-primera'];
+    const segundaPrev = wl['colombia-segunda'];
+    const leaguesDone = !!(primeraPrev && segundaPrev && primeraPrev.stage === 'done' && segundaPrev.stage === 'done');
+
+    if(!primeraPrev || (primeraPrev.stage === 'done' && leaguesDone)){
+      let newRoster = null;
+      if(leaguesDone){
+        const outIds = new Set(primeraPrev.relegatedIds || []);
+        newRoster = primeraPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        (segundaPrev.promotedIds || []).forEach(id => {
+          const t = segundaPrev.teams.find(x => x.id === id);
+          if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo - 100 });
+        });
+      }
+      careerWorldLeagueBuildSeasonColombiaPrimera(defP, primeraPrev, newRoster);
+    }
+    if(!segundaPrev || (segundaPrev.stage === 'done' && leaguesDone)){
+      let newRoster = null;
+      if(leaguesDone){
+        const outIds = new Set(segundaPrev.promotedIds || []);
+        newRoster = segundaPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        (primeraPrev.relegatedIds || []).forEach(id => {
+          const t = primeraPrev.teams.find(x => x.id === id);
+          if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo });
+        });
+      }
+      careerWorldLeagueBuildSeasonColombiaSegunda(defS, segundaPrev, newRoster);
+    }
+    careerWorldLeagueCatchUpColombiaPrimera(wl['colombia-primera']);
+    careerWorldLeagueCatchUpColombiaSegunda(wl['colombia-segunda']);
+  }
+  function careerWorldLeagueBuildSeasonColombiaSegunda(def, prevLeague, forcedRoster){
+    const wl = careerWorldLeagues();
+    const teams = forcedRoster ? forcedRoster
+      : (prevLeague && prevLeague.teams && prevLeague.teams.length)
+        ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    const ids = teams.map(t=>t.id);
+    const startDate = careerWorldSeasonStart(!!prevLeague);
+    const rounds = roundRobinRounds(ids);
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home === null || m.away === null) return;
+        matches.push({ id:'wl_'+def.key+'_t1_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
+      year: Number(startDate.slice(0,4)), teams,
+      stage: 'torneo1-regular',
+      torneo1: { matches, table: [], grupos: null, gruposOrder: null, final: null, championId: null },
+      torneo2: null,
+      reclasificacion: [], promotedIds: [],
+      ascenso: { scenario: null, granFinal: null, repechaje: null },
+      history: (prevLeague && prevLeague.history) ? prevLeague.history.slice() : []
+    };
+  }
+  // Cuadrangular de la Segunda de Colombia: todos contra todos ida y vuelta entre 4 equipos.
+  function colombiaSegundaBuildGrupo(idsGrupo, tag, prefix, leagueKey, startDate){
+    let rounds = roundRobinRounds(idsGrupo);
+    rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home===null||m.away===null) return;
+        matches.push({ id:'wl_'+leagueKey+'_'+prefix+'grupo'+tag+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    return { nombre:'Grupo '+tag, teamIds: idsGrupo, matches, table: [] };
+  }
+  // Tabla de un cuadrangular con la única excepción de desempate del juego: si la cabeza de grupo
+  // (1° o 2° de la fase regular) termina empatada en puntos con otro equipo del mismo cuadrangular,
+  // clasifica la cabeza de grupo por su mejor posición en la fase regular, sin mirar diferencia de
+  // gol ni nada más.
+  function colombiaSegundaGrupoStandings(grupo, cabezaId, byId){
+    const rows = computeGenericStandings(grupo.matches, grupo.teamIds.map(id=>byId[id]));
+    rows.sort((a,b) => {
+      if(b.pts !== a.pts) return b.pts - a.pts;
+      if(a.id === cabezaId && b.id !== cabezaId) return -1;
+      if(b.id === cabezaId && a.id !== cabezaId) return 1;
+      if(b.dg !== a.dg) return b.dg - a.dg;
+      if(b.gf !== a.gf) return b.gf - a.gf;
+      return byId[b.id].elo - byId[a.id].elo;
+    });
+    return rows;
+  }
+  // Avanza un torneo (I o II) de la Segunda de Colombia un paso por vez: fase regular -> sorteo y
+  // juego de los dos cuadrangulares -> final ida y vuelta. Llama a `onChampion` apenas hay campeón,
+  // para que el caller decida qué sigue (armar el Torneo II, o pasar a la definición del ascenso).
+  function colombiaSegundaAdvanceTorneo(league, T, prefix, stageRegular, stageGrupos, stageFinal, byId, onChampion){
+    const c = state.career;
+    if(league.stage === stageRegular){
+      careerWorldLeaguePlayDue(T.matches, byId, c.calendarDate, {});
+      T.table = computeGenericStandings(T.matches, league.teams);
+      if(T.matches.length && T.matches.every(m=>m.played)){
+        const order = T.table.map(r=>r.id).slice(0,8);
+        const rest = shuffleArr(order.slice(2));
+        const grupoA = [order[0], rest.pop(), rest.pop(), rest.pop()];
+        const grupoB = [order[1], rest.pop(), rest.pop(), rest.pop()];
+        const lastDate = T.matches.reduce((mx,m)=> m.date>mx?m.date:mx, T.matches[0].date);
+        const startDate = addDaysISO(lastDate, 7);
+        T.grupos = {
+          A: colombiaSegundaBuildGrupo(grupoA, 'A', prefix, league.key, startDate),
+          B: colombiaSegundaBuildGrupo(grupoB, 'B', prefix, league.key, startDate)
+        };
+        T.gruposOrder = order;
+        league.stage = stageGrupos;
+      }
+    }
+    if(league.stage === stageGrupos){
+      ['A','B'].forEach(g => {
+        const grupo = T.grupos[g];
+        careerWorldLeaguePlayDue(grupo.matches, byId, c.calendarDate, {});
+        const cabezaId = g === 'A' ? T.gruposOrder[0] : T.gruposOrder[1];
+        grupo.table = colombiaSegundaGrupoStandings(grupo, cabezaId, byId);
+      });
+      if(T.grupos.A.matches.every(m=>m.played) && T.grupos.B.matches.every(m=>m.played)){
+        const winA = T.grupos.A.table[0].id, winB = T.grupos.B.table[0].id;
+        const better = T.gruposOrder.indexOf(winA) < T.gruposOrder.indexOf(winB) ? winA : winB;
+        const lastDate = [].concat(T.grupos.A.matches, T.grupos.B.matches).reduce((mx,m)=> m.date>mx?m.date:mx, T.grupos.A.matches[0].date);
+        T.final = careerWorldLeagueBuildTwoLegTie(winA, winB, better, addDaysISO(lastDate,7));
+        league.stage = stageFinal;
+      }
+    }
+    if(league.stage === stageFinal){
+      careerWorldLeaguePlayDue(T.final.legs, byId, c.calendarDate, {});
+      colombiaResolveTie(T.final, byId);
+      if(T.final.winnerId){
+        T.championId = T.final.winnerId;
+        onChampion();
+      }
+    }
+  }
+  function careerWorldLeagueCatchUpColombiaSegunda(league){
+    const c = state.career;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const T1 = league.torneo1;
+
+    colombiaSegundaAdvanceTorneo(league, T1, 't1', 'torneo1-regular', 'torneo1-cuadrangulares', 'torneo1-final', byId, () => {
+      const lastDate = T1.final.legs[1].date;
+      const t2Matches = T1.matches.map((am,i) => ({
+        id:'wl_'+league.key+'_t2_'+i, home:am.away, away:am.home, round:am.round,
+        date: addDaysISO(lastDate, 7 + (am.round-1)*7), homeScore:null, awayScore:null, played:false
+      }));
+      league.torneo2 = { matches: t2Matches, table: [], grupos: null, gruposOrder: null, final: null, championId: null };
+      league.stage = 'torneo2-regular';
+    });
+
+    if(!league.torneo2) return; // todavía en el Torneo I
+    const T2 = league.torneo2;
+
+    colombiaSegundaAdvanceTorneo(league, T2, 't2', 'torneo2-regular', 'torneo2-cuadrangulares', 'torneo2-final', byId, () => {
+      league.stage = 'ascenso';
+    });
+
+    if(league.stage === 'ascenso'){
+      const combined = [].concat(T1.matches, T1.grupos.A.matches, T1.grupos.B.matches, T2.matches, T2.grupos.A.matches, T2.grupos.B.matches);
+      league.reclasificacion = computeGenericStandings(combined, league.teams);
+      const reclasIds = league.reclasificacion.map(r=>r.id);
+      const champI = T1.championId, champII = T2.championId;
+      const lastDate = T2.final.legs[1].date;
+      if(champI === champII){
+        league.ascenso.scenario = 1;
+        league.promotedIds = [champI];
+        const pool = reclasIds.filter(id => id !== champI);
+        league.ascenso.repechaje = careerWorldLeagueBuildTwoLegTie(pool[0], pool[1], pool[0], addDaysISO(lastDate,7));
+        league.stage = 'ascenso-repechaje';
+      } else {
+        const top2 = reclasIds.slice(0,2);
+        const champTop2 = [champI, champII].filter(id => top2.includes(id));
+        if(champTop2.length === 2){
+          league.ascenso.scenario = 2;
+          league.promotedIds = [champI, champII];
+          league.stage = 'done';
+        } else if(champTop2.length === 1){
+          league.ascenso.scenario = 3;
+          const promotedChamp = champTop2[0];
+          const otherChamp = promotedChamp === champI ? champII : champI;
+          league.promotedIds = [promotedChamp];
+          const rival = reclasIds.filter(id => id !== promotedChamp)[0];
+          league.ascenso.repechaje = careerWorldLeagueBuildTwoLegTie(otherChamp, rival, rival, addDaysISO(lastDate,7));
+          league.stage = 'ascenso-repechaje';
+        } else {
+          league.ascenso.scenario = 4;
+          const better = reclasIds.indexOf(champI) < reclasIds.indexOf(champII) ? champI : champII;
+          league.ascenso.granFinal = careerWorldLeagueBuildTwoLegTie(champI, champII, better, addDaysISO(lastDate,7));
+          league.stage = 'ascenso-granfinal';
+        }
+      }
+    }
+
+    if(league.stage === 'ascenso-granfinal'){
+      const gf = league.ascenso.granFinal;
+      careerWorldLeaguePlayDue(gf.legs, byId, c.calendarDate, {});
+      colombiaResolveTie(gf, byId);
+      if(gf.winnerId){
+        league.promotedIds = [gf.winnerId];
+        const loser = gf.winnerId === gf.teamA ? gf.teamB : gf.teamA;
+        const reclasIds = league.reclasificacion.map(r=>r.id);
+        const rival = reclasIds.filter(id => id !== gf.winnerId)[0];
+        league.ascenso.repechaje = careerWorldLeagueBuildTwoLegTie(loser, rival, rival, addDaysISO(gf.legs[1].date,7));
+        league.stage = 'ascenso-repechaje';
+      }
+    }
+
+    if(league.stage === 'ascenso-repechaje'){
+      const rep = league.ascenso.repechaje;
+      careerWorldLeaguePlayDue(rep.legs, byId, c.calendarDate, {});
+      colombiaResolveTie(rep, byId);
+      if(rep.winnerId){
+        league.promotedIds.push(rep.winnerId);
+        league.stage = 'done';
+      }
+    }
+
+    if(league.stage === 'done' && !league.history.length || (league.stage === 'done' && league.history[0] && league.history[0].year !== league.year)){
+      league.history.unshift({
+        year: league.year, championId1: T1.championId, championId2: T2.championId,
+        promotedIds: league.promotedIds.slice(),
+        championName: byId[T1.championId].name + ' (Torneo I) / ' + byId[T2.championId].name + ' (Torneo II) · Ascienden: ' + league.promotedIds.map(id=>byId[id].name).join(', ')
+      });
+      if(league.history.length > 15) league.history.length = 15;
+    }
+  }
+  // ---------- Colombia: Copa BetPlay (Copa Colombia) ----------
+  // Los equipos de la Copa son los mismos objetos que los de la Liga BetPlay DIMAYOR y el Torneo
+  // BetPlay DIMAYOR (mismo criterio que la Copa Chile con la Liga de Primera y la Primera B): así el
+  // ELO que se mueve jugando la Copa es el mismo que después se usa en esas ligas. Después de guardar
+  // y recargar la carrera quedan copias, así que siempre se toman los equipos de las ligas vigentes.
+  function careerColombiaCopaLiveById(league){
+    const wl = careerWorldLeagues();
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const P = wl['colombia-primera'], S = wl['colombia-segunda'];
+    if(P && P.season === league.primeraSeason) P.teams.forEach(t => byId[t.id] = t);
+    if(S && S.season === league.segundaSeason) S.teams.forEach(t => byId[t.id] = t);
+    return byId;
+  }
+  function colombiaCopaMaxDate(items){
+    let mx = null;
+    items.forEach(x => {
+      const arr = x.legs ? x.legs : [x];
+      arr.forEach(m => { if(m.date && (!mx || m.date > mx)) mx = m.date; });
+    });
+    return mx;
+  }
+  // Decide quién es local (partido único) o quién cierra de local la vuelta (ida y vuelta) entre dos
+  // equipos de la Copa, según las reglas de la liga: si son de distinta división, el de Segunda es
+  // local; si los dos son de Primera, el mejor ubicado en la tabla del Apertura; si los dos son de
+  // Segunda, se sortea.
+  function colombiaCopaBetterId(a, b, divisionOf, aperturaOrder){
+    const da = divisionOf[a], db = divisionOf[b];
+    if(da !== db) return da === 'segunda' ? a : b;
+    if(da === 'primera'){
+      const ia = aperturaOrder.indexOf(a), ib = aperturaOrder.indexOf(b);
+      return ia <= ib ? a : b;
+    }
+    return Math.random() < 0.5 ? a : b;
+  }
+  function colombiaCopaResolveSingle(m, byId){
+    if(!m.played || m.winnerId) return;
+    if(m.homeScore === m.awayScore){
+      m.wentToPenalties = true;
+      m.winnerId = worldLeaguePenaltyWinner(byId[m.home].elo, byId[m.away].elo) === 'A' ? m.home : m.away;
+    } else {
+      m.winnerId = m.homeScore > m.awayScore ? m.home : m.away;
+    }
+  }
+  // Arma un grupo de la Fase 1A: todos contra todos a una sola rueda (con una fecha libre por equipo
+  // si el grupo tiene un número impar de equipos, que es siempre el caso acá: grupos de 5).
+  function colombiaCopaBuildGrupo(ids, tag, startDate){
+    const rounds = roundRobinRounds(ids);
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home===null || m.away===null) return;
+        matches.push({ id:'wl_colombia-copa_grupo'+tag+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    return { nombre:'Grupo '+tag, teamIds: ids, matches, table: [] };
+  }
+  // La Copa está lista para armarse apenas la Primera define el orden de sus 8 clasificados a
+  // cuartos del Apertura y la Segunda el orden de sus 8 clasificados a los cuadrangulares del
+  // Torneo I — a partir de esos dos órdenes salen la Fase 1A (los que quedaron afuera de esos ocho)
+  // y la Fase 1B (los ocho cruces por posición).
+  function careerColombiaCopaReady(P, S){
+    if(!P || !S) return false;
+    if(!P.apertura || !P.apertura.cuartosOrder) return false;
+    if(!S.torneo1 || !S.torneo1.gruposOrder) return false;
+    return true;
+  }
+  function careerWorldLeagueBuildColombiaCopa(P, S){
+    const wl = careerWorldLeagues();
+    const prev = wl['colombia-copa'];
+    const divisionOf = {};
+    P.teams.forEach(t => divisionOf[t.id] = 'primera'); S.teams.forEach(t => divisionOf[t.id] = 'segunda');
+    const aperturaOrder = P.apertura.table.map(r => r.id);
+    const pOrder = P.apertura.cuartosOrder, sOrder = S.torneo1.gruposOrder;
+    const pFase1a = P.teams.map(t=>t.id).filter(id => pOrder.indexOf(id) === -1);
+    const sFase1a = S.teams.map(t=>t.id).filter(id => sOrder.indexOf(id) === -1);
+    const lastDate = P.apertura.matches.reduce((mx,m)=> m.date>mx?m.date:mx, P.apertura.matches[0].date);
+    const startDate = addDaysISO(lastDate, 14);
+    const pool = shuffleArr(pFase1a.concat(sFase1a));
+    const grupos = {};
+    ['A','B','C','D'].forEach((g,i) => { grupos[g] = colombiaCopaBuildGrupo(pool.slice(i*5,i*5+5), g, startDate); });
+    const fase1b = [];
+    for(let i=0;i<8;i++){
+      const teamA = pOrder[i], teamB = sOrder[7-i];
+      const better = colombiaCopaBetterId(teamA, teamB, divisionOf, aperturaOrder);
+      fase1b.push(careerWorldLeagueBuildTwoLegTie(teamA, teamB, better, startDate));
+    }
+    wl['colombia-copa'] = {
+      key:'colombia-copa', country:'Colombia', name:'Copa BetPlay', format:'colombia-copa',
+      season: (prev && prev.season) ? prev.season+1 : 1,
+      year: Number(startDate.slice(0,4)), primeraSeason: P.season, segundaSeason: S.season,
+      teams: P.teams.concat(S.teams), divisionOf, aperturaOrder,
+      stage: 'fase1',
+      grupos, fase1b,
+      octavos: null, cuartos: null, semis: null, final: null, championId: null,
+      history: (prev && prev.history) ? prev.history.slice() : []
+    };
+  }
+  function careerWorldLeagueCatchUpColombiaCopa(league){
+    const c = state.career;
+    const byId = careerColombiaCopaLiveById(league);
+    const divisionOf = league.divisionOf;
+
+    if(league.stage === 'fase1'){
+      ['A','B','C','D'].forEach(g => {
+        const grp = league.grupos[g];
+        careerWorldLeaguePlayDue(grp.matches, byId, c.calendarDate, {});
+        grp.table = computeGenericStandings(grp.matches, grp.teamIds.map(id=>byId[id]));
+      });
+      league.fase1b.forEach(tie => { careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {}); colombiaResolveTie(tie, byId); });
+      const gruposListos = ['A','B','C','D'].every(g => league.grupos[g].matches.every(m=>m.played));
+      const fase1bListo = league.fase1b.every(t => t.winnerId);
+      if(gruposListos && fase1bListo){
+        const grupoWinners = [];
+        ['A','B','C','D'].forEach(g => grupoWinners.push(league.grupos[g].table[0].id, league.grupos[g].table[1].id));
+        const fase1bWinners = league.fase1b.map(t=>t.winnerId);
+        const all16 = shuffleArr(grupoWinners.concat(fase1bWinners));
+        const lastDate = colombiaCopaMaxDate(['A','B','C','D'].map(g=>league.grupos[g]).reduce((acc,g)=>acc.concat(g.matches),[]).concat(league.fase1b));
+        const startDate = addDaysISO(lastDate, 7);
+        const octavos = [];
+        for(let i=0;i<8;i++){
+          const a = all16[i*2], b = all16[i*2+1];
+          const home = colombiaCopaBetterId(a, b, divisionOf, league.aperturaOrder);
+          const away = home===a ? b : a;
+          octavos.push({ id:'wl_colombia-copa_octavos_'+i, home, away, date:startDate, neutral:false, homeScore:null, awayScore:null, played:false, winnerId:null, wentToPenalties:false });
+        }
+        league.octavos = octavos;
+        league.stage = 'octavos';
+      }
+    }
+
+    if(league.stage === 'octavos'){
+      careerWorldLeaguePlayDue(league.octavos, byId, c.calendarDate, {});
+      league.octavos.forEach(m => colombiaCopaResolveSingle(m, byId));
+      if(league.octavos.every(m=>m.winnerId)){
+        const winners = shuffleArr(league.octavos.map(m=>m.winnerId));
+        const lastDate = colombiaCopaMaxDate(league.octavos);
+        const startDate = addDaysISO(lastDate, 7);
+        const cuartos = [];
+        for(let i=0;i<4;i++){
+          const a = winners[i*2], b = winners[i*2+1];
+          const home = colombiaCopaBetterId(a, b, divisionOf, league.aperturaOrder);
+          const away = home===a ? b : a;
+          cuartos.push({ id:'wl_colombia-copa_cuartos_'+i, home, away, date:startDate, neutral:false, homeScore:null, awayScore:null, played:false, winnerId:null, wentToPenalties:false });
+        }
+        league.cuartos = cuartos;
+        league.stage = 'cuartos';
+      }
+    }
+
+    if(league.stage === 'cuartos'){
+      careerWorldLeaguePlayDue(league.cuartos, byId, c.calendarDate, {});
+      league.cuartos.forEach(m => colombiaCopaResolveSingle(m, byId));
+      if(league.cuartos.every(m=>m.winnerId)){
+        const winners = shuffleArr(league.cuartos.map(m=>m.winnerId));
+        const lastDate = colombiaCopaMaxDate(league.cuartos);
+        const startDate = addDaysISO(lastDate, 7);
+        const semis = [];
+        for(let i=0;i<2;i++){
+          const a = winners[i*2], b = winners[i*2+1];
+          const better = colombiaCopaBetterId(a, b, divisionOf, league.aperturaOrder);
+          semis.push(careerWorldLeagueBuildTwoLegTie(a, b, better, startDate));
+        }
+        league.semis = semis;
+        league.stage = 'semis';
+      }
+    }
+
+    if(league.stage === 'semis'){
+      league.semis.forEach(tie => { careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {}); colombiaResolveTie(tie, byId); });
+      if(league.semis.every(t=>t.winnerId)){
+        const finalistas = league.semis.map(t=>t.winnerId);
+        const lastDate = colombiaCopaMaxDate(league.semis);
+        const startDate = addDaysISO(lastDate, 7);
+        const better = colombiaCopaBetterId(finalistas[0], finalistas[1], divisionOf, league.aperturaOrder);
+        league.final = careerWorldLeagueBuildTwoLegTie(finalistas[0], finalistas[1], better, startDate);
+        league.stage = 'final';
+      }
+    }
+
+    if(league.stage === 'final'){
+      careerWorldLeaguePlayDue(league.final.legs, byId, c.calendarDate, {});
+      colombiaResolveTie(league.final, byId);
+      if(league.final.winnerId){
+        league.championId = league.final.winnerId;
+        league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
+        if(league.history.length > 15) league.history.length = 15;
+        league.stage = 'done';
+      }
+    }
+  }
+  function careerEnsureColombiaCopa(){
+    const wl = careerWorldLeagues();
+    const P = wl['colombia-primera'], S = wl['colombia-segunda'];
+    let copa = wl['colombia-copa'];
+    if((!copa || copa.primeraSeason !== (P && P.season)) && careerColombiaCopaReady(P, S)){
+      careerWorldLeagueBuildColombiaCopa(P, S);
+      copa = wl['colombia-copa'];
+    }
+    if(copa && copa.stage !== 'done') careerWorldLeagueCatchUpColombiaCopa(copa);
+  }
+  // ---------- Colombia: Supercopa BetPlay (Supercopa de Colombia) ----------
+  // Ida y vuelta entre el campeón del Apertura y el campeón del Clausura de la misma temporada de la
+  // Liga BetPlay DIMAYOR; si es el mismo equipo, el rival sale de la Tabla de Reclasificación. Se
+  // arma apenas esa temporada llega a 'post'/'done' (ahí ya están los dos campeones y la
+  // Reclasificación), y antes de que la próxima temporada reemplace ese objeto de liga.
+  function careerEnsureSupercopaColombia(){
+    const wl = careerWorldLeagues();
+    const P = wl['colombia-primera'];
+    if(!P || !P.clausura || !P.clausura.championId || !P.reclasificacion || !P.reclasificacion.length) return;
+    let sc = wl['colombia-supercopa'];
+    if(!sc || sc.primeraSeason !== P.season){
+      const champA = P.apertura.championId, champB = P.clausura.championId;
+      const reclasIds = P.reclasificacion.map(r=>r.id);
+      let teamA, teamB, mismoEquipo;
+      if(champA === champB){
+        teamA = champA;
+        teamB = reclasIds.filter(id => id !== champA)[0];
+        mismoEquipo = true;
+      } else {
+        teamA = champA; teamB = champB;
+        mismoEquipo = false;
+      }
+      const better = reclasIds.indexOf(teamA) < reclasIds.indexOf(teamB) ? teamA : teamB;
+      const startDate = addDaysISO(P.clausura.final.legs[1].date, 14);
+      const tie = careerWorldLeagueBuildTwoLegTie(teamA, teamB, better, startDate);
+      wl['colombia-supercopa'] = {
+        key:'colombia-supercopa', country:'Colombia', name:'Supercopa BetPlay', format:'colombia-supercopa',
+        season: (sc && sc.season) ? sc.season+1 : 1,
+        year: P.year, primeraSeason: P.season,
+        teams: P.teams,
+        mismoEquipo, tie, championId: null,
+        history: (sc && sc.history) ? sc.history.slice() : []
+      };
+      sc = wl['colombia-supercopa'];
+    }
+    if(!sc.championId){
+      const wl2 = careerWorldLeagues();
+      const byId = {}; sc.teams.forEach(t=>byId[t.id]=t);
+      const liveP = wl2['colombia-primera'];
+      if(liveP && liveP.season === sc.primeraSeason) liveP.teams.forEach(t=>byId[t.id]=t);
+      careerWorldLeaguePlayDue(sc.tie.legs, byId, state.career.calendarDate, {});
+      if(!sc.tie.winnerId && sc.tie.legs.every(m=>m.played)){
+        let w = careerWorldLeagueResolveTwoLegTie(sc.tie, byId);
+        if(!w){ sc.tie.wentToPenalties = true; w = worldLeaguePenaltyWinner(byId[sc.tie.teamA].elo, byId[sc.tie.teamB].elo) === 'A' ? sc.tie.teamA : sc.tie.teamB; }
+        sc.tie.winnerId = w;
+        sc.championId = w;
+        sc.history.unshift({ year: sc.year, championId: w, championName: byId[w].name });
+        if(sc.history.length > 15) sc.history.length = 15;
+      }
+    }
+  }
+  // ---------- Paraguay: Copa Paraguay ----------
+  // Se rearma cada vez que la Primera División B o la Primera División C cambian de temporada
+  // (mismo criterio que la Copa do Brasil con sus 3 series: se mira el número de `season` propio
+  // de cada división, no el año de carrera).
+  function careerEnsureCopaParaguay(){
+    const wl = careerWorldLeagues();
+    const pb = wl['paraguay-primera-b'], pc = wl['paraguay-primera-c'];
+    if(!pb || !pc) return;
+    let league = wl['copa-paraguay'];
+    const stale = !league || league.pbSeason !== pb.season || league.pcSeason !== pc.season;
+    if(stale) careerWorldLeagueBuildCopaParaguay();
+    league = wl['copa-paraguay'];
+    if(league) careerWorldLeagueCatchUpCopaParaguay(league);
+  }
+  function careerWorldLeagueBuildCopaParaguay(){
+    const wl = careerWorldLeagues();
+    const pb = wl['paraguay-primera-b'], pc = wl['paraguay-primera-c'];
+    if(!pb || !pc) return;
+    // Fase 1: solo Primera B + Primera C (29 equipos) — sin la UFI/B Nacional, ver el comentario
+    // en el registro de 'copa-paraguay'.
+    const teams = [].concat(pb.teams, pc.teams).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+    const seeded = teams.slice().sort((x,y)=>y.elo-x.elo).map(t=>t.id);
+    const pairs0 = buildFirstKnockoutRound(seeded);
+    const copaStart = careerWorldSeasonStart(!!wl['copa-paraguay']);
+    const idaDate = nextWeekdayAfter(copaStart, 3);
+    const lastDate = addDaysISO(idaDate, -14);
+    const prev = wl['copa-paraguay'];
+    const league = {
+      key:'copa-paraguay', country:'Paraguay', name:'Copa Paraguay', format:'copa-paraguay',
+      season: (prev && prev.season) ? prev.season + 1 : 1,
+      pbSeason: pb.season, pcSeason: pc.season, diSeason: null, dhSeason: null,
+      year:Number(copaStart.slice(0,4)), teams, knockoutRounds:[], championId:null, stage:'knockout',
+      history: (prev && prev.history) ? prev.history.slice() : []
+    };
+    league.knockoutRounds = [ careerWorldLeagueBuildKoSingleRound(league, pairs0, 'fase1', lastDate) ];
+    wl['copa-paraguay'] = league;
+  }
+  // Motor de progresión de la Copa Paraguay: como la Copa do Brasil pero a partido único, y con
+  // dos fases donde entra un pool de equipos nuevo (Fase 1 -> Fase 2 suma la División Intermedia;
+  // Fase 2 -> 16avos suma la División de Honor). Si el pool que corresponde todavía no está
+  // armado para esta temporada, la ronda se deja sin resolver y se reintenta en el próximo avance
+  // de calendario — igual que espera la Copa do Brasil a que la Série D tenga campeón, salvo que
+  // acá si hace falta esperar de verdad (no es opcional).
+  function careerWorldLeagueCatchUpCopaParaguay(league){
+    const c = state.career;
+    const rounds = league.knockoutRounds;
+    const ko = rounds[rounds.length-1];
+    if(!ko || ko.resolved) return;
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    ko.pairs.forEach(pair => {
+      if(pair.winnerId) return;
+      if(pair.teamA === null || pair.teamB === null){
+        pair.winnerId = pair.teamA === null ? pair.teamB : pair.teamA;
+        if(pair.match) pair.match.bye = true;
+        return;
+      }
+      careerWorldLeaguePlayDue([pair.match], byIdAll, c.calendarDate, {neutral:true});
+      if(pair.match.played){
+        const teamA = byIdAll[pair.teamA], teamB = byIdAll[pair.teamB];
+        if(pair.match.homeScore > pair.match.awayScore) pair.winnerId = pair.teamA;
+        else if(pair.match.awayScore > pair.match.homeScore) pair.winnerId = pair.teamB;
+        else { pair.wentToPenalties = true; pair.winnerId = worldLeaguePenaltyWinner(teamA.elo, teamB.elo) === 'A' ? pair.teamA : pair.teamB; }
+      }
+    });
+    if(!ko.pairs.every(p => p.winnerId)) return;
+    const winners = ko.pairs.map(p => p.winnerId);
+    if(ko.stage === COPA_PARAGUAY_ORDER[COPA_PARAGUAY_ORDER.length-1]){
+      ko.resolved = true;
+      league.championId = winners[0];
+      league.stage = 'done';
+      league.history.unshift({ year: league.year, championId: league.championId, championName: byIdAll[league.championId].name });
+      if(league.history.length > 10) league.history.length = 10;
+      return;
+    }
+    const wl = careerWorldLeagues();
+    let pool = null, poolSeasonField = null;
+    if(ko.stage === 'fase1'){ pool = wl['paraguay-segunda']; poolSeasonField = 'diSeason'; }
+    else if(ko.stage === 'fase2'){ pool = wl['paraguay-primera']; poolSeasonField = 'dhSeason'; }
+    if(poolSeasonField && !pool) return; // esa división todavía no está armada esta temporada: esperamos
+    ko.resolved = true;
+    let seedPool = winners.slice();
+    if(pool){
+      league[poolSeasonField] = pool.season;
+      const known = {}; league.teams.forEach(t=>known[t.id]=true);
+      const newTeams = pool.teams.filter(t => !known[t.id]);
+      league.teams = league.teams.concat(newTeams);
+      seedPool = seedPool.concat(pool.teams.map(t=>t.id));
+    }
+    const nextStage = COPA_PARAGUAY_ORDER[COPA_PARAGUAY_ORDER.indexOf(ko.stage)+1];
+    const lastDate = ko.pairs.reduce((max,p) => (p.match && p.match.date > max) ? p.match.date : max, ko.pairs.find(p=>p.match).match.date);
+    let pairs;
+    if(pool){
+      // El pool nuevo puede hacer que el total no sea potencia de 2 (Fase1->Fase2 sí lo es: 16+16
+      // = 32; Fase2->16avos no: 16+12 = 28), así que se resiembra por ELO y se reparten libres con
+      // el mismo motor que arma la Fase 1.
+      const byIdSeed = {}; league.teams.forEach(t=>byIdSeed[t.id]=t);
+      const seeded = seedPool.slice().sort((x,y)=>byIdSeed[y].elo-byIdSeed[x].elo);
+      pairs = buildFirstKnockoutRound(seeded);
+    } else {
+      pairs = [];
+      for(let i=0;i<seedPool.length;i+=2) pairs.push({ home:seedPool[i], away:seedPool[i+1] });
+    }
+    rounds.push(careerWorldLeagueBuildKoSingleRound(league, pairs, nextStage, lastDate));
+  }
+  // La Supercopa de Paraguay se arma recién cuando ya están el campeón de la Copa Paraguay y la
+  // División de Honor terminó su temporada (para saber los campeones de Apertura y Clausura). El
+  // rival es el campeón (Apertura o Clausura) con más puntos en la tabla anual; si el mismo equipo
+  // ganó ambos torneos, ese es directamente el rival. Si coincide con el campeón de la Copa
+  // Paraguay, sale campeón directo sin jugarla (mismo reemplazo que prevé el reglamento real).
+  function careerEnsureSupercopaParaguay(){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const copa = wl['copa-paraguay'], primera = wl['paraguay-primera'];
+    if(!copa || !copa.championId) return;
+    if(!primera || primera.stage !== 'done') return;
+    let sc = wl['supercopa-paraguay'];
+    if(sc && sc.copaSeason === copa.season && sc.dhSeason === primera.season){
+      if(sc.match && !sc.match.played){
+        const byIdAll = {}; sc.teams.forEach(t=>byIdAll[t.id]=t);
+        careerWorldLeaguePlayDue([sc.match], byIdAll, c.calendarDate, {neutral:true});
+        if(sc.match.played){
+          const m = sc.match;
+          if(m.homeScore > m.awayScore) sc.championId = m.home;
+          else if(m.awayScore > m.homeScore) sc.championId = m.away;
+          else { sc.wentToPenalties = true; sc.championId = worldLeaguePenaltyWinner(byIdAll[m.home].elo, byIdAll[m.away].elo) === 'A' ? m.home : m.away; }
+          sc.history.unshift({ year:sc.year, championId:sc.championId, championName:byIdAll[sc.championId].name });
+          if(sc.history.length > 10) sc.history.length = 10;
+        }
+      }
+      return;
+    }
+    const A = primera.aperturaChampionId, C = primera.clausuraChampionId;
+    let rivalId;
+    if(A === C) rivalId = A;
+    else {
+      const anual = primera.tables.anual;
+      const ptsA = (anual.find(r=>r.id===A) || {pts:0}).pts, ptsC = (anual.find(r=>r.id===C) || {pts:0}).pts;
+      rivalId = ptsC > ptsA ? C : A;
+    }
+    const teamA = copa.teams.find(t=>t.id===copa.championId);
+    const teamB = primera.teams.find(t=>t.id===rivalId);
+    if(!teamA || !teamB) return;
+    const prevHistory = (wl['supercopa-paraguay'] && wl['supercopa-paraguay'].history) ? wl['supercopa-paraguay'].history.slice() : [];
+    const base = { key:'supercopa-paraguay', country:'Paraguay', name:'Supercopa de Paraguay', format:'partido-unico', year:copa.year, copaSeason:copa.season, dhSeason:primera.season };
+    if(teamA.id === teamB.id){
+      prevHistory.unshift({ year:copa.year, championId:teamA.id, championName:teamA.name });
+      if(prevHistory.length > 10) prevHistory.length = 10;
+      wl['supercopa-paraguay'] = Object.assign({}, base, { teams:[teamA], match:null, championId:teamA.id, wentToPenalties:false, history:prevHistory });
+      return;
+    }
+    const date = nextWeekdayAfter(c.calendarDate, 3);
+    const match = { id:'wl_supercopa-paraguay_'+copa.year+'_'+copa.season, home:teamA.id, away:teamB.id, date, homeScore:null, awayScore:null, played:false };
+    wl['supercopa-paraguay'] = Object.assign({}, base, { teams:[teamA,teamB], match, championId:null, wentToPenalties:false, history:prevHistory });
+  }
   function renderWorldLeagueTable(league){
     const byId = {}; league.teams.forEach(t => byId[t.id] = t);
     const promoDirectIds = league.promocionDirecta > 0 ? league.table.slice(0, league.promocionDirecta).map(r=>r.id) : [];
@@ -9297,14 +10850,14 @@
         html += `<div class="panel"><h3>Clasificados a copas internacionales</h3>
           <p class="hint"><strong style="color:var(--ink);">Copa Libertadores &middot; fase de grupos:</strong> ${league.libertadores.grupos.map(nm).join(', ')}</p>
           <p class="hint"><strong style="color:var(--ink);">Copa Libertadores &middot; fase 2:</strong> ${nm(league.libertadores.fase2)}</p>
-          <p class="hint"><strong style="color:var(--ink);">Copa Libertadores &middot; fase 1:</strong> campeón de la Copa Paraguay (todavía no cargada; si ya está clasificado va el subcampeón, y así hasta encontrar uno sin cupo)</p>
+          <p class="hint"><strong style="color:var(--ink);">Copa Libertadores &middot; fase 1:</strong> ${(() => { const cp = careerWorldLeagues()['copa-paraguay']; return cp && cp.championId ? escapeHtml(cp.teams.find(t=>t.id===cp.championId).name) + ' (campeón de la Copa Paraguay)' : 'campeón de la Copa Paraguay de esta temporada (todavía no se definió)'; })()} &mdash; el cupo se muestra acá a título informativo, todavía no está conectado al cuadro de la Libertadores</p>
           <p class="hint"><strong style="color:var(--ink);">Copa Sudamericana &middot; fase de grupos:</strong> ${league.sudamericana.map(nm).join(', ')}</p>
           <p class="hint">Si un mismo equipo gana el Apertura y el Clausura, el segundo cupo pasa al mejor no campeón de la tabla anual y el tercero al siguiente.</p></div>`;
       }
     } else if(tab === 'promedios'){
       const prom = careerParaguayPromedios(league);
       const nTemp = (league.promHist || []).length + 1;
-      html += `<div class="panel"><h3>Tabla de promedios</h3><p class="hint">Puntos por partido de las últimas 3 temporadas (${nTemp === 1 ? 'por ahora solo la actual, porque no hay campañas anteriores cargadas' : nTemp + ' temporadas cargadas, incluida la actual'}). Los 2 últimos descienden a la Segunda División (todavía no cargada: por ahora se quedan en la División de Honor).</p>
+      html += `<div class="panel"><h3>Tabla de promedios</h3><p class="hint">Puntos por partido de las últimas 3 temporadas (${nTemp === 1 ? 'por ahora solo la actual, porque no hay campañas anteriores cargadas' : nTemp + ' temporadas cargadas, incluida la actual'}). Los 2 últimos descienden a la División Intermedia (Segunda División).</p>
         <table><thead><tr><th>#</th><th>Equipo</th><th>Pts</th><th>PJ</th><th class="num">Promedio</th></tr></thead><tbody>
         ${prom.map((r,i) => {
           const t = byId[r.id];
@@ -9337,7 +10890,128 @@
     const byId = {}; league.teams.forEach(t => byId[t.id] = t);
     return `<div class="panel">${renderWorldLeagueTable(league)}</div>` + renderWorldLeagueChileDefs(league, byId);
   }
-  // Primera B de Chile: tabla, definiciones por puntos (si las hubo) y liguilla de ascenso.
+  // División Intermedia de Paraguay (Segunda División): tabla (con el 1° y 2° marcados como ascenso
+  // directo por `promocionDirecta`), la definición del campeonato si hubo empate arriba, la tabla de
+  // promedios que define los 3 descensos y el historial de temporadas anteriores.
+  function renderWorldLeagueParaguaySegunda(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    let html = `<div class="panel">${renderWorldLeagueTable(league)}</div>` + renderWorldLeagueChileDefs(league, byId);
+    const prom = careerParaguayTablaPromedios(league);
+    const nTemp = (league.promHist || []).length + 1;
+    html += `<div class="panel"><h3>Tabla de promedios</h3><p class="hint">Puntos por partido de las últimas 3 temporadas (${nTemp === 1 ? 'por ahora solo la actual, porque no hay campañas anteriores cargadas' : nTemp + ' temporadas cargadas, incluida la actual'}). Los 3 últimos descienden (el reglamento separa Primera B para los clubes de Asunción/AMU y B Nacional para los del interior, pero esas categorías todavía no están cargadas, así que por ahora se quedan en la División Intermedia).</p>
+      <table><thead><tr><th>#</th><th>Equipo</th><th>Pts</th><th>PJ</th><th class="num">Promedio</th></tr></thead><tbody>
+      ${prom.map((r,i) => {
+        const t = byId[r.id];
+        const desc = i >= prom.length - 3;
+        const style = desc ? 'border-left:4px solid var(--red);' : '';
+        const tag = desc ? ' <span style="color:var(--red);font-size:11px;">&#9660; descenso</span>' : '';
+        return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pts}</td><td class="num">${r.pj}</td><td class="num"><strong>${r.pj ? r.prom.toFixed(3) : '&mdash;'}</strong></td></tr>`;
+      }).join('')}
+      </tbody></table></div>`;
+    if(league.history && league.history.length){
+      html += `<div class="panel"><h3>Temporadas anteriores</h3>${league.history.map(h => `<div class="cs-fixture-card" style="display:block;"><div><strong style="color:var(--ink);">${h.year}</strong> &middot; Campeón: ${escapeHtml(h.championName)}</div>
+        <div class="hint" style="font-size:12px;">Ascienden: ${(h.promotedNames||[]).map(escapeHtml).join(', ')}<br>Descensos por promedio: ${(h.relegatedNames||[]).map(escapeHtml).join(', ')}</div></div>`).join('')}</div>`;
+    }
+    return html;
+  }
+  // Partido único por el tercer ascenso de la tercera categoría a la Intermedia (subcampeón de la
+  // Primera B contra subcampeón de la B Nacional). Se muestra igual en las dos ligas.
+  function renderWorldLeagueParaguayPromocionSegunda(league, byId){
+    const promo = league.promocionSegunda;
+    if(!promo) return `<div class="panel"><p class="hint">El subcampeón todavía no está definido, así que el cruce por el tercer ascenso a la División Intermedia (contra el subcampeón de la otra rama de la tercera categoría) se arma cuando termine esta tabla.</p></div>`;
+    return `<div class="panel"><h3>Tercer ascenso a la División Intermedia</h3><p class="hint">Partido único en cancha neutral (penales si empatan) entre los subcampeones de la Primera División B y la B Nacional; el ganador se suma a los dos campeones como tercer ascendido.</p>${renderWorldLeagueChileSingleCard('Definición', promo.match, byId, 'asciende')}</div>`;
+  }
+  // Primera División B de Paraguay: tabla (con el 1° marcado como ascenso directo), la definición del
+  // campeonato si hubo empate arriba, el cruce por el tercer ascenso, la tabla de promedios que define
+  // los 2 descensos y el historial.
+  function renderWorldLeagueParaguayPrimeraB(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    if(league.promocionSegunda){
+      const bn = careerWorldLeagues()['paraguay-b-nacional'];
+      if(bn) bn.teams.forEach(t => { if(!byId[t.id]) byId[t.id] = t; });
+    }
+    let html = `<div class="panel">${renderWorldLeagueTable(league)}</div>` + renderWorldLeagueChileDefs(league, byId);
+    if(league.stage === 'done') html += renderWorldLeagueParaguayPromocionSegunda(league, byId);
+    const prom = careerParaguayTablaPromedios(league);
+    const nTemp = (league.promHist || []).length + 1;
+    html += `<div class="panel"><h3>Tabla de promedios</h3><p class="hint">Puntos por partido de las últimas 3 temporadas (${nTemp === 1 ? 'por ahora solo la actual, porque no hay campañas anteriores cargadas' : nTemp + ' temporadas cargadas, incluida la actual'}). Los 2 últimos descienden a la Primera División C.</p>
+      <table><thead><tr><th>#</th><th>Equipo</th><th>Pts</th><th>PJ</th><th class="num">Promedio</th></tr></thead><tbody>
+      ${prom.map((r,i) => {
+        const t = byId[r.id];
+        const desc = i >= prom.length - 2;
+        const style = desc ? 'border-left:4px solid var(--red);' : '';
+        const tag = desc ? ' <span style="color:var(--red);font-size:11px;">&#9660; descenso</span>' : '';
+        return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pts}</td><td class="num">${r.pj}</td><td class="num"><strong>${r.pj ? r.prom.toFixed(3) : '&mdash;'}</strong></td></tr>`;
+      }).join('')}
+      </tbody></table></div>`;
+    if(league.history && league.history.length){
+      html += `<div class="panel"><h3>Temporadas anteriores</h3>${league.history.map(h => `<div class="cs-fixture-card" style="display:block;"><div><strong style="color:var(--ink);">${h.year}</strong> &middot; Campeón: ${escapeHtml(h.championName)}</div>
+        <div class="hint" style="font-size:12px;">Descensos por promedio: ${(h.relegatedNames||[]).map(escapeHtml).join(', ')}</div></div>`).join('')}</div>`;
+    }
+    return html;
+  }
+  // Primera División C de Paraguay: tabla (con el 1° y 2° marcados como ascenso directo a la Primera
+  // División B por `promocionDirecta`), la definición del campeonato si hubo empate arriba y el
+  // historial de temporadas anteriores. No tiene tabla de promedios porque no hay descensos.
+  function renderWorldLeagueParaguayPrimeraC(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    let html = `<div class="panel">${renderWorldLeagueTable(league)}</div>` + renderWorldLeagueChileDefs(league, byId);
+    if(league.history && league.history.length){
+      html += `<div class="panel"><h3>Temporadas anteriores</h3>${league.history.map(h => `<div class="cs-fixture-card" style="display:block;"><div><strong style="color:var(--ink);">${h.year}</strong> &middot; Campeón: ${escapeHtml(h.championName)}</div>
+        <div class="hint" style="font-size:12px;">Ascienden: ${(h.promotedNames||[]).map(escapeHtml).join(', ')}</div></div>`).join('')}</div>`;
+    }
+    return html;
+  }
+  // B Nacional de Paraguay: las 4 tablas de grupo (fase 1), la tabla de la fase 2, semifinales, final,
+  // el cruce por el tercer ascenso y el historial.
+  function renderWorldLeagueParaguayBNacional(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    if(league.promocionSegunda){
+      const pb = careerWorldLeagues()['paraguay-primera-b'];
+      if(pb) pb.teams.forEach(t => { if(!byId[t.id]) byId[t.id] = t; });
+    }
+    let html = '';
+    ['A','B','C','D'].forEach(g => {
+      const gt = league.groupTables[g];
+      const rows = gt.length ? gt : league.groups[g].map(id => ({ id, pj:0, pg:0, pe:0, pp:0, gf:0, gc:0, dg:0, pts:0 }));
+      const cerrado = league.stage !== 'grupos';
+      html += `<div class="panel"><h3>Grupo ${g}</h3><table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        const pasa = cerrado && i < 2;
+        const style = pasa ? 'border-left:4px solid var(--green-win);' : '';
+        const tag = pasa ? ' <span style="color:var(--green-win);font-size:11px;">&#9650; a la fase 2</span>' : '';
+        return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num"><strong>${r.pts}</strong></td></tr>`;
+      }).join('')}
+      </tbody></table></div>`;
+    });
+    if(league.fase2Ids){
+      const rows = league.fase2Table.length ? league.fase2Table : league.fase2Ids.map(id => ({ id, pj:0, pg:0, pe:0, pp:0, gf:0, gc:0, dg:0, pts:0 }));
+      const cerrado = league.fase2Matches.length && league.fase2Matches.every(m => m.played);
+      html += `<div class="panel"><h3>Fase 2</h3><p class="hint">Los 2 primeros de cada grupo, todos contra todos a dos ruedas. Los 4 primeros pasan a semifinales.</p><table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        const pasa = cerrado && i < 4;
+        const style = pasa ? 'border-left:4px solid var(--green-win);' : '';
+        const tag = pasa ? ' <span style="color:var(--green-win);font-size:11px;">&#9650; a semifinales</span>' : '';
+        return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num"><strong>${r.pts}</strong></td></tr>`;
+      }).join('')}
+      </tbody></table></div>`;
+    } else {
+      html += `<div class="panel"><p class="hint">La fase 2 (los 2 primeros de cada grupo) se arma cuando terminan los 4 grupos.</p></div>`;
+    }
+    if(league.semis){
+      html += `<div class="panel"><h3>Semifinales</h3><p class="hint">1° vs 4° y 2° vs 3° de la fase 2, ida y vuelta (la vuelta en cancha del mejor ubicado; penales si empatan el global).</p>${league.semis.map(t => renderWorldLeagueChileTieCard(t, byId, 'avanza')).join('')}</div>`;
+    }
+    if(league.finalMatch){
+      html += `<div class="panel"><h3>Final</h3>${renderWorldLeagueChileSingleCard('Final', league.finalMatch, byId, 'campeón')}</div>`;
+    }
+    if(league.stage === 'done') html += renderWorldLeagueParaguayPromocionSegunda(league, byId);
+    if(league.history && league.history.length){
+      html += `<div class="panel"><h3>Temporadas anteriores</h3>${league.history.map(h => `<div class="cs-fixture-card" style="display:block;"><div><strong style="color:var(--ink);">${h.year}</strong> &middot; Campeón: ${escapeHtml(h.championName)} &middot; Subcampeón: ${escapeHtml(h.subChampionName)}</div></div>`).join('')}</div>`;
+    }
+    return html;
+  }
   function renderWorldLeagueChilePrimeraB(league){
     const byId = {}; league.teams.forEach(t => byId[t.id] = t);
     let html = `<div class="panel">${renderWorldLeagueTable(league)}</div>`;
@@ -9619,6 +11293,219 @@
   // Copa Uruguay: quiénes clasificaron por categoría, la previa de la Primera Divisional C y el
   // cuadro ronda por ronda (partido único; el local es el de la categoría menor, neutral si son de
   // la misma categoría).
+  // Liga BetPlay DIMAYOR de Colombia: Apertura completo (fase regular, cuartos, semis y final),
+  // Clausura completo (fase regular, cuadrangulares A/B y final), Tabla de Reclasificación con los
+  // cupos a copas continentales, Tabla de Descenso (promedios) y el resumen de los dos campeones.
+  function renderWorldLeagueColombia(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    function simpleTable(rows, opts){
+      opts = opts || {};
+      return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        let tag = '';
+        if(opts.champion === r.id) tag = ' <span style="color:var(--gold-bright);font-size:11px;">&#127942; campeón</span>';
+        else if(opts.clasifica && i < opts.clasifica) tag = ' <span style="color:var(--green-win);font-size:11px;">&#9650; clasifica</span>';
+        else if(opts.highlight && opts.highlight.includes(r.id)) tag = opts.highlightLabel || '';
+        return `<tr><td>${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+    }
+    function matchLine(m, label){
+      if(!m) return '';
+      const home = byId[m.home], away = byId[m.away];
+      const res = m.played ? `${m.homeScore} &ndash; ${m.awayScore}${m.wentToPenalties ? ' (penales)' : ''}` : `se juega el ${formatCareerDate(m.date)}`;
+      return `<div class="cs-fixture-card"><div>${label ? `<strong>${label}:</strong> ` : ''}${escapeHtml(home.name)} vs ${escapeHtml(away.name)}</div><div class="num">${res}</div></div>`;
+    }
+    function tieBlock(tie, label){
+      if(!tie) return '';
+      let h = `<h4 style="margin:10px 0 4px;">${label}: ${escapeHtml(byId[tie.teamA].name)} vs ${escapeHtml(byId[tie.teamB].name)}</h4>`;
+      h += matchLine(tie.legs[0], 'Ida');
+      h += matchLine(tie.legs[1], 'Vuelta');
+      if(tie.winnerId) h += `<p class="hint">Avanza: <strong style="color:var(--ink);">${escapeHtml(byId[tie.winnerId].name)}</strong>${tie.wentToPenalties ? ' (por penales)' : ''}</p>`;
+      return h;
+    }
+    const A = league.apertura, CL = league.clausura;
+    let html = `<div class="panel"><h3>Torneo Apertura &mdash; Fase Regular</h3>${A.table.length ? simpleTable(A.table, {clasifica: A.cuartos ? 8 : 0}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    if(A.cuartos){
+      let h = '';
+      ['A','B','C','D'].forEach(g => { h += tieBlock(A.cuartos.find(t=>t.grupo===g), `Llave ${g}`); });
+      html += `<div class="panel"><h3>Cuartos de Final</h3>${h}</div>`;
+    }
+    if(A.semis){
+      html += `<div class="panel"><h3>Semifinales</h3>${A.semis.map(t=>tieBlock(t, t.label)).join('')}</div>`;
+    }
+    if(A.final){
+      html += `<div class="panel"><h3>Final del Apertura</h3>${tieBlock(A.final, 'Final')}</div>`;
+    }
+    if(A.championId){
+      html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón del Apertura ${league.year}: <strong>${escapeHtml(byId[A.championId].name)}</strong></div></div>`;
+    }
+    if(CL){
+      html += `<div class="panel"><h3>Torneo Clausura &mdash; Fase Regular</h3>${CL.table.length ? simpleTable(CL.table, {clasifica: CL.grupos ? 8 : 0}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+      if(CL.grupos){
+        html += `<div class="panel"><h3>Cuadrangular &mdash; Grupo A</h3>${CL.grupos.A.table.length ? simpleTable(CL.grupos.A.table, {champion: CL.final ? CL.grupos.A.table[0].id : null}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+        html += `<div class="panel"><h3>Cuadrangular &mdash; Grupo B</h3>${CL.grupos.B.table.length ? simpleTable(CL.grupos.B.table, {champion: CL.final ? CL.grupos.B.table[0].id : null}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+      }
+      if(CL.final){
+        html += `<div class="panel"><h3>Final del Clausura</h3>${tieBlock(CL.final, 'Final')}</div>`;
+      }
+      if(CL.championId){
+        html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón del Clausura ${league.year}: <strong>${escapeHtml(byId[CL.championId].name)}</strong></div></div>`;
+      }
+    }
+    if(league.reclasificacion && league.reclasificacion.length){
+      html += `<div class="panel"><h3>Tabla de Reclasificación</h3><p class="hint">Suma los puntos de las dos fases regulares (Apertura + Clausura). Define los cupos a la Libertadores y la Sudamericana.</p>${simpleTable(league.reclasificacion, {
+        highlight: league.libertadoresGruposIds.concat(league.libertadoresFase2Ids),
+        highlightLabel: ' <span style="color:var(--gold-bright);font-size:11px;">&#127942; Libertadores</span>'
+      })}</div>`;
+      const libGrupos = league.libertadoresGruposIds.map(id => escapeHtml(byId[id].name)).join(', ');
+      const libFase2 = league.libertadoresFase2Ids.map(id => escapeHtml(byId[id].name)).join(', ');
+      const sud = league.sudamericanaIds.map(id => escapeHtml(byId[id].name)).join(', ');
+      html += `<div class="panel"><h3>Copas Internacionales ${league.year}</h3>
+        <p class="hint">Libertadores &middot; fase de grupos: <strong style="color:var(--ink);">${libGrupos}</strong></p>
+        <p class="hint">Libertadores &middot; fase 2: <strong style="color:var(--ink);">${libFase2}</strong></p>
+        <p class="hint">Sudamericana: <strong style="color:var(--ink);">${sud}</strong> &middot; el cupo del campeón de la Copa Colombia queda pendiente (todavía no está cargada esa copa).</p>
+      </div>`;
+    }
+    if(league.descensoTable && league.descensoTable.length && league.stage === 'done'){
+      const rows = league.descensoTable.map(r => Object.assign({ pj:0, pg:0, pe:0, pp:0, gf:0, gc:0, dg:0 }, r, { pts: Math.round(r.avg*100)/100 }));
+      html += `<div class="panel"><h3>Tabla de Descenso</h3><p class="hint">Promedio de puntos por partido de hasta las últimas 3 temporadas (fase regular de ambos torneos). Todavía no está cargada la Primera B colombiana, así que se marca quién bajaría pero los 20 equipos siguen en Primera.</p><table><thead><tr><th>#</th><th>Equipo</th><th class="num">Promedio</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        const tag = league.relegatedIds.includes(r.id) ? ' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>' : '';
+        return `<tr><td>${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num" style="color:var(--gold);">${r.pts.toFixed(2)}</td></tr>`;
+      }).join('')}
+      </tbody></table></div>`;
+    }
+    return html;
+  }
+  // Torneo BetPlay DIMAYOR de Colombia (Segunda): Torneo I completo (fase regular, cuadrangulares
+  // A/B y final), Torneo II completo, Reclasificación Total, y la definición del ascenso (repechaje
+  // y/o gran final según el escenario).
+  function renderWorldLeagueColombiaSegunda(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    function simpleTable(rows, opts){
+      opts = opts || {};
+      return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        let tag = '';
+        if(opts.champion === r.id) tag = ' <span style="color:var(--gold-bright);font-size:11px;">&#127942; campeón</span>';
+        else if(opts.cabeza === r.id) tag = ' <span style="color:var(--gold-bright);font-size:11px;">cabeza de grupo</span>';
+        else if(opts.clasifica && i < opts.clasifica) tag = ' <span style="color:var(--green-win);font-size:11px;">&#9650; clasifica</span>';
+        else if(opts.promoted && opts.promoted.includes(r.id)) tag = ' <span style="color:var(--green-win);font-size:11px;">&#9650; asciende</span>';
+        return `<tr><td>${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+    }
+    function matchLine(m, label){
+      if(!m) return '';
+      const home = byId[m.home], away = byId[m.away];
+      const res = m.played ? `${m.homeScore} &ndash; ${m.awayScore}${m.wentToPenalties ? ' (penales)' : ''}` : `se juega el ${formatCareerDate(m.date)}`;
+      return `<div class="cs-fixture-card"><div>${label ? `<strong>${label}:</strong> ` : ''}${escapeHtml(home.name)} vs ${escapeHtml(away.name)}</div><div class="num">${res}</div></div>`;
+    }
+    function tieBlock(tie, label){
+      if(!tie) return '';
+      let h = `<h4 style="margin:10px 0 4px;">${label}: ${escapeHtml(byId[tie.teamA].name)} vs ${escapeHtml(byId[tie.teamB].name)}</h4>`;
+      h += matchLine(tie.legs[0], 'Ida');
+      h += matchLine(tie.legs[1], 'Vuelta');
+      if(tie.winnerId) h += `<p class="hint">Avanza: <strong style="color:var(--ink);">${escapeHtml(byId[tie.winnerId].name)}</strong>${tie.wentToPenalties ? ' (por penales)' : ''}</p>`;
+      return h;
+    }
+    function torneoBlock(T, nombre){
+      let h = `<div class="panel"><h3>${nombre} &mdash; Fase Regular</h3>${T.table.length ? simpleTable(T.table, {clasifica: T.grupos ? 8 : 0}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+      if(T.grupos){
+        h += `<div class="panel"><h3>${nombre} &mdash; Cuadrangular Grupo A</h3>${T.grupos.A.table.length ? simpleTable(T.grupos.A.table, {cabeza: T.gruposOrder[0], champion: T.final ? T.grupos.A.table[0].id : null}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+        h += `<div class="panel"><h3>${nombre} &mdash; Cuadrangular Grupo B</h3>${T.grupos.B.table.length ? simpleTable(T.grupos.B.table, {cabeza: T.gruposOrder[1], champion: T.final ? T.grupos.B.table[0].id : null}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+      }
+      if(T.final) h += `<div class="panel"><h3>${nombre} &mdash; Final</h3>${tieBlock(T.final, 'Final')}</div>`;
+      if(T.championId) h += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón del ${nombre} ${league.year}: <strong>${escapeHtml(byId[T.championId].name)}</strong></div></div>`;
+      return h;
+    }
+    let html = torneoBlock(league.torneo1, 'Torneo I');
+    if(league.torneo2) html += torneoBlock(league.torneo2, 'Torneo II');
+    if(league.reclasificacion && league.reclasificacion.length){
+      html += `<div class="panel"><h3>Tabla de Reclasificación Total</h3><p class="hint">Suma los puntos de todas las fases de los dos torneos (fase regular + cuadrangulares), sin contar la Gran Final ni el Repechaje. Define quién asciende directo y quién juega el Repechaje.</p>${simpleTable(league.reclasificacion, { promoted: league.stage==='done' ? league.promotedIds : null })}</div>`;
+    }
+    if(league.ascenso.granFinal){
+      html += `<div class="panel"><h3>Gran Final por el ascenso</h3><p class="hint">Ninguno de los dos campeones terminó 1° o 2° de la Reclasificación: se definen entre ellos. El ganador asciende directo; el perdedor va al Repechaje.</p>${tieBlock(league.ascenso.granFinal, 'Gran Final')}</div>`;
+    }
+    if(league.ascenso.repechaje){
+      html += `<div class="panel"><h3>Repechaje por el ascenso</h3>${tieBlock(league.ascenso.repechaje, 'Repechaje')}</div>`;
+    }
+    if(league.stage === 'done'){
+      html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#9650; Ascienden a Primera ${league.year}: <strong>${league.promotedIds.map(id=>escapeHtml(byId[id].name)).join(', ')}</strong></div></div>`;
+    }
+    return html;
+  }
+  // Copa BetPlay (Copa Colombia): grupos de la Fase 1A, llaves de la Fase 1B, y el resto del cuadro
+  // (octavos, cuartos, semis y final) una vez que se juntan las dos rutas.
+  function renderWorldLeagueColombiaCopa(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const div = id => league.divisionOf[id] === 'segunda' ? 'Seg.' : '1ª';
+    let html = `<div class="panel"><p class="hint">Fase 1A: los 12 de Primera y los 8 de Segunda que quedaron afuera de los cuartos del Apertura y de los cuadrangulares del Torneo I, en 4 grupos de 5 a una rueda (una fecha libre por equipo); clasifican los 2 primeros de cada grupo. Fase 1B: los 8 de Primera que sí jugaron los cuartos cruzan ida y vuelta, por posición, con los 8 de Segunda que sí jugaron los cuadrangulares. Los 16 clasificados de las dos rutas juegan octavos y cuartos a partido único, y semis y final a ida y vuelta (penales directos en la final si sigue empatada). Localía: si es Primera vs Segunda, local el de Segunda; si son dos de Primera, local el mejor ubicado en el Apertura; si son dos de Segunda, se sortea.</p></div>`;
+    ['A','B','C','D'].forEach(g => {
+      const grp = league.grupos[g];
+      const cerrado = grp.matches.length > 0 && grp.matches.every(m=>m.played);
+      const rows = grp.table.length ? grp.table : grp.teamIds.map(id => ({ id, pj:0, pg:0, pe:0, pp:0, gf:0, gc:0, dg:0, pts:0 }));
+      html += `<div class="panel"><h3>${grp.nombre}</h3><table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        const pasa = cerrado && i < 2;
+        const style = pasa ? 'border-left:4px solid var(--green-win);' : '';
+        const tag = pasa ? ' <span style="color:var(--green-win);font-size:11px;">&#9650; a octavos</span>' : '';
+        return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)} <span class="hint">(${div(r.id)})</span>${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num"><strong>${r.pts}</strong></td></tr>`;
+      }).join('')}
+      </tbody></table></div>`;
+    });
+    const tieCard = (tie, verbo) => {
+      const A = byId[tie.teamA], B = byId[tie.teamB];
+      const l1 = tie.legs[0], l2 = tie.legs[1];
+      let r = `ida ${l1.played ? l1.homeScore+'-'+l1.awayScore : '&mdash;'} &middot; vuelta ${l2.played ? l2.homeScore+'-'+l2.awayScore : '&mdash;'}`;
+      if(tie.winnerId) r += ` &middot; <span style="color:var(--green-win);">${verbo} ${escapeHtml(byId[tie.winnerId].name)}${tie.wentToPenalties?' (penales)':''}</span>`;
+      return `<div class="cs-fixture-card"><div>${escapeHtml(A.name)} <span class="hint">(${div(tie.teamA)})</span> vs ${escapeHtml(B.name)} <span class="hint">(${div(tie.teamB)})</span></div><div class="num">${r}</div></div>`;
+    };
+    const singleCard = (m, verbo) => {
+      const h = byId[m.home], a = byId[m.away];
+      let r = m.played ? `${m.homeScore}-${m.awayScore}` : `&mdash; &middot; ${formatCareerDate(m.date)}`;
+      if(m.winnerId) r += ` &middot; <span style="color:var(--green-win);">${verbo} ${escapeHtml(byId[m.winnerId].name)}${m.wentToPenalties?' (penales)':''}</span>`;
+      return `<div class="cs-fixture-card"><div>${escapeHtml(h.name)} <span class="hint">(${div(m.home)}, local)</span> vs ${escapeHtml(a.name)} <span class="hint">(${div(m.away)})</span></div><div class="num">${r}</div></div>`;
+    };
+    html += `<div class="panel"><h3>Fase 1B (ida y vuelta por posición)</h3>${league.fase1b.map(t => tieCard(t, 'avanza')).join('')}</div>`;
+    if(league.octavos) html += `<div class="panel"><h3>Octavos de final</h3><p class="hint">Partido único; sorteo entre los 8 clasificados de la Fase 1A y los 8 de la Fase 1B.</p>${league.octavos.map(m => singleCard(m, 'avanza')).join('')}</div>`;
+    if(league.cuartos) html += `<div class="panel"><h3>Cuartos de final</h3>${league.cuartos.map(m => singleCard(m, 'avanza')).join('')}</div>`;
+    if(league.semis) html += `<div class="panel"><h3>Semifinales</h3>${league.semis.map(t => tieCard(t, 'avanza')).join('')}</div>`;
+    if(league.final) html += `<div class="panel"><h3>Final</h3><p class="hint">Ida y vuelta; si el global sigue empatado, penales directos.</p>${tieCard(league.final, 'campeón')}</div>`;
+    if(league.championId){
+      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Copa BetPlay ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong> &middot; clasificado a la fase preliminar de la Copa Sudamericana</div>`;
+    }
+    return html;
+  }
+  // Supercopa BetPlay (Supercopa de Colombia): un único cruce ida y vuelta entre el campeón del
+  // Apertura y el campeón del Clausura (o el mejor de la Reclasificación si fue el mismo equipo).
+  function renderWorldLeagueColombiaSupercopa(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const tie = league.tie;
+    const A = byId[tie.teamA], B = byId[tie.teamB];
+    const nota = league.mismoEquipo
+      ? 'El mismo equipo ganó el Apertura y el Clausura, así que el rival es el mejor ubicado en la Tabla de Reclasificación que no haya sido campeón.'
+      : 'Campeón del Apertura (Liga BetPlay I) vs campeón del Clausura (Liga BetPlay II) de la misma temporada.';
+    let html = `<div class="panel"><p class="hint">${nota} Ida y vuelta; la vuelta la juega de local el mejor ubicado en la Reclasificación. Si el global sigue empatado, penales directos.</p></div>`;
+    const l1 = tie.legs[0], l2 = tie.legs[1];
+    const matchLine = (m, label) => {
+      const home = byId[m.home], away = byId[m.away];
+      const res = m.played ? `${m.homeScore} &ndash; ${m.awayScore}` : `se juega el ${formatCareerDate(m.date)}`;
+      return `<div class="cs-fixture-card"><div><strong>${label}:</strong> ${escapeHtml(home.name)} vs ${escapeHtml(away.name)}</div><div class="num">${res}</div></div>`;
+    };
+    html += `<div class="panel"><h3>${escapeHtml(A.name)} vs ${escapeHtml(B.name)}</h3>${matchLine(l1,'Ida')}${matchLine(l2,'Vuelta')}`;
+    if(tie.winnerId) html += `<p class="hint">Campeón: <strong style="color:var(--ink);">${escapeHtml(byId[tie.winnerId].name)}</strong>${tie.wentToPenalties ? ' (por penales)' : ''}</p>`;
+    html += `</div>`;
+    if(league.championId){
+      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Supercopa BetPlay ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong></div>`;
+    }
+    return html;
+  }
   function renderWorldLeagueUruguayCopa(league){
     const byId = {}; league.teams.forEach(t => byId[t.id] = t);
     const lv = id => URUGUAY_COPA_LEVEL_LABELS[league.levels[id]] || '';
@@ -9717,7 +11604,7 @@
     return html;
   }
   // Íconos de país para las tarjetas de "Ligas del Mundo" (fallback: globo terráqueo).
-  const COUNTRY_FLAGS = { 'Brasil': '&#127463;&#127479;', 'Uruguay': '&#127482;&#127466;', 'Chile': '&#127464;&#127473;', 'Paraguay': '&#127477;&#127486;' };
+  const COUNTRY_FLAGS = { 'Brasil': '&#127463;&#127479;', 'Uruguay': '&#127482;&#127466;', 'Chile': '&#127464;&#127473;', 'Paraguay': '&#127477;&#127486;', 'Colombia': '&#127464;&#127476;' };
   // Tarjeta clicable genérica, misma pinta que competitionCard pero con una data-action propia.
   function worldNavCard(icon, title, subtitle, action, dataAttrs){
     return `<div class="cs-comp-card" data-action="${action}" ${dataAttrs}>
@@ -9778,6 +11665,47 @@
       const labels = { regular:'Fase Regular', 'playoff-quarters':'Playoffs (cuartos)', 'playoff-semis':'Playoffs (semifinales)', 'playoff-final':'Playoffs (final)', 'ascenso-final':'Final de ascenso' };
       return labels[league.stage] || 'En juego';
     }
+    if(league.format === 'colombia-primera'){
+      if(league.stage === 'done'){
+        const A = league.apertura, CL = league.clausura;
+        return A.championId === CL.championId
+          ? `Bicampeón ${league.year}: ${escapeHtml(byId[A.championId].name)}`
+          : `Campeones ${league.year}: ${escapeHtml(byId[A.championId].name)} (Apertura) y ${escapeHtml(byId[CL.championId].name)} (Clausura)`;
+      }
+      const labels = {
+        'apertura-regular':'Torneo Apertura · fase regular', 'apertura-cuartos':'Torneo Apertura · cuartos de final',
+        'apertura-semis':'Torneo Apertura · semifinales', 'apertura-final':'Torneo Apertura · final',
+        'clausura-regular':'Torneo Clausura · fase regular', 'clausura-grupos':'Torneo Clausura · cuadrangulares',
+        'clausura-final':'Torneo Clausura · final'
+      };
+      let label = labels[league.stage] || 'En juego';
+      if(league.apertura.championId && league.stage.indexOf('clausura')===0) label = `Campeón del Apertura: ${escapeHtml(byId[league.apertura.championId].name)} &middot; ${label}`;
+      return label;
+    }
+    if(league.format === 'colombia-segunda'){
+      if(league.stage === 'done'){
+        const scenarioLabel = { 1:'bicampeón', 2:'directo por Reclasificación', 3:'uno directo, otro por Repechaje', 4:'Gran Final + Repechaje' }[league.ascenso.scenario] || '';
+        return `Ascienden ${league.year}: ${league.promotedIds.map(id=>escapeHtml(byId[id].name)).join(', ')} (${scenarioLabel})`;
+      }
+      const labels = {
+        'torneo1-regular':'Torneo I · fase regular', 'torneo1-cuadrangulares':'Torneo I · cuadrangulares', 'torneo1-final':'Torneo I · final',
+        'torneo2-regular':'Torneo II · fase regular', 'torneo2-cuadrangulares':'Torneo II · cuadrangulares', 'torneo2-final':'Torneo II · final',
+        'ascenso':'Definiendo el ascenso', 'ascenso-granfinal':'Gran Final por el ascenso', 'ascenso-repechaje':'Repechaje por el ascenso'
+      };
+      let label = labels[league.stage] || 'En juego';
+      if(league.torneo1 && league.torneo1.championId && league.stage.indexOf('torneo2')===0) label = `Campeón del Torneo I: ${escapeHtml(byId[league.torneo1.championId].name)} &middot; ${label}`;
+      return label;
+    }
+    if(league.format === 'colombia-copa'){
+      if(league.stage === 'done' || league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
+      const labels = { fase1:'Fase 1 (grupos y llaves)', octavos:'Octavos de final', cuartos:'Cuartos de final', semis:'Semifinales', final:'Final' };
+      return labels[league.stage] || 'En juego';
+    }
+    if(league.format === 'colombia-supercopa'){
+      if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
+      if(!league.tie) return `Pendiente`;
+      return league.tie.legs[1].played ? `Jugada` : `Se juega el ${formatCareerDate(league.tie.legs[1].date)}`;
+    }
     if(league.format === 'uruguay-copa'){
       if(league.stage === 'done' || league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
       if(league.stage === 'previa') return `${URUGUAY_COPA_LABELS.previa} en curso`;
@@ -9793,6 +11721,11 @@
       if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
       const ko = league.knockoutRounds[league.knockoutRounds.length-1];
       return `${COPA_BRASIL_LABELS[ko.stage] || ko.stage} en curso`;
+    }
+    if(league.format === 'copa-paraguay'){
+      if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
+      const ko = league.knockoutRounds[league.knockoutRounds.length-1];
+      return `${COPA_PARAGUAY_LABELS[ko.stage] || ko.stage} en curso`;
     }
     if(league.format === 'partido-unico'){
       if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
@@ -9837,6 +11770,47 @@
       if(league.stage === 'definiciones') return 'Definición del campeonato por empate en puntos';
       if(jugados === 0) return `Todavía no arrancó &middot; ${totalRounds} fechas en total`;
       return `Fecha ${currentRound} de ${totalRounds} &middot; ${jugados}/${total} partidos jugados`;
+    }
+    if(league.format === 'paraguay-segunda'){
+      if(league.stage === 'done') return `Ascienden a la División de Honor: ${escapeHtml(league.promotedIds.map(id=>byId[id].name).join(', '))}`;
+      if(league.stage === 'definiciones') return 'Definición del campeonato por empate en puntos';
+      if(jugados === 0) return `Todavía no arrancó &middot; ${totalRounds} fechas en total`;
+      return `Fecha ${currentRound} de ${totalRounds} &middot; ${jugados}/${total} partidos jugados`;
+    }
+    if(league.format === 'paraguay-primera-c'){
+      if(league.stage === 'done') return `Ascienden a la Primera División B: ${escapeHtml(league.promotedIds.map(id=>byId[id].name).join(', '))}`;
+      if(league.stage === 'definiciones') return 'Definición del campeonato por empate en puntos';
+      if(jugados === 0) return `Todavía no arrancó &middot; ${totalRounds} fechas en total`;
+      return `Fecha ${currentRound} de ${totalRounds} &middot; ${jugados}/${total} partidos jugados`;
+    }
+    if(league.format === 'paraguay-primera-b'){
+      if(league.stage === 'done'){
+        let winnerName = '';
+        if(league.promocionSegunda && league.promocionSegunda.winnerId){
+          const bn = careerWorldLeagues()['paraguay-b-nacional'];
+          const other = (bn && bn.teams.find(t => t.id === league.promocionSegunda.winnerId)) || byId[league.promocionSegunda.winnerId];
+          if(other) winnerName = ' junto con ' + escapeHtml(other.name);
+        }
+        return `Campeón: ${escapeHtml(byId[league.championId].name)} &middot; asciende a la Intermedia${winnerName}`;
+      }
+      if(league.stage === 'definiciones') return 'Definición del campeonato por empate en puntos';
+      if(jugados === 0) return `Todavía no arrancó &middot; ${totalRounds} fechas en total`;
+      return `Fecha ${currentRound} de ${totalRounds} &middot; ${jugados}/${total} partidos jugados`;
+    }
+    if(league.format === 'paraguay-b-nacional'){
+      const etapas = { fase2:'Fase 2 en curso', semis:'Semifinales', final:'Final' };
+      if(league.stage === 'done'){
+        let winnerName = '';
+        if(league.promocionSegunda && league.promocionSegunda.winnerId){
+          const pb = careerWorldLeagues()['paraguay-primera-b'];
+          const other = (pb && pb.teams.find(t => t.id === league.promocionSegunda.winnerId)) || byId[league.promocionSegunda.winnerId];
+          if(other) winnerName = ' junto con ' + escapeHtml(other.name);
+        }
+        return `Campeón: ${escapeHtml(byId[league.championId].name)} &middot; asciende a la Intermedia${winnerName}`;
+      }
+      if(etapas[league.stage]) return etapas[league.stage];
+      if(jugados === 0) return `Todavía no arrancó &middot; fase de grupos`;
+      return `Fase de grupos &middot; ${jugados}/${total} partidos jugados`;
     }
     if(league.format === 'chile-primera-b'){
       if(league.stage === 'done') return `Campeón: ${escapeHtml(byId[league.championId].name)} &middot; Ascienden: ${escapeHtml(league.promotedIds.map(id=>byId[id].name).join(', '))}`;
@@ -10026,6 +12000,55 @@
     html += `</div>`;
     return html;
   }
+  // Cuadro de la Copa Paraguay: igual que renderWorldLeagueKnockoutCopa (Copa do Brasil) pero con
+  // un solo partido por cruce (`pair.match`) en vez de ida y vuelta (`pair.legs`).
+  function renderWorldLeagueCopaParaguay(league){
+    if(!league.knockoutRounds || !league.knockoutRounds.length) return `<div class="panel"><p class="hint">Todavía no arrancó.</p></div>`;
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    let html = '';
+    league.knockoutRounds.forEach(round => {
+      html += `<div class="panel"><h3>${COPA_PARAGUAY_LABELS[round.stage] || round.stage}</h3>`;
+      round.pairs.forEach(pair => {
+        const teamA = pair.teamA === null ? null : byIdAll[pair.teamA], teamB = pair.teamB === null ? null : byIdAll[pair.teamB];
+        if(!teamA || !teamB){
+          const solo = teamA || teamB;
+          html += `<div class="cs-fixture-card"><div>${escapeHtml(solo.name)} <span class="hint">(libre)</span></div><div class="num"><span style="color:var(--gold-bright);">avanza directo</span></div></div>`;
+          return;
+        }
+        html += `<div class="cs-fixture-card"><div>${escapeHtml(teamA.name)} vs ${escapeHtml(teamB.name)}</div><div class="num">`;
+        html += (pair.match && pair.match.played) ? ` ${pair.match.homeScore}-${pair.match.awayScore}` : ' &mdash;';
+        if(pair.winnerId){
+          const w = byIdAll[pair.winnerId];
+          html += ` &middot; <span style="color:var(--gold-bright);">avanza ${escapeHtml(w.name)}${pair.wentToPenalties?' (penales)':''}</span>`;
+        }
+        html += `</div></div>`;
+      });
+      html += `</div>`;
+    });
+    if(league.championId){
+      const champ = byIdAll[league.championId];
+      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Copa Paraguay ${league.year}: <strong>${escapeHtml(champ.name)}</strong> &mdash; clasifica a la fase 1 de la Copa Libertadores y a la Supercopa de Paraguay.</div>`;
+    }
+    return html;
+  }
+  // Tarjeta de la Supercopa de Paraguay: partido único (o el bicampeón directo, sin partido, si el
+  // campeón de la Copa Paraguay ya era el rival que le tocaba de Primera División).
+  function renderWorldLeagueSupercopaParaguay(league){
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    if(league.championId && !league.match){
+      const champ = byIdAll[league.championId];
+      return `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; <strong>${escapeHtml(champ.name)}</strong> salió campeón de la Copa Paraguay y le correspondía enfrentar a su propio equipo como rival de Primera División, así que se queda directo con la Supercopa ${league.year} sin necesidad de jugarla.</div>`;
+    }
+    if(!league.match) return `<div class="panel"><p class="hint">Se arma apenas estén el campeón de la Copa Paraguay y el campeón de Primera División (Apertura o Clausura) con más puntos de la temporada.</p></div>`;
+    const m = league.match;
+    const teamA = byIdAll[m.home], teamB = byIdAll[m.away];
+    let html = `<div class="panel"><div class="cs-fixture-card"><div>${escapeHtml(teamA.name)} vs ${escapeHtml(teamB.name)}</div><div class="num">${m.played ? `${m.homeScore} &ndash; ${m.awayScore}` : '&mdash;'}</div></div>`;
+    if(league.championId){
+      html += `<p class="hint" style="margin-top:10px;">&#127942; Campeón de la Supercopa de Paraguay ${league.year}: <strong>${escapeHtml(byIdAll[league.championId].name)}</strong>${league.wentToPenalties?' (penales)':''}</p>`;
+    }
+    html += `</div>`;
+    return html;
+  }
   // ---------- Ligas del Mundo: navegación en 3-4 niveles (país -> competición -> [grupo] -> pestaña) ----------
   function renderCareraLigasMundo(){
     const c = state.career;
@@ -10088,14 +12111,18 @@
 
     // Copa do Brasil y Supercopa do Brasil: eliminatoria/partido único sin pestañas de Tabla, ya
     // que no hay una tabla de posiciones que mostrar, solo el cuadro (o el partido) en sí.
-    if(league.format === 'copa-eliminacion' || league.format === 'partido-unico' || league.format === 'uruguay-copa' || league.format === 'uruguay-supercopa' || league.format === 'chile-copa-liga' || league.format === 'chile-copa' || league.format === 'chile-supercopa'){
+    if(league.format === 'copa-eliminacion' || league.format === 'copa-paraguay' || league.format === 'partido-unico' || league.format === 'uruguay-copa' || league.format === 'uruguay-supercopa' || league.format === 'chile-copa-liga' || league.format === 'chile-copa' || league.format === 'chile-supercopa' || league.format === 'colombia-copa' || league.format === 'colombia-supercopa'){
       let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
       if(league.format === 'copa-eliminacion') html += renderWorldLeagueKnockoutCopa(league);
+      else if(league.format === 'copa-paraguay') html += renderWorldLeagueCopaParaguay(league);
+      else if(league.format === 'colombia-copa') html += renderWorldLeagueColombiaCopa(league);
+      else if(league.format === 'colombia-supercopa') html += renderWorldLeagueColombiaSupercopa(league);
       else if(league.format === 'uruguay-copa') html += renderWorldLeagueUruguayCopa(league);
       else if(league.format === 'uruguay-supercopa') html += renderWorldLeagueUruguaySupercopa(league);
       else if(league.format === 'chile-copa-liga') html += renderWorldLeagueChileCopaLiga(league);
       else if(league.format === 'chile-copa') html += renderWorldLeagueChileCopa(league);
       else if(league.format === 'chile-supercopa') html += renderWorldLeagueChileSupercopa(league);
+      else if(league.key === 'supercopa-paraguay') html += renderWorldLeagueSupercopaParaguay(league);
       else html += renderWorldLeagueSupercopa(league);
       if(league.history && league.history.length > 1){
         const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
@@ -10114,6 +12141,28 @@
       if(league.history && league.history.length > 1){
         const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
         html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      return html;
+    }
+
+    // Liga BetPlay DIMAYOR de Colombia: formato propio, todo en un solo panel.
+    if(league.format === 'colombia-primera'){
+      let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
+      html += renderWorldLeagueColombia(league);
+      if(league.history && league.history.length > 1){
+        const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
+        html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeones</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      return html;
+    }
+
+    // Torneo BetPlay DIMAYOR (Segunda de Colombia): formato propio, todo en un solo panel.
+    if(league.format === 'colombia-segunda'){
+      let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
+      html += renderWorldLeagueColombiaSegunda(league);
+      if(league.history && league.history.length > 1){
+        const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
+        html += `<div class="panel"><h3>Temporadas anteriores</h3><table><thead><tr><th>Año</th><th>Resumen</th></tr></thead><tbody>${rows}</tbody></table></div>`;
       }
       return html;
     }
@@ -10160,6 +12209,10 @@
       tablaHtml = league.format === 'fases-grupos' ? renderWorldLeagueFasesGrupos(league)
         : (league.format === 'chile-primera-b' ? renderWorldLeagueChilePrimeraB(league)
         : league.format === 'chile-segunda' ? renderWorldLeagueChileSegunda(league)
+        : league.format === 'paraguay-segunda' ? renderWorldLeagueParaguaySegunda(league)
+        : league.format === 'paraguay-primera-b' ? renderWorldLeagueParaguayPrimeraB(league)
+        : league.format === 'paraguay-primera-c' ? renderWorldLeagueParaguayPrimeraC(league)
+        : league.format === 'paraguay-b-nacional' ? renderWorldLeagueParaguayBNacional(league)
         : league.format === 'chile-tercera-a' ? renderWorldLeagueChileTerceraA(league)
         : league.format === 'chile-tercera-b' ? renderWorldLeagueChileTerceraB(league)
         : `<div class="panel">${renderWorldLeagueTable(league)}</div>${renderWorldLeaguePlayoff(league)}`);
