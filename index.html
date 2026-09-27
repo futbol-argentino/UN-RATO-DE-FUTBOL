@@ -6653,6 +6653,135 @@
       name: 'Supercopa de Paraguay',
       format: 'partido-unico',
       pendingHint: 'Se arma cuando ya están el campeón de la Copa Paraguay y el campeón de Primera División (Apertura o Clausura) con más puntos de la temporada.'
+    },
+    {
+      // LigaPro Serie A de Ecuador. Formato propio ('ecuador-primera', ver
+      // careerWorldLeagueBuildSeasonEcuadorPrimera / careerWorldLeagueCatchUpEcuadorPrimera):
+      // Fase Inicial: los 16 equipos todos contra todos a dos ruedas (30 fechas), tabla única
+      // acumulada. La posición final de cada equipo decide a qué grupo pasa:
+      //  - 1° a 6°: Hexagonal Final (10 fechas, ida y vuelta) — define el campeón de la LigaPro y
+      //    reparte los cupos a copas internacionales (campeón y 2° a la fase de grupos de la Copa
+      //    Libertadores, 3° a la Fase 2 de la Libertadores).
+      //  - 7° a 10°: Cuadrangular de Copa Sudamericana (6 fechas, ida y vuelta) — el ganador se
+      //    lleva el cupo a la Copa Sudamericana.
+      //  - 11° a 16°: Hexagonal del Descenso (10 fechas, ida y vuelta) — los 2 últimos pierden la
+      //    categoría y bajan a la Serie B (ver ECUADOR_PYRAMID / careerWorldLeaguePyramidNewRosters,
+      //    que intercambia los descendidos de acá por los 2 ascendidos del Hexagonal de Ascenso de
+      //    la Serie B una vez que las dos categorías ya terminaron su temporada).
+      // Los tres grupos NO arrancan de 0: conservan los puntos que ya sacaron entre sí durante la
+      // Fase Inicial (se suman los resultados de la Fase Inicial entre los integrantes de cada
+      // grupo a los de la fase de grupos correspondiente), tal cual el reglamento real de la LigaPro.
+      key: 'ecuador-primera',
+      country: 'Ecuador',
+      name: 'LigaPro Serie A',
+      format: 'ecuador-primera',
+      teams: [
+        { name:'Independiente del Valle', elo:1909 }, { name:'Universidad Católica (ECU)', elo:1845 },
+        { name:'Liga de Quito', elo:1797 }, { name:'Aucas', elo:1743 },
+        { name:'Macará', elo:1734 }, { name:'Barcelona SC', elo:1727 },
+        { name:'Mushuc Runa', elo:1712 }, { name:'Emelec', elo:1696 },
+        { name:'Deportivo Cuenca', elo:1687 }, { name:'Leones del Norte', elo:1679 },
+        { name:'Guayaquil City', elo:1650 }, { name:'Libertad FC', elo:1647 },
+        { name:'Orense', elo:1642 }, { name:'Tecnico Universitario', elo:1638 },
+        { name:'Delfin', elo:1610 }, { name:'Manta', elo:1601 }
+      ]
+    },
+    {
+      // Serie B de Ecuador. Formato propio ('ecuador-segunda', ver
+      // careerWorldLeagueBuildSeasonEcuadorSegunda / careerWorldLeagueCatchUpEcuadorSegunda):
+      // Fase de Clasificación: los 12 equipos todos contra todos a dos ruedas (22 fechas), tabla
+      // única. La posición final decide el grupo:
+      //  - 1° a 6°: Hexagonal de Ascenso (10 fechas, ida y vuelta) — los 2 primeros ascienden a la
+      //    Serie A (LigaPro); el resto sigue en la Serie B.
+      //  - 7° a 12°: Hexagonal del Descenso (10 fechas, ida y vuelta) — los 2 últimos bajan a la
+      //    Segunda Categoría.
+      // Los dos grupos conservan los puntos que ya sacaron entre sí durante la Fase de
+      // Clasificación, igual que en la Serie A. Ver ECUADOR_PYRAMID: cuando la Serie A, la Serie B y
+      // la Segunda Categoría ya terminaron las tres su temporada, se intercambian los 2 descendidos de la Serie A por los
+      // 2 ascendidos de acá.
+      key: 'ecuador-segunda',
+      country: 'Ecuador',
+      name: 'Serie B',
+      format: 'ecuador-segunda',
+      teams: [
+        { name:'Vinotinto FC', elo:1607 }, { name:'9 de Octubre', elo:1603 },
+        { name:'Independiente Juniors', elo:1586 }, { name:'Atletico Rojiblanco', elo:1563 },
+        { name:'Cumbayá', elo:1530 }, { name:'Cuenca Juniors', elo:1522 },
+        { name:'Santo Domingo', elo:1514 }, { name:'Gualaceo', elo:1473 },
+        { name:'San Antonio FC', elo:1445 }, { name:'LDU Portoviejo', elo:1436 },
+        { name:'El Nacional', elo:1366 }, { name:'22 de Julio', elo:1354 }
+      ]
+    },
+    {
+      // Segunda Categoría de Ecuador (tercera división). Formato propio ('ecuador-tercera', ver
+      // careerWorldLeagueBuildSeasonEcuadorTercera / careerWorldLeagueCatchUpEcuadorTercera):
+      //  - Fase de Grupos: los 48 equipos en 8 grupos de 6 (la primera temporada, en el mismo
+      //    orden en que están cargados acá abajo, de a 6; de ahí en más se reparten de nuevo cada
+      //    temporada). Todos contra todos a dos ruedas (10 fechas) en cada grupo. Clasifican los 2
+      //    primeros de cada grupo (16 en total).
+      //  - Cuadrangulares Semifinales: los 16 clasificados arman 4 cuadrangulares de 4, juntando de
+      //    a dos los grupos de la fase anterior (Grupo 1 y 2 arman el Cuadrangular 1, Grupo 3 y 4 el
+      //    2, y así — el reglamento no especifica el cruce exacto, así que se usa este criterio fijo
+      //    y transparente). Todos contra todos a dos ruedas (6 fechas). Solo el 1° de cada
+      //    cuadrangular avanza (4 en total).
+      //  - Cuadrangular Final: los 4 ganadores, todos contra todos a dos ruedas (6 fechas). A
+      //    diferencia de la Serie A/B, ninguna de estas fases arrastra puntos de la anterior — cada
+      //    una arranca de 0, tal cual pide el reglamento ("se vuelve a jugar todos contra todos").
+      //  - Asciende el 1° (campeón de la Segunda Categoría) y el 2° del Cuadrangular Final; el 3° y
+      //    el 4° se quedan. Ver ECUADOR_PYRAMID.
+      key: 'ecuador-tercera',
+      country: 'Ecuador',
+      name: 'Segunda Categoría',
+      format: 'ecuador-tercera',
+      teams: [
+        { name:'Patria', elo:1500 }, { name:'Astillero', elo:1534 }, { name:'Joga Bonito Z', elo:1500 },
+        { name:'Pacífico (ECU)', elo:1475 }, { name:'Conrinthian´s', elo:1450 }, { name:'CD Grecia', elo:1500 },
+        { name:'Señor Montúfar', elo:1500 }, { name:'Santa Fe SC', elo:1500 }, { name:'Deportivo Quito', elo:1513 },
+        { name:'Pelileo', elo:1500 }, { name:'Firesystem FC', elo:1500 }, { name:'CD Dunamis 04 Carchi', elo:1386 },
+        { name:'11 de Mayo', elo:1500 }, { name:'Milagro', elo:1500 }, { name:'Politécnico', elo:1500 },
+        { name:'Deportivo Santo Domingo', elo:1514 }, { name:'Patria', elo:1500 }, { name:'Cobras FC', elo:1500 },
+        { name:'Ciudad de Yantzaza', elo:1500 }, { name:'Huaquillas FC', elo:1469 }, { name:'Buhos ULVR', elo:1253 },
+        { name:'CD San Pedro del Pongo', elo:1500 }, { name:'La Castellana', elo:1500 }, { name:'Independiente Azogues', elo:1500 },
+        { name:'Guaranda FC', elo:1432 }, { name:'Luz Valdivia', elo:1500 }, { name:'Aviced FC', elo:1500 },
+        { name:'Santa Ana FC', elo:1500 }, { name:'Liga de Cuenca', elo:1522 }, { name:'La Troncal', elo:1500 },
+        { name:'Alianza Elite Sport', elo:1491 }, { name:'FC Insutec', elo:1500 }, { name:'Imbabura Sporting Club', elo:1502 },
+        { name:'Sagrado Corazón FC', elo:1500 }, { name:'Real Puerto Quito', elo:1514 }, { name:'San Luis del Valle', elo:1500 },
+        { name:'Daquilema FC', elo:1474 }, { name:'Mineros SC', elo:1500 }, { name:'Espoli', elo:1322 },
+        { name:'Club La Union', elo:1539 }, { name:'Colorados SC', elo:1500 }, { name:'Baños Ciudad de Fuego', elo:1473 },
+        { name:'Rio Aguarico', elo:1500 }, { name:'Nazareno', elo:1500 }, { name:'Atenas FC', elo:1500 },
+        { name:'Ciudad Canela', elo:1500 }, { name:'Anaconda', elo:1577 }, { name:'Vicentino Dragons', elo:1416 }
+      ]
+    },
+    {
+      // Copa Ecuador: no tiene plantel propio, se arma cada año a partir de la Serie B y la Segunda
+      // Categoría, ya cargadas (ver careerWorldLeagueBuildCopaEcuador / careerWorldLeagueCatchUpCopaEcuador).
+      // Primera Etapa: los 22 mejores de la Segunda Categoría (tabla combinada de sus 8 grupos ya
+      // cerrados) + los 10 peores de la Serie B (su Fase de Clasificación ya cerrada) = 32 equipos,
+      // a partido único; los de Serie B no se cruzan entre sí (10 cruces Serie B vs Segunda
+      // Categoría y, con las 12 Segunda Categoría que sobran, 6 cruces entre ellas), y en los
+      // cruces mixtos la localía es del equipo de menor categoría — la única fase de esta copa que
+      // NO es a cancha neutral. 16avos de Final: se suman los 16 de la Serie A a los 16 ganadores de
+      // la Primera Etapa (32, ya es potencia de 2) y de ahí el cuadro sigue derecho a cancha neutral:
+      // Octavos, Cuartos, Semis y Final, todo a partido único con penales directos si hay empate. El
+      // campeón clasifica a la Fase 1 de la Copa Libertadores (si ya está clasificado por la Serie
+      // A, el cupo pasa al subcampeón, y así hasta encontrar uno que no lo esté — se muestra a
+      // título informativo, todavía no está conectado al resto de los cupos de la Serie A).
+      key: 'copa-ecuador',
+      country: 'Ecuador',
+      name: 'Copa Ecuador',
+      format: 'copa-ecuador',
+      pendingHint: 'Se arma apenas la Serie B y la Segunda Categoría ya cerraron su Fase de Clasificación / Fase de Grupos de la temporada.'
+    },
+    {
+      // Partido único a cancha neutral entre el campeón de la Serie A y el campeón de la Copa
+      // Ecuador (si es el mismo equipo, el rival pasa a ser el subcampeón de la Copa Ecuador — a
+      // diferencia de otras supercopas de este juego, acá se sigue jugando el partido). Se arma en
+      // careerEnsureSupercopaEcuador.
+      key: 'supercopa-ecuador',
+      country: 'Ecuador',
+      name: 'Supercopa de Ecuador',
+      format: 'partido-unico',
+      pendingHint: 'Se arma cuando ya están el campeón de la Copa Ecuador y el campeón de la Serie A de la temporada.'
     }
   ];
 
@@ -7249,6 +7378,17 @@
     'paraguay-primera-b': { down: 'paraguay-primera-c' },
     'paraguay-primera-c': { up: 'paraguay-primera-b' }
   };
+  // Pirámide ecuatoriana (3 categorías cargadas): los 2 descendidos del Hexagonal del Descenso de
+  // la Serie A bajan a la Serie B y los 2 ascendidos del Hexagonal de Ascenso de la Serie B suben a
+  // la Serie A; los 2 descendidos del Hexagonal del Descenso de la Serie B bajan a la Segunda
+  // Categoría y el campeón + 2° del Cuadrangular Final de la Segunda Categoría suben a la Serie B.
+  // Como todavía no está cargada una categoría por debajo de la Segunda Categoría, esta no tiene
+  // "down": sus equipos peor ubicados simplemente se quedan (ver careerWorldLeaguePyramidNewRosters).
+  const ECUADOR_PYRAMID = {
+    'ecuador-primera': { down: 'ecuador-segunda' },
+    'ecuador-segunda': { up: 'ecuador-primera', down: 'ecuador-tercera' },
+    'ecuador-tercera': { up: 'ecuador-segunda' }
+  };
   // Una liga está "terminada" cuando ya tiene campeón y, si tiene reducido de ascenso
   // (promocionPlayoff), ese reducido también ya se resolvió — si no se espera a esto último,
   // promotedIds todavía estaría incompleto (le faltarían los 2 ganadores del reducido) justo
@@ -7259,7 +7399,7 @@
     if(!league || !league.championId) return false;
     // Primera B de Chile: tiene campeón desde que termina la tabla, pero recién está terminada
     // cuando se resuelve la liguilla (falta el segundo ascendido).
-    if(league.format === 'chile-primera-b' || league.format === 'chile-segunda' || league.format === 'chile-tercera-a' || league.format === 'chile-tercera-b' || league.format === 'paraguay-segunda' || league.format === 'paraguay-primera-b' || league.format === 'paraguay-b-nacional' || league.format === 'paraguay-primera-c') return league.stage === 'done';
+    if(league.format === 'chile-primera-b' || league.format === 'chile-segunda' || league.format === 'chile-tercera-a' || league.format === 'chile-tercera-b' || league.format === 'paraguay-segunda' || league.format === 'paraguay-primera-b' || league.format === 'paraguay-b-nacional' || league.format === 'paraguay-primera-c' || league.format === 'ecuador-primera' || league.format === 'ecuador-segunda' || league.format === 'ecuador-tercera') return league.stage === 'done';
     if(league.promocionPlayoff && league.promocionPlayoff.length){
       const expected = (league.promocionDirecta||0) + league.promocionPlayoff.length;
       if(!league.promotedIds || league.promotedIds.length < expected) return false;
@@ -8402,6 +8542,538 @@
       }
     }
   }
+  // ---------- Ecuador: LigaPro Serie A ----------
+  // Arma la Fase Inicial (16 equipos, todos contra todos a dos ruedas = 30 fechas, tabla única).
+  // Reutiliza el mismo mecanismo que careerWorldLeagueBuildSeason (roundRobinRounds + fechas
+  // semana a semana), pero queda en una función propia porque, a diferencia del resto de los
+  // formatos genéricos, esta liga necesita guardar el estado en `stage`/`grupos` para poder armar
+  // el Hexagonal Final, el Cuadrangular de Copa Sudamericana y el Hexagonal del Descenso apenas
+  // termine la Fase Inicial (ver careerWorldLeagueCatchUpEcuadorPrimera).
+  function careerWorldLeagueBuildSeasonEcuadorPrimera(def, newRoster){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const prev = wl[def.key];
+    const teams = newRoster ? newRoster.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+      : (prev && prev.teams && prev.teams.length)
+        ? prev.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    const ids = teams.map(t=>t.id);
+    let rounds = roundRobinRounds(ids);
+    rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+    const startDate = careerWorldSeasonStart(!!prev);
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home === null || m.away === null) return;
+        matches.push({ id:'wl_'+def.key+'_'+c.year+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    const history = (prev && prev.history) ? prev.history.slice() : [];
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prev && prev.season) ? prev.season + 1 : 1,
+      year: Number(startDate.slice(0,4)), teams, matches, table: [],
+      stage: 'fase-inicial', grupos: null,
+      championId: null, relegatedIds: [], promotedIds: [],
+      libertadoresGruposIds: [], libertadoresFase2Ids: [], sudamericanaIds: [],
+      startBase: startDate, history
+    };
+  }
+  // Divide la tabla ya terminada de la Fase Inicial en los tres grupos (posiciones 1°-6°, 7°-10°
+  // y 11°-16°) y arma el fixture propio de cada uno (todos contra todos ida y vuelta), arrancando
+  // la semana siguiente a la última fecha de la Fase Inicial — los tres grupos corren en paralelo,
+  // igual que en el calendario real de la LigaPro.
+  function careerWorldLeagueBuildEcuadorGrupos(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const posIds = league.table.map(r => r.id);
+    let lastDate = '';
+    league.matches.forEach(m => { if(m.date > lastDate) lastDate = m.date; });
+    const startDate = addDaysISO(lastDate, 7);
+    function armar(nombre, ids){
+      const teams = ids.map(id => byId[id]);
+      let rounds = roundRobinRounds(ids);
+      rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+      const matches = [];
+      rounds.forEach((round, ri) => {
+        const date = addDaysISO(startDate, ri*7);
+        round.forEach(m => {
+          if(m.home === null || m.away === null) return;
+          matches.push({ id:'wl_'+league.key+'_'+nombre+'_'+league.season+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+        });
+      });
+      return { nombre, teamIds:ids, teams, matches, table: [] };
+    }
+    league.grupos = {
+      final: armar('hexfinal', posIds.slice(0,6)),
+      sudamericana: armar('cuadsudam', posIds.slice(6,10)),
+      descenso: armar('hexdesc', posIds.slice(10,16))
+    };
+  }
+  // Pone al día la Fase Inicial (tabla acumulada de los 16 equipos) y, terminada, arma y sigue
+  // los tres grupos (Hexagonal Final, Cuadrangular de Copa Sudamericana, Hexagonal del Descenso),
+  // cuyas tablas suman los puntos que ya sacaron entre sí en la Fase Inicial más los de su propio
+  // grupo — así conservan lo acumulado, tal cual pide el reglamento real.
+  function careerWorldLeagueCatchUpEcuadorPrimera(league){
+    const c = state.career;
+    if(!c.calendarDate) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    if(league.stage === 'fase-inicial'){
+      const jugoAlguno = careerWorldLeaguePlayDue(league.matches, byId, c.calendarDate, {});
+      if(jugoAlguno || !league.table.length) league.table = computeGenericStandings(league.matches, league.teams);
+      const done = league.matches.length > 0 && league.matches.every(m => m.played);
+      if(done){
+        careerWorldLeagueBuildEcuadorGrupos(league);
+        league.stage = 'grupos';
+      }
+      return;
+    }
+    if(league.stage === 'grupos'){
+      ['final','sudamericana','descenso'].forEach(g => {
+        const grupo = league.grupos[g];
+        const jugo = careerWorldLeaguePlayDue(grupo.matches, byId, c.calendarDate, {});
+        if(jugo || !grupo.table.length){
+          const faseInicialDelGrupo = league.matches.filter(m => grupo.teamIds.includes(m.home) && grupo.teamIds.includes(m.away));
+          grupo.table = computeGenericStandings(faseInicialDelGrupo.concat(grupo.matches), grupo.teams);
+        }
+      });
+      const allDone = ['final','sudamericana','descenso'].every(g => league.grupos[g].matches.every(m => m.played));
+      if(allDone && !league.championId){
+        const hex = league.grupos.final.table;
+        const cuad = league.grupos.sudamericana.table;
+        const desc = league.grupos.descenso.table;
+        league.championId = hex[0].id;
+        league.libertadoresGruposIds = [hex[0].id, hex[1].id];
+        league.libertadoresFase2Ids = [hex[2].id];
+        league.sudamericanaIds = [cuad[0].id];
+        league.relegatedIds = [desc[4].id, desc[5].id];
+        league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
+        if(league.history.length > 10) league.history.length = 10;
+        league.stage = 'done';
+      }
+    }
+  }
+  // ---------- Ecuador: Serie B ----------
+  // Arma la Fase de Clasificación (12 equipos, todos contra todos a dos ruedas = 22 fechas, tabla
+  // única). Misma lógica que careerWorldLeagueBuildSeasonEcuadorPrimera, adaptada al plantel y a
+  // la cantidad de fechas de la Serie B.
+  function careerWorldLeagueBuildSeasonEcuadorSegunda(def, newRoster){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const prev = wl[def.key];
+    const teams = newRoster ? newRoster.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+      : (prev && prev.teams && prev.teams.length)
+        ? prev.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    const ids = teams.map(t=>t.id);
+    let rounds = roundRobinRounds(ids);
+    rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+    const startDate = careerWorldSeasonStart(!!prev);
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home === null || m.away === null) return;
+        matches.push({ id:'wl_'+def.key+'_'+c.year+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    const history = (prev && prev.history) ? prev.history.slice() : [];
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prev && prev.season) ? prev.season + 1 : 1,
+      year: Number(startDate.slice(0,4)), teams, matches, table: [],
+      stage: 'clasificacion', grupos: null,
+      championId: null, relegatedIds: [], promotedIds: [],
+      startBase: startDate, history
+    };
+  }
+  // Divide la tabla ya terminada de la Fase de Clasificación en los dos grupos (1°-6° y 7°-12°) y
+  // arma el fixture propio de cada uno, igual que careerWorldLeagueBuildEcuadorGrupos pero con solo
+  // dos grupos de 6.
+  function careerWorldLeagueBuildEcuadorSegundaGrupos(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const posIds = league.table.map(r => r.id);
+    let lastDate = '';
+    league.matches.forEach(m => { if(m.date > lastDate) lastDate = m.date; });
+    const startDate = addDaysISO(lastDate, 7);
+    function armar(nombre, ids){
+      const teams = ids.map(id => byId[id]);
+      let rounds = roundRobinRounds(ids);
+      rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+      const matches = [];
+      rounds.forEach((round, ri) => {
+        const date = addDaysISO(startDate, ri*7);
+        round.forEach(m => {
+          if(m.home === null || m.away === null) return;
+          matches.push({ id:'wl_'+league.key+'_'+nombre+'_'+league.season+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+        });
+      });
+      return { nombre, teamIds:ids, teams, matches, table: [] };
+    }
+    league.grupos = {
+      ascenso: armar('hexascenso', posIds.slice(0,6)),
+      descenso: armar('hexdesc', posIds.slice(6,12))
+    };
+  }
+  // Pone al día la Fase de Clasificación y, terminada, arma y sigue el Hexagonal de Ascenso y el
+  // Hexagonal del Descenso (ambos conservan los puntos que ya sacaron entre sí en la Fase de
+  // Clasificación). Ascienden los 2 primeros del Hexagonal de Ascenso; descienden los 2 últimos del
+  // Hexagonal del Descenso (marcados nomás hasta que se cargue la Segunda Categoría).
+  function careerWorldLeagueCatchUpEcuadorSegunda(league){
+    const c = state.career;
+    if(!c.calendarDate) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    if(league.stage === 'clasificacion'){
+      const jugoAlguno = careerWorldLeaguePlayDue(league.matches, byId, c.calendarDate, {});
+      if(jugoAlguno || !league.table.length) league.table = computeGenericStandings(league.matches, league.teams);
+      const done = league.matches.length > 0 && league.matches.every(m => m.played);
+      if(done){
+        careerWorldLeagueBuildEcuadorSegundaGrupos(league);
+        league.stage = 'hexagonales';
+      }
+      return;
+    }
+    if(league.stage === 'hexagonales'){
+      ['ascenso','descenso'].forEach(g => {
+        const grupo = league.grupos[g];
+        const jugo = careerWorldLeaguePlayDue(grupo.matches, byId, c.calendarDate, {});
+        if(jugo || !grupo.table.length){
+          const faseClasifDelGrupo = league.matches.filter(m => grupo.teamIds.includes(m.home) && grupo.teamIds.includes(m.away));
+          grupo.table = computeGenericStandings(faseClasifDelGrupo.concat(grupo.matches), grupo.teams);
+        }
+      });
+      const allDone = ['ascenso','descenso'].every(g => league.grupos[g].matches.every(m => m.played));
+      if(allDone && league.stage !== 'done'){
+        const asc = league.grupos.ascenso.table;
+        const desc = league.grupos.descenso.table;
+        league.promotedIds = [asc[0].id, asc[1].id];
+        league.relegatedIds = [desc[4].id, desc[5].id];
+        league.championId = asc[0].id;
+        league.history.unshift({ year: league.year, promotedIds: league.promotedIds.slice(), promotedNames: [byId[asc[0].id].name, byId[asc[1].id].name].join(' y ') });
+        if(league.history.length > 10) league.history.length = 10;
+        league.stage = 'done';
+      }
+    }
+  }
+  // ---------- Ecuador: Segunda Categoría ----------
+  // Arma la Fase de Grupos: 48 equipos repartidos en 8 grupos de 6, todos contra todos a dos
+  // ruedas (10 fechas) cada uno. La primera temporada, los grupos se arman en el mismo orden en
+  // que están cargados en el registro (de a 6); en las siguientes, como cambia el plantel por los
+  // ascensos/descensos con la Serie B, se reparten de nuevo al azar (mismo criterio que
+  // careerWorldLeagueBuildSeasonGrupos para la Série D de Brasil).
+  function careerWorldLeagueBuildSeasonEcuadorTercera(def, newRoster){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    const prev = wl[def.key];
+    const startDate = careerWorldSeasonStart(!!prev);
+    let baseTeams;
+    if(newRoster && newRoster.length) baseTeams = shuffleArr(newRoster.map(t => ({ id:t.id, name:t.name, elo:t.elo })));
+    else if(prev && prev.teams && prev.teams.length) baseTeams = prev.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+    else baseTeams = def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    function armar(nombre, teams){
+      const ids = teams.map(t=>t.id);
+      let rounds = roundRobinRounds(ids);
+      rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+      const matches = [];
+      rounds.forEach((round, ri) => {
+        const date = addDaysISO(startDate, ri*7);
+        round.forEach(m => {
+          if(m.home === null || m.away === null) return;
+          matches.push({ id:'wl_'+def.key+'_'+nombre.replace(/\s+/g,'')+'_'+c.year+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+        });
+      });
+      return { nombre, teamIds:ids, teams, matches, table: [] };
+    }
+    const grupos = {};
+    for(let gi=0; gi<8; gi++){
+      const teams = baseTeams.slice(gi*6, gi*6+6);
+      grupos['Grupo '+(gi+1)] = armar('Grupo '+(gi+1), teams);
+    }
+    const history = (prev && prev.history) ? prev.history.slice() : [];
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prev && prev.season) ? prev.season + 1 : 1,
+      year: Number(startDate.slice(0,4)), teams: baseTeams, grupos, semis: null, final: null,
+      stage: 'grupos', championId: null, relegatedIds: [], promotedIds: [],
+      history
+    };
+  }
+  // Arma los 4 Cuadrangulares Semifinales a partir de los 2 primeros de cada uno de los 8 grupos,
+  // juntando de a dos grupos consecutivos (Grupo 1+2, Grupo 3+4, Grupo 5+6, Grupo 7+8). Arranca la
+  // semana siguiente a la última fecha de la Fase de Grupos. No arrastra puntos: tabla nueva.
+  function careerWorldLeagueBuildEcuadorTerceraSemis(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const groupNames = Object.keys(league.grupos);
+    let lastDate = '';
+    groupNames.forEach(gn => league.grupos[gn].matches.forEach(m => { if(m.date > lastDate) lastDate = m.date; }));
+    const startDate = addDaysISO(lastDate, 7);
+    function armar(nombre, ids){
+      const teams = ids.map(id => byId[id]);
+      let rounds = roundRobinRounds(ids);
+      rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+      const matches = [];
+      rounds.forEach((round, ri) => {
+        const date = addDaysISO(startDate, ri*7);
+        round.forEach(m => {
+          if(m.home === null || m.away === null) return;
+          matches.push({ id:'wl_'+league.key+'_semi'+nombre.replace(/\s+/g,'')+'_'+league.season+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+        });
+      });
+      return { nombre, teamIds:ids, teams, matches, table: [] };
+    }
+    const semis = {};
+    for(let i=0; i<4; i++){
+      const gA = league.grupos[groupNames[i*2]], gB = league.grupos[groupNames[i*2+1]];
+      const ids = [gA.table[0].id, gA.table[1].id, gB.table[0].id, gB.table[1].id];
+      semis['Cuadrangular '+(i+1)] = armar('Cuadrangular '+(i+1), ids);
+    }
+    league.semis = semis;
+  }
+  // Arma el Cuadrangular Final con el 1° de cada uno de los 4 Cuadrangulares Semifinales. Tampoco
+  // arrastra puntos.
+  function careerWorldLeagueBuildEcuadorTerceraFinal(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const semiNames = Object.keys(league.semis);
+    let lastDate = '';
+    semiNames.forEach(sn => league.semis[sn].matches.forEach(m => { if(m.date > lastDate) lastDate = m.date; }));
+    const startDate = addDaysISO(lastDate, 7);
+    const ids = semiNames.map(sn => league.semis[sn].table[0].id);
+    const teams = ids.map(id => byId[id]);
+    let rounds = roundRobinRounds(ids);
+    rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home === null || m.away === null) return;
+        matches.push({ id:'wl_'+league.key+'_final_'+league.season+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    league.final = { teamIds: ids, teams, matches, table: [] };
+  }
+  // Pone al día la Fase de Grupos, los Cuadrangulares Semifinales y el Cuadrangular Final, en ese
+  // orden, armando cada fase apenas termina la anterior. Al cerrar el Cuadrangular Final: el 1°
+  // (campeón de la Segunda Categoría) y el 2° ascienden a la Serie B; el 3° y el 4° se quedan.
+  function careerWorldLeagueCatchUpEcuadorTercera(league){
+    const c = state.career;
+    if(!c.calendarDate) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    if(league.stage === 'grupos'){
+      Object.values(league.grupos).forEach(g => {
+        const jugo = careerWorldLeaguePlayDue(g.matches, byId, c.calendarDate, {});
+        if(jugo || !g.table.length) g.table = computeGenericStandings(g.matches, g.teams);
+      });
+      const done = Object.values(league.grupos).every(g => g.matches.every(m => m.played));
+      if(done){
+        careerWorldLeagueBuildEcuadorTerceraSemis(league);
+        league.stage = 'semis';
+      }
+      return;
+    }
+    if(league.stage === 'semis'){
+      Object.values(league.semis).forEach(g => {
+        const jugo = careerWorldLeaguePlayDue(g.matches, byId, c.calendarDate, {});
+        if(jugo || !g.table.length) g.table = computeGenericStandings(g.matches, g.teams);
+      });
+      const done = Object.values(league.semis).every(g => g.matches.every(m => m.played));
+      if(done){
+        careerWorldLeagueBuildEcuadorTerceraFinal(league);
+        league.stage = 'final';
+      }
+      return;
+    }
+    if(league.stage === 'final'){
+      const f = league.final;
+      const jugo = careerWorldLeaguePlayDue(f.matches, byId, c.calendarDate, {});
+      if(jugo || !f.table.length) f.table = computeGenericStandings(f.matches, f.teams);
+      const done = f.matches.length > 0 && f.matches.every(m => m.played);
+      if(done && !league.championId){
+        league.championId = f.table[0].id;
+        league.promotedIds = [f.table[0].id, f.table[1].id];
+        league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
+        if(league.history.length > 10) league.history.length = 10;
+        league.stage = 'done';
+      }
+    }
+  }
+  // Orden de fases de la Copa Ecuador tal como quedó implementada acá.
+  const COPA_ECUADOR_ORDER = ['primera-etapa','dieciseisavos','octavos','cuartos','semis','final'];
+  const COPA_ECUADOR_LABELS = {
+    'primera-etapa': 'Primera Etapa',
+    dieciseisavos: '16avos de Final',
+    octavos: 'Octavos de Final',
+    cuartos: 'Cuartos de Final',
+    semis: 'Semifinales',
+    final: 'Final'
+  };
+  // ---------- Ecuador: Copa Ecuador ----------
+  // No tiene plantel propio: se arma cada año con equipos de la Serie B y la Segunda Categoría (y,
+  // más adelante, de la Serie A). Se rearma cuando cambia la temporada de la Serie B o de la
+  // Segunda Categoría (mismo criterio que la Copa Paraguay con sus divisiones).
+  function careerEnsureCopaEcuador(){
+    const wl = careerWorldLeagues();
+    const b = wl['ecuador-segunda'], t = wl['ecuador-tercera'];
+    // La Primera Etapa necesita la tabla ya cerrada de la Fase de Clasificación de la Serie B
+    // (existe mientras stage no sea 'clasificacion') y las 8 tablas ya cerradas de la Fase de
+    // Grupos de la Segunda Categoría (existen mientras stage no sea 'grupos').
+    if(!b || b.stage === 'clasificacion' || b.table.length < 12) return;
+    if(!t || t.stage === 'grupos') return;
+    let league = wl['copa-ecuador'];
+    const stale = !league || league.bSeason !== b.season || league.tSeason !== t.season;
+    if(stale) careerWorldLeagueBuildCopaEcuador(b, t);
+    league = wl['copa-ecuador'];
+    if(league) careerWorldLeagueCatchUpCopaEcuador(league);
+  }
+  function careerWorldLeagueBuildCopaEcuador(b, t){
+    const wl = careerWorldLeagues();
+    // 10 peores equipos de la Serie B: los puestos 3° a 12° de su Fase de Clasificación (quedan
+    // afuera los 2 mejores).
+    const serieBPeores = b.table.slice(2).map(r => r.id);
+    // 22 mejores equipos de la Segunda Categoría: se arma una tabla combinada con las 8 tablas de
+    // grupo de su Fase de Grupos (puntos, luego diferencia de gol, luego goles a favor) y se toman
+    // los 22 primeros — el reglamento no dice cómo comparar entre grupos distintos, así que se usa
+    // este criterio, el más habitual en este tipo de definiciones.
+    const todasLasFilas = [].concat.apply([], Object.values(t.grupos).map(g => g.table));
+    todasLasFilas.sort((x,y) => y.pts - x.pts || y.dg - x.dg || y.gf - x.gf);
+    const segundaMejores = todasLasFilas.slice(0,22).map(r => r.id);
+    const byIdSource = {};
+    b.teams.forEach(x => byIdSource[x.id] = x);
+    t.teams.forEach(x => byIdSource[x.id] = x);
+    const teams = serieBPeores.concat(segundaMejores).map(id => ({ id, name:byIdSource[id].name, elo:byIdSource[id].elo }));
+    // Cruces de la Primera Etapa: los equipos de Serie B no se enfrentan entre sí, así que arman 10
+    // cruces contra 10 de los 22 de la Segunda Categoría (localía para la Segunda Categoría, el
+    // equipo de menor categoría); los 12 de la Segunda Categoría que sobran arman 6 cruces entre
+    // ellos (localía para el de menor ELO, mismo criterio "favorece al de abajo" del reglamento).
+    const serieBIds = serieBPeores.slice();
+    const segundaIds = segundaMejores.slice();
+    const pairs = [];
+    for(let i=0;i<10;i++){
+      pairs.push({ home: segundaIds.pop(), away: serieBIds.pop() });
+    }
+    while(segundaIds.length){
+      const x = segundaIds.pop(), y = segundaIds.pop();
+      const home = byIdSource[x].elo <= byIdSource[y].elo ? x : y;
+      const away = home === x ? y : x;
+      pairs.push({ home, away });
+    }
+    const copaStart = careerWorldSeasonStart(!!wl['copa-ecuador']);
+    const prev = wl['copa-ecuador'];
+    const league = {
+      key:'copa-ecuador', country:'Ecuador', name:'Copa Ecuador', format:'copa-ecuador',
+      season: (prev && prev.season) ? prev.season + 1 : 1,
+      bSeason: b.season, tSeason: t.season, aSeason: null,
+      year: Number(copaStart.slice(0,4)), teams, knockoutRounds:[], championId:null, runnerUpId:null, stage:'knockout',
+      history: (prev && prev.history) ? prev.history.slice() : []
+    };
+    league.knockoutRounds = [ careerWorldLeagueBuildKoSingleRound(league, pairs, 'primera-etapa', copaStart) ];
+    wl['copa-ecuador'] = league;
+  }
+  // Motor de progresión de la Copa Ecuador: partidos únicos, con penales directos si hay empate. La
+  // Primera Etapa (32 equipos: 10 de Serie B + 22 de Segunda Categoría) es la única fase con
+  // localía real (no cancha neutral) — de ahí en más, como en el resto de las copas de este juego,
+  // es cancha neutral. Al pasar de la Primera Etapa a los 16avos se suman los 16 equipos de la
+  // Serie A (ya son 32, potencia de 2, no hace falta sembrar libres) y cada uno de ellos se cruza
+  // contra uno de los 16 ganadores de la Primera Etapa.
+  function careerWorldLeagueCatchUpCopaEcuador(league){
+    const c = state.career;
+    const rounds = league.knockoutRounds;
+    const ko = rounds[rounds.length-1];
+    if(!ko || ko.resolved) return;
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    const opts = ko.stage === 'primera-etapa' ? {} : { neutral:true };
+    ko.pairs.forEach(pair => {
+      if(pair.winnerId) return;
+      if(pair.teamA === null || pair.teamB === null){
+        pair.winnerId = pair.teamA === null ? pair.teamB : pair.teamA;
+        if(pair.match) pair.match.bye = true;
+        return;
+      }
+      careerWorldLeaguePlayDue([pair.match], byIdAll, c.calendarDate, opts);
+      if(pair.match.played){
+        const teamA = byIdAll[pair.teamA], teamB = byIdAll[pair.teamB];
+        if(pair.match.homeScore > pair.match.awayScore) pair.winnerId = pair.teamA;
+        else if(pair.match.awayScore > pair.match.homeScore) pair.winnerId = pair.teamB;
+        else { pair.wentToPenalties = true; pair.winnerId = worldLeaguePenaltyWinner(teamA.elo, teamB.elo) === 'A' ? pair.teamA : pair.teamB; }
+      }
+    });
+    if(!ko.pairs.every(p => p.winnerId)) return;
+    const winners = ko.pairs.map(p => p.winnerId);
+    if(ko.stage === COPA_ECUADOR_ORDER[COPA_ECUADOR_ORDER.length-1]){
+      ko.resolved = true;
+      league.championId = winners[0];
+      const finalPair = ko.pairs[0];
+      league.runnerUpId = finalPair.teamA === league.championId ? finalPair.teamB : finalPair.teamA;
+      league.stage = 'done';
+      league.history.unshift({ year: league.year, championId: league.championId, championName: byIdAll[league.championId].name });
+      if(league.history.length > 10) league.history.length = 10;
+      return;
+    }
+    if(ko.stage === 'primera-etapa'){
+      const wl = careerWorldLeagues();
+      const a = wl['ecuador-primera'];
+      if(!a) return; // prácticamente nunca pasa: la Serie A ya viene corriendo desde antes
+      ko.resolved = true;
+      league.aSeason = a.season;
+      const known = {}; league.teams.forEach(t=>known[t.id]=true);
+      const newTeams = a.teams.filter(t => !known[t.id]);
+      league.teams = league.teams.concat(newTeams);
+      const aIds = a.teams.map(t=>t.id);
+      const lastDate = ko.pairs.reduce((max,p) => (p.match && p.match.date > max) ? p.match.date : max, ko.pairs.find(p=>p.match).match.date);
+      const pairs = [];
+      for(let j=0;j<aIds.length && j<winners.length;j++) pairs.push({ home:aIds[j], away:winners[j] });
+      rounds.push(careerWorldLeagueBuildKoSingleRound(league, pairs, 'dieciseisavos', lastDate));
+      return;
+    }
+    ko.resolved = true;
+    const nextStage = COPA_ECUADOR_ORDER[COPA_ECUADOR_ORDER.indexOf(ko.stage)+1];
+    const lastDate = ko.pairs.reduce((max,p) => (p.match && p.match.date > max) ? p.match.date : max, ko.pairs.find(p=>p.match).match.date);
+    const pairs = [];
+    for(let i=0;i<winners.length;i+=2) pairs.push({ home:winners[i], away:winners[i+1] });
+    rounds.push(careerWorldLeagueBuildKoSingleRound(league, pairs, nextStage, lastDate));
+  }
+  // La Supercopa de Ecuador se arma recién cuando ya están el campeón de la Copa Ecuador y la Serie
+  // A terminó su temporada (para saber su campeón). Si el campeón de la Serie A y el de la Copa
+  // Ecuador son el mismo equipo, el rival pasa a ser el subcampeón de la Copa Ecuador (se sigue
+  // jugando el partido, a diferencia de otras supercopas de este juego que en ese caso dan
+  // campeón directo).
+  function careerEnsureSupercopaEcuador(){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    let sc = wl['supercopa-ecuador'];
+    // Si ya hay un partido armado y pendiente, jugarlo pase lo que pase con el resto — la Serie A
+    // puede haber arrancado la temporada siguiente (por la sincronización de la pirámide) en el
+    // mismo avance de calendario en que se armó este partido, y aun así hay que resolverlo con el
+    // plantel que ya quedó guardado en `sc.teams`, no dejarlo colgado esperando un `primera.stage
+    // === 'done'` que ya no va a volver a darse hasta el ciclo siguiente.
+    if(sc && sc.match && !sc.match.played){
+      const byIdAll = {}; sc.teams.forEach(t=>byIdAll[t.id]=t);
+      careerWorldLeaguePlayDue([sc.match], byIdAll, c.calendarDate, {neutral:true});
+      if(sc.match.played){
+        const m = sc.match;
+        if(m.homeScore > m.awayScore) sc.championId = m.home;
+        else if(m.awayScore > m.homeScore) sc.championId = m.away;
+        else { sc.wentToPenalties = true; sc.championId = worldLeaguePenaltyWinner(byIdAll[m.home].elo, byIdAll[m.away].elo) === 'A' ? m.home : m.away; }
+        sc.history.unshift({ year:sc.year, championId:sc.championId, championName:byIdAll[sc.championId].name });
+        if(sc.history.length > 10) sc.history.length = 10;
+      }
+      return;
+    }
+    const copa = wl['copa-ecuador'], primera = wl['ecuador-primera'];
+    if(!copa || !copa.championId) return;
+    if(!primera || primera.stage !== 'done') return;
+    if(sc && sc.copaSeason === copa.season && sc.aSeason === primera.season) return;
+    const aChampionId = primera.championId;
+    let rivalId = copa.championId, rivalIsRunnerUp = false;
+    if(aChampionId === copa.championId){ rivalId = copa.runnerUpId; rivalIsRunnerUp = true; }
+    const teamA = primera.teams.find(t=>t.id===aChampionId);
+    const teamB = copa.teams.find(t=>t.id===rivalId);
+    if(!teamA || !teamB) return;
+    const prevHistory = (wl['supercopa-ecuador'] && wl['supercopa-ecuador'].history) ? wl['supercopa-ecuador'].history.slice() : [];
+    const base = { key:'supercopa-ecuador', country:'Ecuador', name:'Supercopa de Ecuador', format:'partido-unico', year:copa.year, copaSeason:copa.season, aSeason:primera.season, rivalIsRunnerUp };
+    const date = nextWeekdayAfter(c.calendarDate, 3);
+    const match = { id:'wl_supercopa-ecuador_'+copa.year+'_'+copa.season, home:teamA.id, away:teamB.id, date, homeScore:null, awayScore:null, played:false };
+    wl['supercopa-ecuador'] = Object.assign({}, base, { teams:[teamA,teamB], match, championId:null, wentToPenalties:false, history:prevHistory });
+  }
   function careerEnsureWorldLeagues(){
     const c = state.career;
     const wl = careerWorldLeagues();
@@ -8417,11 +9089,12 @@
     const chileRosters = careerWorldLeaguePyramidNewRosters(wl, CHILE_PYRAMID);
     const paraguayRosters = careerWorldLeaguePyramidNewRosters(wl, PARAGUAY_PYRAMID);
     const paraguayTerceraRosters = careerWorldLeaguePyramidNewRosters(wl, PARAGUAY_TERCERA_PYRAMID);
+    const ecuadorRosters = careerWorldLeaguePyramidNewRosters(wl, ECUADOR_PYRAMID);
     WORLD_LEAGUES_REGISTRY.forEach(def => {
       // La Copa do Brasil y la Supercopa do Brasil no tienen fixture propio armado por adelantado
       // (dependen de los planteles/campeones de las otras ligas de este mismo año), así que se
       // procesan aparte, después de que el resto ya esté al día — ver más abajo.
-      if(def.format === 'copa-eliminacion' || def.format === 'copa-paraguay' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta' || def.format === 'uruguay-copa' || def.format === 'uruguay-supercopa' || def.format === 'chile-copa-liga' || def.format === 'chile-copa' || def.format === 'chile-supercopa' || def.format === 'colombia-primera' || def.format === 'colombia-segunda' || def.format === 'colombia-copa' || def.format === 'colombia-supercopa') return;
+      if(def.format === 'copa-eliminacion' || def.format === 'copa-paraguay' || def.format === 'copa-ecuador' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta' || def.format === 'uruguay-copa' || def.format === 'uruguay-supercopa' || def.format === 'chile-copa-liga' || def.format === 'chile-copa' || def.format === 'chile-supercopa' || def.format === 'colombia-primera' || def.format === 'colombia-segunda' || def.format === 'colombia-copa' || def.format === 'colombia-supercopa') return;
       let league = wl[def.key];
       // El arranque de la temporada siguiente de cada división depende de que esa división (y,
       // si es parte de la pirámide brasileña, las otras 3) ya haya terminado la suya — no de que
@@ -8429,8 +9102,8 @@
       // llegar a cortar una Serie D a mitad de su propia eliminatoria de ascenso si el torneo
       // local terminaba antes; ahora cada una corre hasta el final, aunque eso lleve más de un
       // año calendario de por sí.
-      const pyramidRosters = BRASIL_PYRAMID[def.key] ? brasilRosters : (CHILE_PYRAMID[def.key] ? chileRosters : (PARAGUAY_PYRAMID[def.key] ? paraguayRosters : (PARAGUAY_TERCERA_PYRAMID[def.key] ? paraguayTerceraRosters : null)));
-      const isBrasilPyramid = !!(BRASIL_PYRAMID[def.key] || CHILE_PYRAMID[def.key] || PARAGUAY_PYRAMID[def.key] || PARAGUAY_TERCERA_PYRAMID[def.key]);
+      const pyramidRosters = BRASIL_PYRAMID[def.key] ? brasilRosters : (CHILE_PYRAMID[def.key] ? chileRosters : (PARAGUAY_PYRAMID[def.key] ? paraguayRosters : (PARAGUAY_TERCERA_PYRAMID[def.key] ? paraguayTerceraRosters : (ECUADOR_PYRAMID[def.key] ? ecuadorRosters : null))));
+      const isBrasilPyramid = !!(BRASIL_PYRAMID[def.key] || CHILE_PYRAMID[def.key] || PARAGUAY_PYRAMID[def.key] || PARAGUAY_TERCERA_PYRAMID[def.key] || ECUADOR_PYRAMID[def.key]);
       const done = !league ? true : careerWorldLeagueFullyDone(league);
       // Algunas ligas (`holdUntilNextStart`) dejan a la vista la temporada terminada (tablas, cupos a las
       // copas, descendidos) hasta pocas semanas antes de que arranque la siguiente.
@@ -8442,6 +9115,9 @@
         else if(def.format === 'paraguay-primera') careerWorldLeagueBuildSeasonParaguay(def, newRoster);
         else if(def.format === 'paraguay-segunda' || def.format === 'paraguay-primera-b' || def.format === 'paraguay-primera-c') careerWorldLeagueBuildSeasonParaguayLiga(def, newRoster);
         else if(def.format === 'paraguay-b-nacional') careerWorldLeagueBuildSeasonBNacional(def, newRoster);
+        else if(def.format === 'ecuador-primera') careerWorldLeagueBuildSeasonEcuadorPrimera(def, newRoster);
+        else if(def.format === 'ecuador-segunda') careerWorldLeagueBuildSeasonEcuadorSegunda(def, newRoster);
+        else if(def.format === 'ecuador-tercera') careerWorldLeagueBuildSeasonEcuadorTercera(def, newRoster);
         else careerWorldLeagueBuildSeason(def, newRoster);
         league = wl[def.key];
       }
@@ -8455,6 +9131,9 @@
       else if(def.format === 'paraguay-primera-b') careerWorldLeagueCatchUpParaguayPrimeraB(league);
       else if(def.format === 'paraguay-primera-c') careerWorldLeagueCatchUpParaguayPrimeraC(league);
       else if(def.format === 'paraguay-b-nacional') careerWorldLeagueCatchUpBNacional(league);
+      else if(def.format === 'ecuador-primera') careerWorldLeagueCatchUpEcuadorPrimera(league);
+      else if(def.format === 'ecuador-segunda') careerWorldLeagueCatchUpEcuadorSegunda(league);
+      else if(def.format === 'ecuador-tercera') careerWorldLeagueCatchUpEcuadorTercera(league);
       else careerWorldLeagueCatchUp(league);
     });
     careerEnsureParaguayTerceraPromocion();
@@ -8470,6 +9149,8 @@
     // y su tabla de la temporada anterior).
     careerEnsureCopaLigaChile();
     careerEnsureChileCopas();
+    careerEnsureCopaEcuador();
+    careerEnsureSupercopaEcuador();
   }
   // ---------- Chile: Copa de la Liga ----------
   // Se juega ANTES de la Liga de Primera, con los mismos 16 equipos: 4 grupos de 4 (todos contra
@@ -11506,6 +12187,133 @@
     }
     return html;
   }
+  // LigaPro Serie A de Ecuador: Fase Inicial (tabla única) + Hexagonal Final + Cuadrangular de
+  // Copa Sudamericana + Hexagonal del Descenso. Las tres tablas de grupo ya vienen con los puntos
+  // de la Fase Inicial sumados (ver careerWorldLeagueCatchUpEcuadorPrimera), así que se muestran
+  // como cualquier tabla de posiciones, sin distinguir "puntos previos" de "puntos del grupo".
+  function renderWorldLeagueEcuadorPrimera(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    function simpleTable(rows, opts){
+      opts = opts || {};
+      return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        let style = '', tag = '';
+        if(opts.corte && opts.corte.includes(i+1)) style = 'border-left:4px solid var(--gold);';
+        if(opts.champion === r.id){ style = 'border-left:4px solid var(--gold-bright);'; tag = ' <span style="color:var(--gold-bright);font-size:11px;">&#127942; campeón</span>'; }
+        else if(opts.libertadoresGrupos && opts.libertadoresGrupos.includes(r.id)) tag = ' <span style="color:var(--gold-bright);font-size:11px;">&#127942; Libertadores (grupos)</span>';
+        else if(opts.libertadoresFase2 && opts.libertadoresFase2.includes(r.id)) tag = ' <span style="color:var(--gold);font-size:11px;">Libertadores (fase 2)</span>';
+        else if(opts.sudamericana === r.id) tag = ' <span style="color:var(--green-win);font-size:11px;">Sudamericana</span>';
+        else if(opts.desciende && opts.desciende.includes(r.id)){ style = 'border-left:4px solid var(--red);'; tag = ' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>'; }
+        return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+    }
+    let html = `<div class="panel"><h3>Fase Inicial</h3><p class="hint">Todos contra todos a dos ruedas (30 fechas). 1° a 6°: Hexagonal Final &middot; 7° a 10°: Cuadrangular de Copa Sudamericana &middot; 11° a 16°: Hexagonal del Descenso.</p>${league.table.length ? simpleTable(league.table, {corte:[6,10]}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    if(league.grupos){
+      const g = league.grupos;
+      html += `<div class="panel"><h3>Hexagonal Final</h3><p class="hint">Ida y vuelta entre los 6 mejores de la Fase Inicial, conservando los puntos ya sacados entre sí. El campeón del hexagonal es el campeón de la LigaPro.</p>${g.final.table.length ? simpleTable(g.final.table, {
+        champion: league.stage === 'done' ? league.championId : null,
+        libertadoresGrupos: league.stage === 'done' ? league.libertadoresGruposIds : [],
+        libertadoresFase2: league.stage === 'done' ? league.libertadoresFase2Ids : []
+      }) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+      html += `<div class="panel"><h3>Cuadrangular de Copa Sudamericana</h3><p class="hint">Ida y vuelta entre los puestos 7° a 10° de la Fase Inicial. El ganador se lleva la plaza a la Copa Sudamericana.</p>${g.sudamericana.table.length ? simpleTable(g.sudamericana.table, {
+        sudamericana: league.stage === 'done' ? league.sudamericanaIds[0] : null
+      }) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+      html += `<div class="panel"><h3>Hexagonal del Descenso</h3><p class="hint">Ida y vuelta entre los puestos 11° a 16° de la Fase Inicial. Los dos últimos pierden la categoría y bajan a la Serie B.</p>${g.descenso.table.length ? simpleTable(g.descenso.table, {
+        desciende: league.stage === 'done' ? league.relegatedIds : []
+      }) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    }
+    if(league.stage === 'done'){
+      const libGrupos = league.libertadoresGruposIds.map(id => escapeHtml(byId[id].name)).join(', ');
+      const libFase2 = league.libertadoresFase2Ids.map(id => escapeHtml(byId[id].name)).join(', ');
+      const sud = league.sudamericanaIds.map(id => escapeHtml(byId[id].name)).join(', ');
+      const desc = league.relegatedIds.map(id => escapeHtml(byId[id].name)).join(', ');
+      html += `<div class="panel"><h3>Copas Internacionales ${league.year}</h3>
+        <p class="hint">Libertadores &middot; fase de grupos: <strong style="color:var(--ink);">${libGrupos}</strong></p>
+        <p class="hint">Libertadores &middot; fase 2: <strong style="color:var(--ink);">${libFase2}</strong></p>
+        <p class="hint">Sudamericana: <strong style="color:var(--ink);">${sud}</strong> &middot; el cupo del campeón de la Copa Ecuador se define aparte (ver Copa Ecuador).</p>
+        <p class="hint">Descienden a la Serie B: <strong style="color:var(--ink);">${desc}</strong></p>
+      </div>`;
+    }
+    return html;
+  }
+  // Serie B de Ecuador: Fase de Clasificación (tabla única) + Hexagonal de Ascenso + Hexagonal del
+  // Descenso, con el mismo criterio de arrastre de puntos que la Serie A.
+  function renderWorldLeagueEcuadorSegunda(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    function simpleTable(rows, opts){
+      opts = opts || {};
+      return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        let style = '', tag = '';
+        if(opts.corte != null && (i+1) === opts.corte) style = 'border-left:4px solid var(--gold);';
+        if(opts.asciende && opts.asciende.includes(r.id)){ style = 'border-left:4px solid var(--green-win);'; tag = ' <span style="color:var(--green-win);font-size:11px;">&#9650; asciende</span>'; }
+        else if(opts.desciende && opts.desciende.includes(r.id)){ style = 'border-left:4px solid var(--red);'; tag = ' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>'; }
+        return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+    }
+    let html = `<div class="panel"><h3>Fase de Clasificación</h3><p class="hint">Todos contra todos a dos ruedas (22 fechas). 1° a 6°: Hexagonal de Ascenso &middot; 7° a 12°: Hexagonal del Descenso.</p>${league.table.length ? simpleTable(league.table, {corte:6}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    if(league.grupos){
+      const g = league.grupos;
+      html += `<div class="panel"><h3>Hexagonal de Ascenso</h3><p class="hint">Ida y vuelta entre los 6 mejores de la Fase de Clasificación, conservando los puntos ya sacados entre sí. Los 2 primeros ascienden a la Serie A.</p>${g.ascenso.table.length ? simpleTable(g.ascenso.table, {
+        asciende: league.stage === 'done' ? league.promotedIds : []
+      }) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+      html += `<div class="panel"><h3>Hexagonal del Descenso</h3><p class="hint">Ida y vuelta entre los puestos 7° a 12° de la Fase de Clasificación. Los dos últimos bajan a la Segunda Categoría.</p>${g.descenso.table.length ? simpleTable(g.descenso.table, {
+        desciende: league.stage === 'done' ? league.relegatedIds : []
+      }) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    }
+    if(league.stage === 'done'){
+      const asc = league.promotedIds.map(id => escapeHtml(byId[id].name)).join(', ');
+      const desc = league.relegatedIds.map(id => escapeHtml(byId[id].name)).join(', ');
+      html += `<div class="panel"><h3>Movimientos ${league.year}</h3>
+        <p class="hint">Ascienden a la Serie A: <strong style="color:var(--ink);">${asc}</strong></p>
+        <p class="hint">Descienden a la Segunda Categoría: <strong style="color:var(--ink);">${desc}</strong></p>
+      </div>`;
+    }
+    return html;
+  }
+  // Segunda Categoría de Ecuador: Fase de Grupos (8 grupos de 6) + Cuadrangulares Semifinales (4
+  // cuadrangulares de 4) + Cuadrangular Final (4). Ninguna fase arrastra puntos de la anterior.
+  function renderWorldLeagueEcuadorTercera(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    function simpleTable(rows, opts){
+      opts = opts || {};
+      return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        let style = '', tag = '';
+        if(opts.clasifica != null && (i+1) <= opts.clasifica){ style = 'border-left:4px solid var(--gold);'; tag = ' <span style="color:var(--gold);font-size:11px;">clasifica</span>'; }
+        if(opts.asciende && opts.asciende.includes(r.id)){ style = 'border-left:4px solid var(--green-win);'; tag = ' <span style="color:var(--green-win);font-size:11px;">&#9650; asciende</span>'; }
+        return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+    }
+    let html = `<div class="panel"><h3>Fase de Grupos</h3><p class="hint">8 grupos de 6 equipos, todos contra todos a dos ruedas (10 fechas). Clasifican los 2 primeros de cada grupo a los Cuadrangulares Semifinales.</p></div>`;
+    Object.keys(league.grupos).forEach(gname => {
+      const g = league.grupos[gname];
+      html += `<div class="panel"><h3>${escapeHtml(gname)}</h3>${g.table.length ? simpleTable(g.table, {clasifica:2}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    });
+    if(league.semis){
+      html += `<div class="panel"><h3>Cuadrangulares Semifinales</h3><p class="hint">Los 16 clasificados de la Fase de Grupos, en 4 cuadrangulares de 4 (todos contra todos a dos ruedas, 6 fechas, tabla nueva). Solo el 1° de cada uno avanza al Cuadrangular Final.</p></div>`;
+      Object.keys(league.semis).forEach(sname => {
+        const g = league.semis[sname];
+        html += `<div class="panel"><h3>${escapeHtml(sname)}</h3>${g.table.length ? simpleTable(g.table, {clasifica:1}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+      });
+    }
+    if(league.final){
+      html += `<div class="panel"><h3>Cuadrangular Final</h3><p class="hint">Los 4 ganadores de los Cuadrangulares Semifinales, todos contra todos a dos ruedas (6 fechas, tabla nueva). El 1° es el campeón de la Segunda Categoría y asciende junto con el 2°; el 3° y el 4° se quedan.</p>${league.final.table.length ? simpleTable(league.final.table, {
+        asciende: league.stage === 'done' ? league.promotedIds : []
+      }) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    }
+    if(league.stage === 'done'){
+      const asc = league.promotedIds.map(id => escapeHtml(byId[id].name)).join(', ');
+      html += `<div class="panel"><h3>Movimientos ${league.year}</h3><p class="hint">Ascienden a la Serie B: <strong style="color:var(--ink);">${asc}</strong></p></div>`;
+    }
+    return html;
+  }
   function renderWorldLeagueUruguayCopa(league){
     const byId = {}; league.teams.forEach(t => byId[t.id] = t);
     const lv = id => URUGUAY_COPA_LEVEL_LABELS[league.levels[id]] || '';
@@ -11604,7 +12412,7 @@
     return html;
   }
   // Íconos de país para las tarjetas de "Ligas del Mundo" (fallback: globo terráqueo).
-  const COUNTRY_FLAGS = { 'Brasil': '&#127463;&#127479;', 'Uruguay': '&#127482;&#127466;', 'Chile': '&#127464;&#127473;', 'Paraguay': '&#127477;&#127486;', 'Colombia': '&#127464;&#127476;' };
+  const COUNTRY_FLAGS = { 'Brasil': '&#127463;&#127479;', 'Uruguay': '&#127482;&#127466;', 'Chile': '&#127464;&#127473;', 'Paraguay': '&#127477;&#127486;', 'Colombia': '&#127464;&#127476;', 'Ecuador': '&#127466;&#127464;' };
   // Tarjeta clicable genérica, misma pinta que competitionCard pero con una data-action propia.
   function worldNavCard(icon, title, subtitle, action, dataAttrs){
     return `<div class="cs-comp-card" data-action="${action}" ${dataAttrs}>
@@ -11727,6 +12535,12 @@
       const ko = league.knockoutRounds[league.knockoutRounds.length-1];
       return `${COPA_PARAGUAY_LABELS[ko.stage] || ko.stage} en curso`;
     }
+    if(league.format === 'copa-ecuador'){
+      if(!league.knockoutRounds || !league.knockoutRounds.length) return `Se arma apenas la Serie B y la Segunda Categoría cierren su fase clasificatoria`;
+      if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
+      const ko = league.knockoutRounds[league.knockoutRounds.length-1];
+      return `${COPA_ECUADOR_LABELS[ko.stage] || ko.stage} en curso`;
+    }
     if(league.format === 'partido-unico'){
       if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
       if(!league.match) return `Pendiente de los dos campeones de este año`;
@@ -11745,6 +12559,56 @@
       if(jugados === 0) return `Todavía no arrancó &middot; ${grupos.length} grupos de 6 equipos`;
       if(jugados === total) return `Fase de grupos completa &middot; arrancando la eliminatoria de ascenso`;
       return `Fase de grupos &middot; ${jugados}/${total} partidos jugados`;
+    }
+    if(league.format === 'ecuador-primera'){
+      if(league.stage === 'done') return `Campeón ${league.year}: ${escapeHtml(byId[league.championId].name)} &middot; Desciende: ${escapeHtml(league.relegatedIds.map(id=>byId[id].name).join(', '))}`;
+      if(league.stage === 'grupos'){
+        const total3 = ['final','sudamericana','descenso'].reduce((s,g)=>s+league.grupos[g].matches.length,0);
+        const jugados3 = ['final','sudamericana','descenso'].reduce((s,g)=>s+league.grupos[g].matches.filter(m=>m.played).length,0);
+        return `Hexagonal Final / Cuadrangular Sudamericana / Hexagonal Descenso &middot; ${jugados3}/${total3} partidos jugados`;
+      }
+      const jugadosFI = league.matches.filter(m=>m.played).length, totalFI = league.matches.length;
+      const totalRoundsFI = totalFI ? Math.max(...league.matches.map(m=>m.round)) : 0;
+      const roundsWithPlayFI = league.matches.filter(m=>m.played).map(m=>m.round);
+      const currentRoundFI = roundsWithPlayFI.length ? Math.max(...roundsWithPlayFI) : 0;
+      if(jugadosFI === 0) return `Todavía no arrancó &middot; Fase Inicial (${totalRoundsFI} fechas)`;
+      return `Fase Inicial &middot; Fecha ${currentRoundFI} de ${totalRoundsFI} &middot; ${jugadosFI}/${totalFI} partidos jugados`;
+    }
+    if(league.format === 'ecuador-segunda'){
+      if(league.stage === 'done'){
+        const h = league.history[0];
+        return `Ascienden a la Serie A ${league.year}: ${escapeHtml(h ? h.promotedNames : league.promotedIds.map(id=>byId[id].name).join(' y '))}`;
+      }
+      if(league.stage === 'hexagonales'){
+        const total4 = ['ascenso','descenso'].reduce((s,g)=>s+league.grupos[g].matches.length,0);
+        const jugados4 = ['ascenso','descenso'].reduce((s,g)=>s+league.grupos[g].matches.filter(m=>m.played).length,0);
+        return `Hexagonal de Ascenso / Hexagonal del Descenso &middot; ${jugados4}/${total4} partidos jugados`;
+      }
+      const jugadosFC = league.matches.filter(m=>m.played).length, totalFC = league.matches.length;
+      const totalRoundsFC = totalFC ? Math.max(...league.matches.map(m=>m.round)) : 0;
+      const roundsWithPlayFC = league.matches.filter(m=>m.played).map(m=>m.round);
+      const currentRoundFC = roundsWithPlayFC.length ? Math.max(...roundsWithPlayFC) : 0;
+      if(jugadosFC === 0) return `Todavía no arrancó &middot; Fase de Clasificación (${totalRoundsFC} fechas)`;
+      return `Fase de Clasificación &middot; Fecha ${currentRoundFC} de ${totalRoundsFC} &middot; ${jugadosFC}/${totalFC} partidos jugados`;
+    }
+    if(league.format === 'ecuador-tercera'){
+      if(league.stage === 'done'){
+        const h = league.history[0];
+        return `Ascienden a la Serie B ${league.year}: ${escapeHtml(h ? h.championName : byId[league.championId].name)} y ${escapeHtml(byId[league.promotedIds[1]].name)}`;
+      }
+      if(league.stage === 'final'){
+        const total5 = league.final.matches.length, jugados5 = league.final.matches.filter(m=>m.played).length;
+        return `Cuadrangular Final &middot; ${jugados5}/${total5} partidos jugados`;
+      }
+      if(league.stage === 'semis'){
+        const total6 = Object.values(league.semis).reduce((s,g)=>s+g.matches.length,0);
+        const jugados6 = Object.values(league.semis).reduce((s,g)=>s+g.matches.filter(m=>m.played).length,0);
+        return `Cuadrangulares Semifinales &middot; ${jugados6}/${total6} partidos jugados`;
+      }
+      const total7 = Object.values(league.grupos).reduce((s,g)=>s+g.matches.length,0);
+      const jugados7 = Object.values(league.grupos).reduce((s,g)=>s+g.matches.filter(m=>m.played).length,0);
+      if(jugados7 === 0) return `Todavía no arrancó &middot; Fase de Grupos (8 grupos de 6 equipos)`;
+      return `Fase de Grupos &middot; ${jugados7}/${total7} partidos jugados`;
     }
     const jugados = league.matches.filter(m=>m.played).length;
     const total = league.matches.length;
@@ -12049,6 +12913,55 @@
     html += `</div>`;
     return html;
   }
+  // Cuadro completo de la Copa Ecuador: Primera Etapa (localía real, se aclara la categoría de cada
+  // equipo) y de ahí Dieciseisavos, Octavos, Cuartos, Semis y Final, todo a cancha neutral.
+  function renderWorldLeagueCopaEcuador(league){
+    if(!league.knockoutRounds || !league.knockoutRounds.length) return `<div class="panel"><p class="hint">Todavía no arrancó.</p></div>`;
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    let html = '';
+    league.knockoutRounds.forEach(round => {
+      const neutral = round.stage !== 'primera-etapa';
+      html += `<div class="panel"><h3>${COPA_ECUADOR_LABELS[round.stage] || round.stage}</h3>${neutral ? '' : '<p class="hint">Localía para el equipo de menor categoría.</p>'}`;
+      round.pairs.forEach(pair => {
+        const teamA = pair.teamA === null ? null : byIdAll[pair.teamA], teamB = pair.teamB === null ? null : byIdAll[pair.teamB];
+        if(!teamA || !teamB){
+          const solo = teamA || teamB;
+          html += `<div class="cs-fixture-card"><div>${escapeHtml(solo.name)} <span class="hint">(libre)</span></div><div class="num"><span style="color:var(--gold-bright);">avanza directo</span></div></div>`;
+          return;
+        }
+        html += `<div class="cs-fixture-card"><div>${escapeHtml(teamA.name)}${neutral?'':' <span class="hint">(local)</span>'} vs ${escapeHtml(teamB.name)}</div><div class="num">`;
+        html += (pair.match && pair.match.played) ? ` ${pair.match.homeScore}-${pair.match.awayScore}` : ' &mdash;';
+        if(pair.winnerId){
+          const w = byIdAll[pair.winnerId];
+          html += ` &middot; <span style="color:var(--gold-bright);">avanza ${escapeHtml(w.name)}${pair.wentToPenalties?' (penales)':''}</span>`;
+        }
+        html += `</div></div>`;
+      });
+      html += `</div>`;
+    });
+    if(league.championId){
+      const champ = byIdAll[league.championId];
+      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Copa Ecuador ${league.year}: <strong>${escapeHtml(champ.name)}</strong> &mdash; clasifica a la Fase 1 de la Copa Libertadores (si ya está clasificado por la Serie A, el cupo pasa al subcampeón, y así sucesivamente hasta encontrar uno que no lo esté; se muestra a título informativo, todavía no está conectado al resto de los cupos de la Serie A) y a la Supercopa de Ecuador.</div>`;
+    }
+    return html;
+  }
+  // Tarjeta de la Supercopa de Ecuador: partido único a cancha neutral. Si el campeón de la Serie A
+  // y el de la Copa Ecuador son el mismo equipo, el rival pasa a ser el subcampeón de la Copa
+  // Ecuador (a diferencia de otras supercopas de este juego, acá sí se juega el partido).
+  function renderWorldLeagueSupercopaEcuador(league){
+    if(!league.match) return `<div class="panel"><p class="hint">Se arma cuando ya están el campeón de la Copa Ecuador y el campeón de la Serie A de la temporada.</p></div>`;
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    const m = league.match;
+    const teamA = byIdAll[m.home], teamB = byIdAll[m.away];
+    let html = `<div class="panel">`;
+    if(league.rivalIsRunnerUp) html += `<p class="hint">${escapeHtml(teamA.name)} salió campeón de la Serie A y de la Copa Ecuador, así que el rival pasa a ser el subcampeón de la Copa Ecuador.</p>`;
+    html += `<div class="cs-fixture-card"><div>${escapeHtml(teamA.name)} vs ${escapeHtml(teamB.name)} <span class="hint">(cancha neutral)</span></div><div class="num">${m.played ? `${m.homeScore} &ndash; ${m.awayScore}` : '&mdash;'}</div></div>`;
+    if(league.championId){
+      html += `<p class="hint" style="margin-top:10px;">&#127942; Campeón de la Supercopa de Ecuador ${league.year}: <strong>${escapeHtml(byIdAll[league.championId].name)}</strong>${league.wentToPenalties?' (penales)':''}</p>`;
+    }
+    html += `</div>`;
+    return html;
+  }
   // ---------- Ligas del Mundo: navegación en 3-4 niveles (país -> competición -> [grupo] -> pestaña) ----------
   function renderCareraLigasMundo(){
     const c = state.career;
@@ -12111,10 +13024,11 @@
 
     // Copa do Brasil y Supercopa do Brasil: eliminatoria/partido único sin pestañas de Tabla, ya
     // que no hay una tabla de posiciones que mostrar, solo el cuadro (o el partido) en sí.
-    if(league.format === 'copa-eliminacion' || league.format === 'copa-paraguay' || league.format === 'partido-unico' || league.format === 'uruguay-copa' || league.format === 'uruguay-supercopa' || league.format === 'chile-copa-liga' || league.format === 'chile-copa' || league.format === 'chile-supercopa' || league.format === 'colombia-copa' || league.format === 'colombia-supercopa'){
+    if(league.format === 'copa-eliminacion' || league.format === 'copa-paraguay' || league.format === 'copa-ecuador' || league.format === 'partido-unico' || league.format === 'uruguay-copa' || league.format === 'uruguay-supercopa' || league.format === 'chile-copa-liga' || league.format === 'chile-copa' || league.format === 'chile-supercopa' || league.format === 'colombia-copa' || league.format === 'colombia-supercopa'){
       let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
       if(league.format === 'copa-eliminacion') html += renderWorldLeagueKnockoutCopa(league);
       else if(league.format === 'copa-paraguay') html += renderWorldLeagueCopaParaguay(league);
+      else if(league.format === 'copa-ecuador') html += renderWorldLeagueCopaEcuador(league);
       else if(league.format === 'colombia-copa') html += renderWorldLeagueColombiaCopa(league);
       else if(league.format === 'colombia-supercopa') html += renderWorldLeagueColombiaSupercopa(league);
       else if(league.format === 'uruguay-copa') html += renderWorldLeagueUruguayCopa(league);
@@ -12123,6 +13037,7 @@
       else if(league.format === 'chile-copa') html += renderWorldLeagueChileCopa(league);
       else if(league.format === 'chile-supercopa') html += renderWorldLeagueChileSupercopa(league);
       else if(league.key === 'supercopa-paraguay') html += renderWorldLeagueSupercopaParaguay(league);
+      else if(league.key === 'supercopa-ecuador') html += renderWorldLeagueSupercopaEcuador(league);
       else html += renderWorldLeagueSupercopa(league);
       if(league.history && league.history.length > 1){
         const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
@@ -12163,6 +13078,39 @@
       if(league.history && league.history.length > 1){
         const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
         html += `<div class="panel"><h3>Temporadas anteriores</h3><table><thead><tr><th>Año</th><th>Resumen</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      return html;
+    }
+
+    // LigaPro Serie A de Ecuador: formato propio, todo en un solo panel.
+    if(league.format === 'ecuador-primera'){
+      let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
+      html += renderWorldLeagueEcuadorPrimera(league);
+      if(league.history && league.history.length > 1){
+        const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
+        html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      return html;
+    }
+
+    // Serie B de Ecuador: formato propio, todo en un solo panel.
+    if(league.format === 'ecuador-segunda'){
+      let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
+      html += renderWorldLeagueEcuadorSegunda(league);
+      if(league.history && league.history.length > 1){
+        const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.promotedNames)}</td></tr>`).join('');
+        html += `<div class="panel"><h3>Temporadas anteriores</h3><table><thead><tr><th>Año</th><th>Ascendieron a la Serie A</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      return html;
+    }
+
+    // Segunda Categoría de Ecuador: formato propio, todo en un solo panel.
+    if(league.format === 'ecuador-tercera'){
+      let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
+      html += renderWorldLeagueEcuadorTercera(league);
+      if(league.history && league.history.length > 1){
+        const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
+        html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
       }
       return html;
     }
