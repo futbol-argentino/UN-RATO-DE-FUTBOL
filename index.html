@@ -6327,6 +6327,205 @@
       pendingHint: 'Se arma cuando termina la temporada de la Liga BetPlay DIMAYOR (Apertura y Clausura).'
     },
     {
+      // Liga1 de Perú (Primera División). Ya está cargada la Liga2 peruana ('peru-segunda', ver más
+      // abajo), así que el ascenso/descenso entre ambas es real: los 2 descendidos por la Tabla
+      // Anual bajan a Liga2 y son reemplazados por el campeón y el segundo ascendido de Liga2 (ver
+      // careerEnsurePeruLeagues, que sincroniza el arranque de las dos categorías igual que
+      // careerEnsureUruguayLeagues con sus 4). También está cargada la Liga3 ('peru-tercera'), pero
+      // corre en paralelo sin tocar el plantel de Liga2 todavía (ver el comentario del registro de
+      // Liga3), así que acá arriba no cambia nada. Formato propio ('peru-primera'), resuelto en careerEnsurePeruLeagues /
+      // careerWorldLeagueCatchUpPeruPrimera:
+      // Torneo Apertura (todos contra todos a una sola rueda, 17 fechas) -> Torneo Clausura (mismo
+      // fixture con las localías invertidas) -> Tabla Anual (suma de puntos de Apertura + Clausura).
+      // Playoffs por el título: se arman 4 cupos con el campeón del Apertura, el campeón del
+      // Clausura, el 1° y el 2° de la Tabla Anual. El reglamento que pasó el usuario deja dos huecos
+      // sin especificar del todo y acá se resuelven así (mismo criterio "se busca al siguiente que no
+      // haya sido campeón" que ya usa el reglamento para el cruce 1°/2° vs campeones):
+      //  - Si un campeón (Apertura o Clausura) termina 9° o peor en la Tabla Anual, pierde su cupo y
+      //    ese lugar lo ocupa el mejor ubicado de la Tabla Anual que todavía no tenga cupo.
+      //  - Los cupos de Tabla Anual (1°, 2°, y los que hagan falta si coinciden con algún campeón) se
+      //    completan siempre con el próximo mejor ubicado sin cupo todavía.
+      // Las semifinales cruzan 1° vs 4° y 2° vs 3° del orden por Tabla Anual entre esos 4 clasificados
+      // (el reglamento no especifica los cruces, así que se usa el cruce estándar por semilla) — ida y
+      // vuelta, vuelta en la cancha del mejor ubicado en la Tabla Anual, penales directos si el global
+      // sigue empatado (misma simplificación sin alargue que ya usa el resto del juego). La final es
+      // ida y vuelta entre los dos ganadores, con el mismo criterio de localía y penales.
+      // Si el mismo equipo gana el Apertura y el Clausura, sale campeón nacional directo sin jugar los
+      // playoffs por el título; en ese caso se juega igual una llave de semis + final (mismo formato,
+      // entre el 1° al 4° de la Tabla Anual sin contar al bicampeón) para definir al subcampeón.
+      // Descenso: los 2 últimos de la Tabla Anual (se marcan nada más, ver arriba).
+      // Copas internacionales: campeón y subcampeón a la fase de grupos de la Libertadores; 3° de la
+      // Tabla Anual (sin contar campeón/subcampeón) a la fase 2; 4° a la fase 1; 5° a 8° a la fase de
+      // grupos de la Sudamericana. Se guardan los cupos para mostrarlos, aunque todavía no haya un
+      // cuadro propio de esas copas para Perú en este simulador.
+      key: 'peru-primera',
+      country: 'Peru',
+      name: 'Liga1 Perú',
+      format: 'peru-primera',
+      teams: [
+        { name:'Alianza Lima', elo:1766 }, { name:'Universitario de Deportes', elo:1764 },
+        { name:'Melgar', elo:1749 }, { name:'Cienciano', elo:1702 },
+        { name:'Sporting Cristal', elo:1684 }, { name:'Cusco FC', elo:1671 },
+        { name:'Sport Huancayo', elo:1657 }, { name:'Alianza Atletico', elo:1639 },
+        { name:'Deportivo Garcilaso', elo:1625 }, { name:'Sport Boys', elo:1618 },
+        { name:'Comerciantes Unidos', elo:1599 }, { name:'Los Chankas', elo:1553 },
+        { name:'Atletico Grau', elo:1536 }, { name:'Juan Pablo II', elo:1532 },
+        { name:'Cajamarca', elo:1519 }, { name:'UTC Cajamarca', elo:1515 },
+        { name:'ADT Tarma', elo:1514 }, { name:'Monquegua', elo:1496 }
+      ]
+    },
+    {
+      // Liga2 Perú (Segunda División), formato propio ('peru-segunda'), resuelto en
+      // careerWorldLeagueBuildSeasonPeruSegunda / careerWorldLeagueCatchUpPeruSegunda y sincronizado
+      // con Liga1 en careerEnsurePeruLeagues (mismo criterio de "esperar a que ambas terminen antes
+      // de mover una sola ficha" que ya usa Uruguay con sus 4 categorías):
+      // Fase Regional: los 18 equipos se sortean en 2 grupos de 9, todos contra todos a 2 ruedas.
+      // Del 1° al 6° de cada grupo (12 en total) pasan a la Fase Final por el campeonato; del 7° al
+      // 9° (6 en total), a la Fase Final por la permanencia.
+      // Fase Final por el campeonato: los 12 clasificados se dividen en 3 grupos de 4. La letra
+      // chica no dice cómo armarlos a partir de los 2 grupos regionales (solo lo hace para la Liga3,
+      // con 4 grupos) — acá se entrelazan por posición (serpentina) para repartir parejo la fuerza
+      // de cada zona: Grupo 1 = 1°A, 2°B, 4°A, 5°B; Grupo 2 = 1°B, 3°A, 4°B, 6°A; Grupo 3 = 2°A, 3°B,
+      // 5°A, 6°B. Juegan todos contra todos a 2 ruedas, arrastrando la bonificación de la Fase
+      // Regional (1° de grupo +2, mejor 2° +2, el otro 2° +1, 3° +1, 4° a 6° sin bonificación).
+      // Clasifican a semis el 1° de cada uno de los 3 grupos más el mejor 2° (comparando puntos,
+      // diferencia de gol, goles a favor y ELO entre los tres 2°). Como la letra chica pide ordenar
+      // a estos 4 clasificados por "la tabla anual" (un concepto que no existe en la Liga2), acá se
+      // arma una tabla combinada con los resultados de los 3 grupos de esta fase final (bonificación
+      // incluida) y esa es la que se usa para sembrar las semis y decidir la localía de la vuelta en
+      // cada llave — mismo criterio que ya usa este motor para resolver huecos parecidos en la letra
+      // chica de Liga1 Perú. Semis 1° vs 4° y 2° vs 3°, ida y vuelta, vuelta de local el mejor
+      // ubicado, penales directos si el global sigue empatado. Final entre los 2 ganadores con el
+      // mismo criterio: el ganador es el campeón de Liga2 y asciende a Liga1. Los 2 perdedores de
+      // semis juegan un repechaje ida y vuelta (localía de la vuelta para el mejor ubicado de los
+      // dos, mismo criterio); el ganador del repechaje enfrenta al perdedor de la final en un partido
+      // único (de local el perdedor de la final, como pide la letra chica) — el ganador de ese
+      // partido es el segundo ascendido a Liga1, con penales directos si termina empatado.
+      // Fase Final por la permanencia: los 3 últimos de cada grupo regional forman, cada uno, su
+      // propio grupo de descenso de 3 equipos (sin mezclarse entre sí), todos contra todos a 2
+      // ruedas; el último de cada grupo desciende a Liga3. Liga3 ya está cargada, pero el reglamento
+      // no cierra la cuenta entre las dos categorías (Liga2 sólo baja 2 pero Liga3 sube 3, ver el
+      // comentario del registro de Liga3), así que todavía no hay un intercambio real de planteles:
+      // se marca nada más quién bajaría (mismo criterio que ya usa Liga1 Perú) y esos 2 equipos siguen
+      // en Liga2 la temporada siguiente.
+      // Liga1 <-> Liga2: los 2 ascendidos de Liga2 (campeón y segundo ascendido) ocupan el lugar de
+      // los 2 descendidos de Liga1 por la Tabla Anual, y viceversa (mismo criterio de intercambio y
+      // de restarle 100 de ELO al que sube "crudo" que ya usa el resto del juego).
+      key: 'peru-segunda',
+      country: 'Peru',
+      name: 'Liga2 Perú',
+      format: 'peru-segunda',
+      teams: [
+        { name:'Comerciantes FC', elo:1536 }, { name:'Deportivo Llacuabamba', elo:1527 },
+        { name:'Bentin Tacna Heroica', elo:1517 }, { name:'Unión Minas', elo:1515 },
+        { name:'Alianza Universidad', elo:1491 }, { name:'Universidad Cesar Vallejo', elo:1466 },
+        { name:'Unión Comercio', elo:1443 }, { name:'Ayacucho FC', elo:1440 },
+        { name:'Club Ada Jaen', elo:1435 }, { name:'Universidad San Martin', elo:1426 },
+        { name:'Carlos Mannucci', elo:1422 }, { name:'Sport Huancayo II', elo:1421 },
+        { name:'Santos FC Nasca', elo:1400 }, { name:'Estudiantil CNI', elo:1350 },
+        { name:'Molinos El Pirata', elo:1324 }, { name:'Academia Cantolao', elo:1232 },
+        { name:'Deportivo Binacional', elo:1169 }, { name:'FC San Marcos', elo:1165 }
+      ]
+    },
+    {
+      // Liga3 Perú (Tercera División), formato propio ('peru-tercera'), resuelto en
+      // careerWorldLeagueBuildSeasonPeruTercera / careerWorldLeagueCatchUpPeruTercera y agregado a la
+      // sincronización de careerEnsurePeruLeagues (Liga1 y Liga2 siguen viéndose entre sí igual que
+      // antes; Liga3 corre en paralelo, ver más abajo por qué todavía no hay intercambio real de
+      // equipos con Liga2):
+      // Fase Regional: los 37 equipos se sortean en 4 grupos (10/9/9/9, la letra chica no especifica
+      // el criterio de armado — mismo sorteo sin regla explícita que ya usa Liga2 con sus 2 grupos),
+      // todos contra todos a 2 ruedas. Los 4 primeros de cada grupo (16 en total) pasan a la Fase
+      // Final.
+      // Fase Final: 4 grupos de 4, cruzando los grupos regionales de a pares tal como pide la letra
+      // chica: Grupo A = 1°G1, 2°G2, 3°G1, 4°G2; Grupo B = 1°G2, 2°G1, 3°G2, 4°G1; Grupo C = 1°G3,
+      // 2°G4, 3°G3, 4°G4; Grupo D = 1°G4, 2°G3, 3°G4, 4°G3. El reglamento que pasó el usuario repetía
+      // "1° grupo 3" en el Grupo D en vez de "2° grupo 3" — un error de tipeo evidente por el patrón
+      // simétrico de los otros 3 grupos (si no, el 1° del Grupo 3 jugaría en el Grupo C Y en el Grupo
+      // D, y el 2° del Grupo 3 no jugaría ningún grupo) — así que acá se resuelve como "2° grupo 3".
+      // Arrastran bonificación de la Fase Regional (1° de grupo +2, 2° +1, 3° y 4° sin bonificación) y
+      // juegan todos contra todos a 2 ruedas.
+      // Playoffs: cuartos de final entre los 8 clasificados (1° y 2° de cada uno de los 4 grupos de
+      // la Fase Final): 1°A vs 2°B, 1°B vs 2°A, 1°C vs 2°D, 1°D vs 2°C, ida y vuelta, de local el
+      // primer partido el 2° de cada grupo (o sea, la vuelta la juega de local el 1°, mismo criterio
+      // que el resto del simulador), penales directos si el global sigue empatado (sin alargue, misma
+      // simplificación de siempre). Semifinales entre los 4 ganadores, ida y vuelta, localía de la
+      // vuelta para el mejor ubicado en la "tabla anual" — un concepto que Liga3 no tiene (mismo hueco
+      // que ya resolvió Liga2 Perú): se arma una tabla combinada de los 4 grupos de la Fase Final
+      // (bonificación incluida) y esa ordena las semis; tampoco especifica los cruces, así que se usa
+      // el cruce estándar por semilla (1° vs 4°, 2° vs 3°). Final entre los 2 ganadores con el mismo
+      // criterio de localía y penales; el ganador es el campeón de Liga3 y asciende a Liga2.
+      // Segundo y tercer ascenso: la letra chica pide un triangular (todos contra todos a una rueda)
+      // entre "los 3 perdedores de las semifinales", pero las semis (4 equipos, 2 llaves) sólo dejan 2
+      // perdedores, no 3 — otro hueco de la letra chica. Se resuelve completando el triangular con el
+      // mejor ubicado (según la tabla combinada de la Fase Final) entre los 4 perdedores de cuartos de
+      // final, mismo criterio de "se completa con el próximo mejor ubicado" que ya usa Liga1 Perú para
+      // completar sus propios cupos. El 1° y el 2° de ese triangular ascienden también a Liga2 (además
+      // del campeón, o sea que Liga3 aporta 3 ascendidos por temporada).
+      // Liga2 &harr; Liga3: el reglamento no cierra la cuenta entre las dos categorías (Liga2 sólo baja
+      // 2 equipos por temporada pero Liga3 sube 3), así que todavía no hay un intercambio real de
+      // planteles entre ambas — Liga3 corre self-contenida con su propio plantel de 37 (se marca nada
+      // más quién ascendería). El reglamento tampoco menciona descensos de Liga3, así que no se calcula
+      // ninguno (es el último nivel cargado).
+      key: 'peru-tercera',
+      country: 'Peru',
+      name: 'Liga3 Perú',
+      format: 'peru-tercera',
+      teams: [
+        { name:'Unión Santo Domingo', elo:1473 }, { name:'Melgar II', elo:1450 },
+        { name:'ASA de Chancay', elo:1450 }, { name:'Pacifico', elo:1475 },
+        { name:'Alianza Lima II', elo:1537 }, { name:'Juventud Cautivo', elo:1500 },
+        { name:'Juan Aurich', elo:1347 }, { name:'ECOSEM Pasco', elo:1644 },
+        { name:'Volante', elo:1500 }, { name:'Sporting Cristal II', elo:1550 },
+        { name:'Universitario de Deportes II', elo:1613 }, { name:'Valle Sagrado', elo:1600 },
+        { name:'Unión Huaral', elo:1253 }, { name:'Sporting Company SA', elo:1300 },
+        { name:'Juventud Huracan', elo:1618 }, { name:'Deportivo Ucrania', elo:1500 },
+        { name:'Pariacoto', elo:1500 }, { name:'Deportivo Lute', elo:1500 },
+        { name:'Universidad Cesar Vallejo II', elo:1500 }, { name:'Nacional FBC', elo:1500 },
+        { name:'Juventud Santo Domingo', elo:1473 }, { name:'ANBA Perú', elo:1300 },
+        { name:'Nuevo San Cristóbal', elo:1300 }, { name:'Municipal de Pangoa', elo:1300 },
+        { name:'ADT Tahuishco', elo:1300 }, { name:'UDA', elo:1300 },
+        { name:'Sport Boys II', elo:1300 }, { name:'ADT Tarma II', elo:1300 },
+        { name:'Cienciano II', elo:1300 }, { name:'Coopsol', elo:1297 },
+        { name:'Patriotas', elo:1300 }, { name:'Ucayali', elo:1300 },
+        { name:'Amazon Callao', elo:1300 }, { name:'Corazon de Leon', elo:1497 },
+        { name:'Juventus Huamachuco', elo:1300 }, { name:'Carlos Stein', elo:1006 },
+        { name:'Defensor Arguedas', elo:1500 }
+      ]
+    },
+    {
+      // Copa Peru (Copa Caliente de la Liga), formato propio ('peru-copa'), resuelto en
+      // careerWorldLeagueBuildCopaPeru / careerWorldLeagueCatchUpCopaPeru y armada apenas
+      // careerEnsurePeruLeagues arranca la temporada de Liga1 y Liga2 (careerEnsureCopaPeru, llamada
+      // justo después). Sin plantel propio: usa los 18 de Liga1 más 16 de Liga2 (la letra chica pide
+      // "16 de la liga2" sin decir cuáles de los 18 quedan afuera — se sortean cada temporada).
+      // Fase de grupos: 10 grupos (4 de 4 equipos, 6 de 3), todos contra todos a una sola rueda, con
+      // el tope de "máximo 2 de la misma división por grupo". Ese tope, junto con el tamaño de cada
+      // grupo, deja una única repartición posible entre Liga1 y Liga2 (ver el comentario de
+      // careerWorldLeagueBuildCopaPeru): los 4 grupos de 4 son siempre 2+2, y de los 6 grupos de 3,
+      // 4 son 2 de Liga1 + 1 de Liga2 y los otros 2 son 1 de Liga1 + 2 de Liga2.
+      // Clasificación: de los grupos de 4 pasan los 2 primeros (8 en total); de los grupos de 3 pasan
+      // los 6 primeros más los 2 mejores segundos (comparando puntos, diferencia de gol, goles a
+      // favor y ELO entre los 6 segundos) — otros 8, para completar los 16 de octavos.
+      // Octavos y cuartos: partido único, cruces por sorteo, penales directos si hay empate (mismo
+      // criterio sin alargue que usa el resto del simulador); partidos en cancha neutral, como ya
+      // hace este motor con el resto de las llaves sorteadas (Copa Argentina, Copa Chile, etc.).
+      // Semifinales: ida y vuelta, penales directos si el global sigue empatado. La letra chica no
+      // dice quién juega de local la vuelta (acá no hay ninguna tabla que abarque a los 4 semi-
+      // finalistas, que vienen de grupos de distinto tamaño) — se resuelve con el mismo criterio que
+      // ya usa este motor para desempatar sin dato disponible: juega de local el de mayor ELO.
+      // Final: partido único, penales directos si hay empate.
+      // Premio: el campeón no obtiene cupo a Libertadores ni Sudamericana. Si el campeón y/o el
+      // subcampeón pertenecen a Liga1, se les suma la bonificación (+2 y +1 respectivamente) a su
+      // Tabla Anual de esa misma temporada (ver careerWorldLeagueCatchUpPeruPrimera); si alguno de
+      // los dos es un equipo de Liga2, esa bonificación no tiene dónde aplicarse y se pierde.
+      key: 'peru-copa',
+      country: 'Peru',
+      name: 'Copa Caliente de la Liga',
+      format: 'peru-copa',
+      pendingHint: 'Se arma junto con la temporada de Liga1 y Liga2 Perú.'
+    },
+    {
       // Primera División de Chile (Liga de Primera). Todos contra todos a dos ruedas. Los 2 últimos Los 2 últimos
       // (15° y 16°) descienden directo a la Primera B y los 2 ascendidos de la Primera B ocupan su
       // lugar (CHILE_PYRAMID + careerWorldLeaguePyramidNewRosters: la pirámide espera a que las dos
@@ -6854,6 +7053,51 @@
     arr.forEach(r => r.dg = r.gf - r.gc);
     arr.sort((x,y) => y.pts - x.pts || y.dg - x.dg || y.gf - x.gf || (byId[y.id].elo - byId[x.id].elo));
     return arr;
+  }
+  // Igual que computeGenericStandings, pero arrancando cada equipo con los puntos de bonificación
+  // que traiga de una fase anterior (`bonus`, un objeto {id: puntos}) — lo usa la Fase Final de
+  // Liga2 Perú, que arrastra puntos según la posición obtenida en la Fase Regional.
+  function computeGenericStandingsWithBonus(matches, teams, bonus){
+    const rows = {};
+    teams.forEach(t => { const b = (bonus && bonus[t.id]) || 0; rows[t.id] = { id:t.id, pj:0, pg:0, pe:0, pp:0, gf:0, gc:0, pts:b, bonusPts:b }; });
+    matches.forEach(m => {
+      if(!m.played) return;
+      if(rows[m.home]){
+        const r = rows[m.home];
+        r.pj++; r.gf += m.homeScore; r.gc += m.awayScore;
+        if(m.homeScore > m.awayScore){ r.pg++; r.pts += 3; }
+        else if(m.homeScore < m.awayScore){ r.pp++; }
+        else { r.pe++; r.pts += 1; }
+      }
+      if(rows[m.away]){
+        const r = rows[m.away];
+        r.pj++; r.gf += m.awayScore; r.gc += m.homeScore;
+        if(m.awayScore > m.homeScore){ r.pg++; r.pts += 3; }
+        else if(m.awayScore < m.homeScore){ r.pp++; }
+        else { r.pe++; r.pts += 1; }
+      }
+    });
+    const byId = {}; teams.forEach(t => byId[t.id] = t);
+    const arr = Object.values(rows);
+    arr.forEach(r => r.dg = r.gf - r.gc);
+    arr.sort((x,y) => y.pts - x.pts || y.dg - x.dg || y.gf - x.gf || (byId[y.id].elo - byId[x.id].elo));
+    return arr;
+  }
+  // Arma el fixture de todos contra todos a 2 ruedas de una lista cualquiera de ids, con una fecha
+  // por semana a partir de `startDate` — variante reutilizable de la lógica que ya se repite en
+  // varias ligas del exterior (Ecuador, Uruguay, etc.), usada acá por Liga2 Perú en sus 3 fases.
+  function buildDoubleRoundRobinMatches(idPrefix, ids, startDate){
+    let rounds = roundRobinRounds(ids);
+    rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home === null || m.away === null) return;
+        matches.push({ id:idPrefix+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    return matches;
   }
   // Juega, dentro de una lista cualquiera de partidos {home,away,date,homeScore,awayScore,played},
   // todos los que ya tengan fecha pasada según el calendario único de la carrera, actualizando el
@@ -9094,7 +9338,7 @@
       // La Copa do Brasil y la Supercopa do Brasil no tienen fixture propio armado por adelantado
       // (dependen de los planteles/campeones de las otras ligas de este mismo año), así que se
       // procesan aparte, después de que el resto ya esté al día — ver más abajo.
-      if(def.format === 'copa-eliminacion' || def.format === 'copa-paraguay' || def.format === 'copa-ecuador' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta' || def.format === 'uruguay-copa' || def.format === 'uruguay-supercopa' || def.format === 'chile-copa-liga' || def.format === 'chile-copa' || def.format === 'chile-supercopa' || def.format === 'colombia-primera' || def.format === 'colombia-segunda' || def.format === 'colombia-copa' || def.format === 'colombia-supercopa') return;
+      if(def.format === 'copa-eliminacion' || def.format === 'copa-paraguay' || def.format === 'copa-ecuador' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta' || def.format === 'uruguay-copa' || def.format === 'uruguay-supercopa' || def.format === 'chile-copa-liga' || def.format === 'chile-copa' || def.format === 'chile-supercopa' || def.format === 'colombia-primera' || def.format === 'colombia-segunda' || def.format === 'colombia-copa' || def.format === 'colombia-supercopa' || def.format === 'peru-primera' || def.format === 'peru-segunda' || def.format === 'peru-tercera' || def.format === 'peru-copa') return;
       let league = wl[def.key];
       // El arranque de la temporada siguiente de cada división depende de que esa división (y,
       // si es parte de la pirámide brasileña, las otras 3) ya haya terminado la suya — no de que
@@ -9145,6 +9389,8 @@
     careerEnsureColombiaLeagues();
     careerEnsureColombiaCopa();
     careerEnsureSupercopaColombia();
+    careerEnsurePeruLeagues();
+    careerEnsureCopaPeru();
     // Copa de la Liga de Chile: se arma y avanza después de la Liga de Primera (usa sus 16 equipos
     // y su tabla de la temporada anterior).
     careerEnsureCopaLigaChile();
@@ -10741,6 +10987,787 @@
     careerWorldLeagueCatchUpColombiaPrimera(wl['colombia-primera']);
     careerWorldLeagueCatchUpColombiaSegunda(wl['colombia-segunda']);
   }
+  // Arma los 4 cupos de los playoffs por el título de Liga1 Perú a partir del campeón del Apertura,
+  // el campeón del Clausura y el orden de la Tabla Anual: primero los campeones que hayan terminado
+  // entre los 8 primeros de la Tabla Anual (si Apertura y Clausura los ganó el mismo equipo, ese
+  // equipo ya es campeón nacional directo y no entra acá — ver careerWorldLeagueCatchUpPeruPrimera),
+  // y después se completa con el mejor ubicado de la Tabla Anual que todavía no tenga cupo, hasta
+  // llegar a 4 (o a los que haga falta cuando se arma la llave del subcampeón en el escenario de
+  // bicampeón, donde se piden 3 en vez de 4).
+  function peruBuildPlayoffSlots(tablaAnualOrder, champions, need){
+    const slots = [];
+    champions.forEach(id => {
+      if(id && slots.indexOf(id) === -1 && tablaAnualOrder.slice(0,8).indexOf(id) !== -1) slots.push(id);
+    });
+    for(let i=0; slots.length < need && i<tablaAnualOrder.length; i++){
+      const id = tablaAnualOrder[i];
+      if(slots.indexOf(id) === -1) slots.push(id);
+    }
+    return slots.slice(0, need);
+  }
+  // Ordena los 4 (o 3) clasificados según su posición en la Tabla Anual (mejor a peor).
+  function peruOrderBySeed(slotIds, tablaAnualOrder){
+    return slotIds.slice().sort((a,b) => tablaAnualOrder.indexOf(a) - tablaAnualOrder.indexOf(b));
+  }
+  // Semifinales por semilla estándar: 1° vs 4°, 2° vs 3° (el reglamento no especifica los cruces).
+  // Ida y vuelta, vuelta en la cancha del mejor ubicado en la Tabla Anual, penales directos si el
+  // global sigue empatado.
+  function peruBuildSemis(seeded, startDate){
+    // Con 3 clasificados (llave del subcampeón, escenario de bicampeón), el mejor ubicado de los 3
+    // pasa directo a la final y los otros dos juegan la única semifinal.
+    if(seeded.length === 3){
+      const tie = careerWorldLeagueBuildTwoLegTie(seeded[1], seeded[2], seeded[1], startDate);
+      tie.label = 'Semifinal';
+      return { semis: [tie], byeId: seeded[0] };
+    }
+    const pares = [ [seeded[0], seeded[3], '1° vs 4°'], [seeded[1], seeded[2], '2° vs 3°'] ];
+    return { semis: pares.map(p => {
+      const tie = careerWorldLeagueBuildTwoLegTie(p[0], p[1], p[0], startDate);
+      tie.label = p[2];
+      return tie;
+    }), byeId: null };
+  }
+  function peruResolveTie(tie, byId){
+    if(tie.winnerId || !tie.legs.every(m=>m.played)) return;
+    let w = careerWorldLeagueResolveTwoLegTie(tie, byId);
+    if(!w){ tie.wentToPenalties = true; w = worldLeaguePenaltyWinner(byId[tie.teamA].elo, byId[tie.teamB].elo) === 'A' ? tie.teamA : tie.teamB; }
+    tie.winnerId = w;
+  }
+  function careerWorldLeagueBuildSeasonPeruPrimera(def, prevLeague, forcedRoster){
+    const wl = careerWorldLeagues();
+    const teams = forcedRoster ? forcedRoster
+      : (prevLeague && prevLeague.teams && prevLeague.teams.length)
+        ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    const ids = teams.map(t=>t.id);
+    const startDate = careerWorldSeasonStart(!!prevLeague);
+    const rounds = roundRobinRounds(ids);
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home === null || m.away === null) return;
+        matches.push({ id:'wl_'+def.key+'_apertura_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
+      year: Number(startDate.slice(0,4)), teams,
+      stage: 'apertura-regular',
+      apertura: { matches, table: [], championId: null },
+      clausura: null,
+      tablaAnual: [], tablaAnualOrder: [],
+      playoffSlots: null, semis: null, semisByeId: null, final: null, championId: null, subChampionId: null,
+      isBicampeon: false, subPlayoffSlots: null,
+      libertadoresGruposIds: [], libertadoresFase2Id: null, libertadoresFase1Id: null, sudamericanaIds: [],
+      descensoTable: [], relegatedIds: [],
+      seasonLog: (prevLeague && prevLeague.seasonLog) ? prevLeague.seasonLog : {},
+      history: (prevLeague && prevLeague.history) ? prevLeague.history.slice() : []
+    };
+  }
+  function careerWorldLeagueCatchUpPeruPrimera(league){
+    const c = state.career;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const A = league.apertura;
+
+    if(league.stage === 'apertura-regular'){
+      careerWorldLeaguePlayDue(A.matches, byId, c.calendarDate, {});
+      A.table = computeGenericStandings(A.matches, league.teams);
+      if(A.matches.length && A.matches.every(m=>m.played)){
+        A.championId = A.table[0].id;
+        const lastDate = A.matches.reduce((mx,m)=> m.date>mx?m.date:mx, A.matches[0].date);
+        const clausuraMatches = A.matches.map((am,i) => ({
+          id:'wl_'+league.key+'_clausura_'+i, home:am.away, away:am.home, round:am.round,
+          date: addDaysISO(lastDate, 7 + (am.round-1)*7), homeScore:null, awayScore:null, played:false
+        }));
+        league.clausura = { matches: clausuraMatches, table: [], championId: null };
+        league.stage = 'clausura-regular';
+      }
+    }
+
+    if(!league.clausura) return;
+    const CL = league.clausura;
+
+    if(league.stage === 'clausura-regular'){
+      careerWorldLeaguePlayDue(CL.matches, byId, c.calendarDate, {});
+      CL.table = computeGenericStandings(CL.matches, league.teams);
+      if(CL.matches.every(m=>m.played)){
+        CL.championId = CL.table[0].id;
+        league.tablaAnual = computeGenericStandings([].concat(A.matches, CL.matches), league.teams);
+        // Bonificación de la Copa Caliente de la Liga (+2 al campeón, +1 al subcampeón) en la Tabla
+        // Anual de esa misma temporada, si el campeón y/o el subcampeón de la Copa son de Liga1 (la
+        // Copa arranca junto con esta temporada y, al ser mucho más corta que el Apertura+Clausura,
+        // ya suele estar 'done' para cuando termina el Clausura; si por algún motivo todavía no
+        // terminó, esa temporada se queda sin bonificación, ver el registro de 'peru-copa').
+        const copaPeru = careerWorldLeagues()['peru-copa'];
+        if(copaPeru && copaPeru.primeraSeason === league.season && copaPeru.championId){
+          const bonusById = {};
+          if(league.teams.some(t=>t.id===copaPeru.championId)) bonusById[copaPeru.championId] = 2;
+          if(copaPeru.subChampionId && league.teams.some(t=>t.id===copaPeru.subChampionId)) bonusById[copaPeru.subChampionId] = (bonusById[copaPeru.subChampionId]||0) + 1;
+          if(Object.keys(bonusById).length){
+            league.tablaAnual.forEach(r => { if(bonusById[r.id]) r.pts += bonusById[r.id]; });
+            league.tablaAnual.sort((x,y) => y.pts-x.pts || y.dg-x.dg || y.gf-x.gf || (byId[y.id].elo-byId[x.id].elo));
+          }
+        }
+        league.tablaAnualOrder = league.tablaAnual.map(r=>r.id);
+        const lastDate = CL.matches.reduce((mx,m)=> m.date>mx?m.date:mx, CL.matches[0].date);
+        if(A.championId === CL.championId){
+          // Bicampeón: campeón nacional directo. Se arma igual una llave de semis+final entre los 3
+          // mejores de la Tabla Anual sin contar al bicampeón, para definir al subcampeón.
+          league.isBicampeon = true;
+          league.championId = A.championId;
+          const candidatos = league.tablaAnualOrder.filter(id => id !== A.championId);
+          league.subPlayoffSlots = candidatos.slice(0,3);
+          const seeded = peruOrderBySeed(league.subPlayoffSlots, league.tablaAnualOrder);
+          const built = peruBuildSemis(seeded, addDaysISO(lastDate,7));
+          league.semis = built.semis; league.semisByeId = built.byeId;
+          league.stage = 'sub-semis';
+        } else {
+          league.playoffSlots = peruBuildPlayoffSlots(league.tablaAnualOrder, [A.championId, CL.championId], 4);
+          const seeded = peruOrderBySeed(league.playoffSlots, league.tablaAnualOrder);
+          const built = peruBuildSemis(seeded, addDaysISO(lastDate,7));
+          league.semis = built.semis; league.semisByeId = built.byeId;
+          league.stage = 'titulo-semis';
+        }
+      }
+    }
+
+    if(league.stage === 'titulo-semis' || league.stage === 'sub-semis'){
+      league.semis.forEach(tie => { careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {}); peruResolveTie(tie, byId); });
+      if(league.semis.every(t=>t.winnerId)){
+        const lastDate = league.semis.reduce((mx,t)=> t.legs[1].date>mx?t.legs[1].date:mx, league.semis[0].legs[1].date);
+        let finalistas;
+        if(league.semisByeId){
+          finalistas = [league.semisByeId, league.semis[0].winnerId];
+        } else {
+          finalistas = league.semis.map(t=>t.winnerId);
+        }
+        const better = league.tablaAnualOrder.indexOf(finalistas[0]) < league.tablaAnualOrder.indexOf(finalistas[1]) ? finalistas[0] : finalistas[1];
+        league.final = careerWorldLeagueBuildTwoLegTie(finalistas[0], finalistas[1], better, addDaysISO(lastDate,7));
+        league.stage = league.stage === 'titulo-semis' ? 'titulo-final' : 'sub-final';
+      }
+    }
+
+    if(league.stage === 'titulo-final' || league.stage === 'sub-final'){
+      careerWorldLeaguePlayDue(league.final.legs, byId, c.calendarDate, {});
+      peruResolveTie(league.final, byId);
+      if(league.final.winnerId){
+        if(league.stage === 'titulo-final') league.championId = league.final.winnerId;
+        else league.subChampionId = league.final.winnerId;
+        league.stage = 'post';
+      }
+    }
+
+    if(league.stage === 'post'){
+      const champ = league.championId;
+      // El subcampeón es siempre el perdedor de la final del título (o el ganador de la llave del
+      // subcampeón, ya asignado a league.subChampionId, en el escenario de bicampeón).
+      const subChampionId = league.isBicampeon ? league.subChampionId
+        : (league.final.teamA === champ ? league.final.teamB : league.final.teamA);
+      league.subChampionId = subChampionId;
+      const excluidosLib = [champ, subChampionId];
+      const resto = league.tablaAnualOrder.filter(id => excluidosLib.indexOf(id) === -1);
+      league.libertadoresGruposIds = excluidosLib;
+      league.libertadoresFase2Id = resto[0] || null;
+      league.libertadoresFase1Id = resto[1] || null;
+      league.sudamericanaIds = resto.slice(2,6);
+      league.teams.forEach(t => {
+        const row = league.tablaAnual.find(r=>r.id===t.id);
+        if(!league.seasonLog[t.id]) league.seasonLog[t.id] = [];
+        if(row) league.seasonLog[t.id].push({ pts: row.pts, pj: row.pj });
+        if(league.seasonLog[t.id].length > 3) league.seasonLog[t.id] = league.seasonLog[t.id].slice(-3);
+      });
+      const promedios = league.teams.map(t => {
+        const log = league.seasonLog[t.id] || [];
+        const totalPts = log.reduce((s,x)=>s+x.pts,0), totalPj = log.reduce((s,x)=>s+x.pj,0);
+        return { id:t.id, avg: totalPj>0 ? totalPts/totalPj : 0 };
+      }).sort((a,b)=> a.avg-b.avg || byId[a.id].elo - byId[b.id].elo);
+      league.descensoTable = promedios;
+      league.relegatedIds = promedios.slice(0,2).map(r=>r.id);
+      league.history.unshift({
+        year: league.year, aperturaChampionId: A.championId, clausuraChampionId: CL.championId,
+        championName: byId[champ].name + (league.isBicampeon ? ' (bicampeón)' : '')
+      });
+      if(league.history.length > 15) league.history.length = 15;
+      league.stage = 'done';
+    }
+  }
+  // ---------- Perú: Liga2 (Segunda División) ----------
+  function careerWorldLeagueBuildSeasonPeruSegunda(def, prevLeague, forcedRoster){
+    const wl = careerWorldLeagues();
+    const teams = forcedRoster ? forcedRoster
+      : (prevLeague && prevLeague.teams && prevLeague.teams.length)
+        ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    // Los 2 grupos de 9 de la Fase Regional se sortean cada temporada (la letra chica no especifica
+    // el criterio de armado, así que se hace al azar, mismo criterio que el resto de este motor con
+    // sorteos de zonas/grupos sin regla explícita — p.ej. las zonas de la Segunda de Uruguay).
+    const shuffled = shuffleArr(teams.slice());
+    const startDate = careerWorldSeasonStart(!!prevLeague);
+    function armarGrupo(teamsArr, tag){
+      const ids = teamsArr.map(t=>t.id);
+      const matches = buildDoubleRoundRobinMatches('wl_'+def.key+'_regional'+tag, ids, startDate);
+      return { teamIds: ids, teams: teamsArr, matches, table: [] };
+    }
+    const history = (prevLeague && prevLeague.history) ? prevLeague.history.slice() : [];
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
+      year: Number(startDate.slice(0,4)), teams,
+      stage: 'regional',
+      grupoA: armarGrupo(shuffled.slice(0,9), 'A'), grupoB: armarGrupo(shuffled.slice(9,18), 'B'),
+      finalFase: null, descensoFase: null, playoff: null,
+      championId: null, subChampionId: null, promotedIds: [], relegatedIds: [],
+      history
+    };
+  }
+  // Arma la Fase Final por el campeonato: 3 grupos de 4 (serpentina entre los 2 grupos regionales,
+  // ver el comentario del registro) con la bonificación de puntos ya cargada en `grupo.bonus`.
+  function peruSegundaBuildFinalFase(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    function betterFirst(x,y){ return (y.pts-x.pts) || (y.dg-x.dg) || (y.gf-x.gf) || (byId[y.id].elo-byId[x.id].elo); }
+    const tA = league.grupoA.table, tB = league.grupoB.table;
+
+    const bonus = {};
+    bonus[tA[0].id] = 2; bonus[tB[0].id] = 2;
+    const segundos = [tA[1], tB[1]].slice().sort(betterFirst);
+    bonus[segundos[0].id] = 2; bonus[segundos[1].id] = 1;
+    bonus[tA[2].id] = 1; bonus[tB[2].id] = 1;
+
+    const order = [tA[0],tB[0],tA[1],tB[1],tA[2],tB[2],tA[3],tB[3],tA[4],tB[4],tA[5],tB[5]];
+    const gruposIds = [[],[],[]];
+    order.forEach((row,i) => gruposIds[i%3].push(row.id));
+
+    const lastDate = careerMaxDate([].concat(league.grupoA.matches, league.grupoB.matches));
+    const startDate = addDaysISO(lastDate, 7);
+    const grupos = {};
+    ['Grupo 1','Grupo 2','Grupo 3'].forEach((nombre, gi) => {
+      const ids = gruposIds[gi];
+      const teamsArr = ids.map(id=>byId[id]);
+      const matches = buildDoubleRoundRobinMatches('wl_'+league.key+'_final'+gi, ids, startDate);
+      const grupoBonus = {}; ids.forEach(id => grupoBonus[id] = bonus[id] || 0);
+      grupos[nombre] = { teamIds: ids, teams: teamsArr, bonus: grupoBonus, matches, table: [] };
+    });
+    league.finalFase = { grupos, stage: 'jugando', clasificados: null, tablaFinal: null };
+  }
+  // Arma la Fase Final por la permanencia: los 3 últimos de cada grupo regional forman, cada uno,
+  // su propio grupo de descenso (ver el comentario del registro).
+  function peruSegundaBuildDescensoFase(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    const tA = league.grupoA.table, tB = league.grupoB.table;
+    const lastDate = careerMaxDate([].concat(league.grupoA.matches, league.grupoB.matches));
+    const startDate = addDaysISO(lastDate, 7);
+    function armar(rows, tag){
+      const ids = rows.map(r=>r.id);
+      const teamsArr = ids.map(id=>byId[id]);
+      const matches = buildDoubleRoundRobinMatches('wl_'+league.key+'_desc'+tag, ids, startDate);
+      return { teamIds: ids, teams: teamsArr, matches, table: [] };
+    }
+    league.descensoFase = { grupos: { D1: armar(tA.slice(6,9),'D1'), D2: armar(tB.slice(6,9),'D2') }, stage: 'jugando' };
+  }
+  // Terminada la Fase Final por el campeonato, arma las semis de los playoffs por el título: el 1°
+  // de cada uno de los 3 grupos más el mejor 2°, sembrados por una tabla combinada de los 3 grupos
+  // (ver el comentario del registro sobre el reemplazo de "la tabla anual").
+  function peruSegundaBuildPlayoffSemis(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    function betterFirst(x,y){ return (y.pts-x.pts) || (y.dg-x.dg) || (y.gf-x.gf) || (byId[y.id].elo-byId[x.id].elo); }
+    const g = league.finalFase.grupos;
+    const nombres = Object.keys(g);
+    const tablaFinal = [].concat(g[nombres[0]].table, g[nombres[1]].table, g[nombres[2]].table).slice().sort(betterFirst);
+    const campeones = nombres.map(n => g[n].table[0].id);
+    const segundos = nombres.map(n => g[n].table[1]).slice().sort(betterFirst);
+    league.finalFase.tablaFinal = tablaFinal;
+    league.finalFase.clasificados = campeones.concat([segundos[0].id]);
+    const seedOrder = tablaFinal.map(r=>r.id).filter(id => league.finalFase.clasificados.indexOf(id) !== -1);
+    const lastDate = careerMaxDate([].concat(g[nombres[0]].matches, g[nombres[1]].matches, g[nombres[2]].matches));
+    const startDate = addDaysISO(lastDate, 7);
+    const semis = [
+      careerWorldLeagueBuildTwoLegTie(seedOrder[0], seedOrder[3], seedOrder[0], startDate),
+      careerWorldLeagueBuildTwoLegTie(seedOrder[1], seedOrder[2], seedOrder[1], startDate)
+    ];
+    league.playoff = { seedOrder, semis, final: null, repechaje: null, segundoAscenso: null };
+  }
+  function careerWorldLeagueCatchUpPeruSegunda(league){
+    const c = state.career;
+    if(!c.calendarDate) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+
+    if(league.stage === 'regional'){
+      careerWorldLeaguePlayDue(league.grupoA.matches, byId, c.calendarDate, {});
+      careerWorldLeaguePlayDue(league.grupoB.matches, byId, c.calendarDate, {});
+      league.grupoA.table = computeGenericStandings(league.grupoA.matches, league.grupoA.teams);
+      league.grupoB.table = computeGenericStandings(league.grupoB.matches, league.grupoB.teams);
+      const doneA = league.grupoA.matches.every(m=>m.played), doneB = league.grupoB.matches.every(m=>m.played);
+      if(doneA && doneB){
+        peruSegundaBuildFinalFase(league);
+        peruSegundaBuildDescensoFase(league);
+        league.stage = 'fases';
+      }
+      return;
+    }
+
+    if(league.stage !== 'fases') return;
+
+    // Fase Final por el campeonato.
+    const ff = league.finalFase;
+    if(ff.stage === 'jugando'){
+      Object.values(ff.grupos).forEach(g => {
+        careerWorldLeaguePlayDue(g.matches, byId, c.calendarDate, {});
+        g.table = computeGenericStandingsWithBonus(g.matches, g.teams, g.bonus);
+      });
+      if(Object.values(ff.grupos).every(g => g.matches.every(m=>m.played))){
+        ff.stage = 'lista';
+        peruSegundaBuildPlayoffSemis(league);
+      }
+    }
+
+    // Fase Final por la permanencia.
+    const df = league.descensoFase;
+    if(df.stage === 'jugando'){
+      Object.values(df.grupos).forEach(g => {
+        careerWorldLeaguePlayDue(g.matches, byId, c.calendarDate, {});
+        g.table = computeGenericStandings(g.matches, g.teams);
+      });
+      if(Object.values(df.grupos).every(g => g.matches.every(m=>m.played))){
+        df.stage = 'lista';
+        league.relegatedIds = Object.values(df.grupos).map(g => g.table[g.table.length-1].id);
+      }
+    }
+
+    // Playoffs por el título y por el segundo ascenso.
+    const po = league.playoff;
+    if(po){
+      po.semis.forEach(tie => { careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {}); peruResolveTie(tie, byId); });
+      if(po.semis.every(t=>t.winnerId) && !po.final && !po.repechaje){
+        const idx = id => po.seedOrder.indexOf(id);
+        const winners = po.semis.map(t=>t.winnerId);
+        const losers = po.semis.map(t => t.winnerId===t.teamA ? t.teamB : t.teamA);
+        const lastDate = careerMaxDate([].concat(po.semis[0].legs, po.semis[1].legs));
+        const startDate = addDaysISO(lastDate, 7);
+        const betterWinner = idx(winners[0]) < idx(winners[1]) ? winners[0] : winners[1];
+        const betterLoser = idx(losers[0]) < idx(losers[1]) ? losers[0] : losers[1];
+        po.final = careerWorldLeagueBuildTwoLegTie(winners[0], winners[1], betterWinner, startDate);
+        po.repechaje = careerWorldLeagueBuildTwoLegTie(losers[0], losers[1], betterLoser, startDate);
+      }
+      if(po.final){ careerWorldLeaguePlayDue(po.final.legs, byId, c.calendarDate, {}); peruResolveTie(po.final, byId); }
+      if(po.repechaje){ careerWorldLeaguePlayDue(po.repechaje.legs, byId, c.calendarDate, {}); peruResolveTie(po.repechaje, byId); }
+      if(po.final && po.repechaje && po.final.winnerId && po.repechaje.winnerId && !po.segundoAscenso){
+        const finalLoserId = po.final.teamA === po.final.winnerId ? po.final.teamB : po.final.teamA;
+        const lastDate = careerMaxDate([].concat(po.final.legs, po.repechaje.legs));
+        po.segundoAscenso = { home: finalLoserId, away: po.repechaje.winnerId, date: addDaysISO(lastDate,7), homeScore:null, awayScore:null, played:false, wentToPenalties:false, winnerId:null };
+      }
+      if(po.segundoAscenso && !po.segundoAscenso.winnerId){
+        careerWorldLeaguePlayDue([po.segundoAscenso], byId, c.calendarDate, {});
+        const m = po.segundoAscenso;
+        if(m.played){
+          if(m.homeScore > m.awayScore) m.winnerId = m.home;
+          else if(m.awayScore > m.homeScore) m.winnerId = m.away;
+          else { m.wentToPenalties = true; m.winnerId = worldLeaguePenaltyWinner(byId[m.home].elo, byId[m.away].elo) === 'A' ? m.home : m.away; }
+          league.championId = po.final.winnerId;
+          league.subChampionId = m.winnerId;
+          league.promotedIds = [league.championId, league.subChampionId];
+        }
+      }
+    }
+
+    if(ff.stage === 'lista' && df.stage === 'lista' && league.championId && league.stage !== 'done'){
+      league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
+      if(league.history.length > 15) league.history.length = 15;
+      league.stage = 'done';
+    }
+  }
+  // ---------- Perú: Liga3 (Tercera División) ----------
+  function careerWorldLeagueBuildSeasonPeruTercera(def, prevLeague, forcedRoster){
+    const wl = careerWorldLeagues();
+    const teams = forcedRoster ? forcedRoster
+      : (prevLeague && prevLeague.teams && prevLeague.teams.length)
+        ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    // Los 4 grupos de la Fase Regional (10/9/9/9) se sortean cada temporada (mismo criterio sin
+    // regla explícita que ya usa Liga2 Perú con sus 2 grupos).
+    const shuffled = shuffleArr(teams.slice());
+    const startDate = careerWorldSeasonStart(!!prevLeague);
+    function armarGrupo(teamsArr, tag){
+      const ids = teamsArr.map(t=>t.id);
+      const matches = buildDoubleRoundRobinMatches('wl_'+def.key+'_regional'+tag, ids, startDate);
+      return { teamIds: ids, teams: teamsArr, matches, table: [] };
+    }
+    const history = (prevLeague && prevLeague.history) ? prevLeague.history.slice() : [];
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
+      year: Number(startDate.slice(0,4)), teams,
+      stage: 'regional',
+      grupo1: armarGrupo(shuffled.slice(0,10), '1'), grupo2: armarGrupo(shuffled.slice(10,19), '2'),
+      grupo3: armarGrupo(shuffled.slice(19,28), '3'), grupo4: armarGrupo(shuffled.slice(28,37), '4'),
+      finalFase: null, playoff: null,
+      championId: null, promotedIds: [],
+      history
+    };
+  }
+  // Arma la Fase Final: 4 grupos de 4, cruzando los grupos regionales de a pares (ver el comentario
+  // del registro sobre el error de tipeo del reglamento en el Grupo D).
+  function peruTerceraBuildFinalFase(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    const g1 = league.grupo1.table, g2 = league.grupo2.table, g3 = league.grupo3.table, g4 = league.grupo4.table;
+    const bonus = {};
+    [g1,g2,g3,g4].forEach(t => { bonus[t[0].id]=2; bonus[t[1].id]=1; });
+    const lastDate = careerMaxDate([].concat(league.grupo1.matches, league.grupo2.matches, league.grupo3.matches, league.grupo4.matches));
+    const startDate = addDaysISO(lastDate, 7);
+    function armar(ids, tag){
+      const teamsArr = ids.map(id=>byId[id]);
+      const grupoBonus = {}; ids.forEach(id => grupoBonus[id] = bonus[id] || 0);
+      const matches = buildDoubleRoundRobinMatches('wl_'+league.key+'_final'+tag, ids, startDate);
+      return { teamIds: ids, teams: teamsArr, bonus: grupoBonus, matches, table: [] };
+    }
+    const grupos = {
+      A: armar([g1[0].id, g2[1].id, g1[2].id, g2[3].id], 'A'),
+      B: armar([g2[0].id, g1[1].id, g2[2].id, g1[3].id], 'B'),
+      C: armar([g3[0].id, g4[1].id, g3[2].id, g4[3].id], 'C'),
+      D: armar([g4[0].id, g3[1].id, g4[2].id, g3[3].id], 'D')
+    };
+    league.finalFase = { grupos, stage: 'jugando', tablaFinal: null };
+  }
+  // Terminada la Fase Final, arma los cuartos de final entre los 8 clasificados (1° y 2° de cada
+  // uno de los 4 grupos). Como el reglamento no da una "tabla anual" para Liga3 (mismo hueco que ya
+  // resolvió Liga2 Perú), se arma una tabla combinada de los 4 grupos de la Fase Final (bonificación
+  // incluida) para sembrar semis y decidir localías.
+  function peruTerceraBuildCuartos(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    const g = league.finalFase.grupos;
+    const lastDate = careerMaxDate([].concat(g.A.matches, g.B.matches, g.C.matches, g.D.matches));
+    const startDate = addDaysISO(lastDate, 7);
+    function betterFirst(x,y){ return (y.pts-x.pts) || (y.dg-x.dg) || (y.gf-x.gf) || (byId[y.id].elo-byId[x.id].elo); }
+    const tablaFinal = [].concat(g.A.table, g.B.table, g.C.table, g.D.table).slice().sort(betterFirst);
+    league.finalFase.tablaFinal = tablaFinal;
+    const seedOrder = tablaFinal.map(r=>r.id);
+    const cruces = [
+      [g.A.table[0].id, g.B.table[1].id],
+      [g.B.table[0].id, g.A.table[1].id],
+      [g.C.table[0].id, g.D.table[1].id],
+      [g.D.table[0].id, g.C.table[1].id]
+    ];
+    const cuartos = cruces.map(p => careerWorldLeagueBuildTwoLegTie(p[0], p[1], p[0], startDate));
+    league.playoff = { seedOrder, cuartos, semis: null, final: null, ascensoTriangular: null };
+  }
+  // Triangular (todos contra todos a una rueda) por el segundo y tercer ascenso, entre los 2
+  // perdedores de semifinales más el mejor ubicado de los 4 perdedores de cuartos de final (ver el
+  // comentario del registro sobre cómo se completa el tercer integrante).
+  function peruTerceraBuildAscensoTriangular(league, triIds, startDate){
+    const rounds = roundRobinRounds(triIds);
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home === null || m.away === null) return;
+        matches.push({ id:'wl_'+league.key+'_asc3_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    league.playoff.ascensoTriangular = { teamIds: triIds, matches, table: [] };
+  }
+  function careerWorldLeagueCatchUpPeruTercera(league){
+    const c = state.career;
+    if(!c.calendarDate) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+
+    if(league.stage === 'regional'){
+      const grupos = [league.grupo1, league.grupo2, league.grupo3, league.grupo4];
+      grupos.forEach(g => {
+        careerWorldLeaguePlayDue(g.matches, byId, c.calendarDate, {});
+        g.table = computeGenericStandings(g.matches, g.teams);
+      });
+      if(grupos.every(g => g.matches.every(m=>m.played))){
+        peruTerceraBuildFinalFase(league);
+        league.stage = 'final-fase';
+      }
+      return;
+    }
+
+    if(league.stage !== 'final-fase') return;
+    const ff = league.finalFase;
+    if(ff.stage === 'jugando'){
+      Object.values(ff.grupos).forEach(g => {
+        careerWorldLeaguePlayDue(g.matches, byId, c.calendarDate, {});
+        g.table = computeGenericStandingsWithBonus(g.matches, g.teams, g.bonus);
+      });
+      if(Object.values(ff.grupos).every(g => g.matches.every(m=>m.played))){
+        ff.stage = 'lista';
+        peruTerceraBuildCuartos(league);
+      }
+    }
+
+    const po = league.playoff;
+    if(!po) return;
+    const seedIdx = id => po.seedOrder.indexOf(id);
+
+    po.cuartos.forEach(tie => { careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {}); peruResolveTie(tie, byId); });
+    if(po.cuartos.every(t=>t.winnerId) && !po.semis){
+      const winners = po.cuartos.map(t=>t.winnerId).slice().sort((a,b)=>seedIdx(a)-seedIdx(b));
+      const lastDate = careerMaxDate([].concat(po.cuartos[0].legs, po.cuartos[1].legs, po.cuartos[2].legs, po.cuartos[3].legs));
+      const startDate = addDaysISO(lastDate, 7);
+      po.semis = [
+        careerWorldLeagueBuildTwoLegTie(winners[0], winners[3], winners[0], startDate),
+        careerWorldLeagueBuildTwoLegTie(winners[1], winners[2], winners[1], startDate)
+      ];
+    }
+
+    if(po.semis){
+      po.semis.forEach(tie => { careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {}); peruResolveTie(tie, byId); });
+      if(po.semis.every(t=>t.winnerId) && !po.final){
+        const finalistas = po.semis.map(t=>t.winnerId);
+        const lastDate = careerMaxDate([].concat(po.semis[0].legs, po.semis[1].legs));
+        const startDate = addDaysISO(lastDate, 7);
+        const better = seedIdx(finalistas[0]) < seedIdx(finalistas[1]) ? finalistas[0] : finalistas[1];
+        po.final = careerWorldLeagueBuildTwoLegTie(finalistas[0], finalistas[1], better, startDate);
+        const semisLosers = po.semis.map(t => t.winnerId===t.teamA ? t.teamB : t.teamA);
+        const cuartosLosers = po.cuartos.map(t => t.winnerId===t.teamA ? t.teamB : t.teamA);
+        const bestCuartosLoser = cuartosLosers.slice().sort((a,b)=>seedIdx(a)-seedIdx(b))[0];
+        peruTerceraBuildAscensoTriangular(league, semisLosers.concat([bestCuartosLoser]), startDate);
+      }
+    }
+
+    if(po.final){ careerWorldLeaguePlayDue(po.final.legs, byId, c.calendarDate, {}); peruResolveTie(po.final, byId); }
+    const tri = po.ascensoTriangular;
+    if(tri){
+      careerWorldLeaguePlayDue(tri.matches, byId, c.calendarDate, {});
+      tri.table = computeGenericStandings(tri.matches, tri.teamIds.map(id=>byId[id]));
+    }
+
+    if(po.final && po.final.winnerId && tri && tri.matches.every(m=>m.played) && league.stage !== 'done'){
+      league.championId = po.final.winnerId;
+      league.promotedIds = [league.championId, tri.table[0].id, tri.table[1].id];
+      league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
+      if(league.history.length > 15) league.history.length = 15;
+      league.stage = 'done';
+    }
+  }
+  // Sincroniza Liga1 y Liga2 de Perú: arranca cada una de nuevo recién cuando LAS DOS terminaron su
+  // temporada (mismo criterio que careerEnsureUruguayLeagues con sus 4 categorías), intercambiando
+  // los 2 descendidos de Liga1 por los 2 ascendidos de Liga2 (y viceversa). Liga3 ya está cargada
+  // pero corre en paralelo, self-contenida con su propio plantel (ver el comentario de su registro
+  // sobre por qué todavía no hay intercambio real de equipos con Liga2), así que los 2 descendidos de
+  // Liga2 se siguen marcando nada más y quedan en Liga2.
+  function careerEnsurePeruLeagues(){
+    const wl = careerWorldLeagues();
+    const defPrimera = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'peru-primera');
+    const defSegunda = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'peru-segunda');
+    const defTercera = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'peru-tercera');
+    if(!defPrimera || !defSegunda) return;
+    const primeraPrev = wl['peru-primera'];
+    const segundaPrev = wl['peru-segunda'];
+    const allDone = !!(primeraPrev && segundaPrev && primeraPrev.stage === 'done' && segundaPrev.stage === 'done');
+
+    if(!primeraPrev || (primeraPrev.stage === 'done' && allDone)){
+      let forcedRoster = null;
+      if(allDone){
+        const outIds = new Set(primeraPrev.relegatedIds || []);
+        forcedRoster = primeraPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        (segundaPrev.promotedIds || []).forEach(id => {
+          const t = segundaPrev.teams.find(x => x.id === id);
+          if(t) forcedRoster.push({ id:t.id, name:t.name, elo: t.elo - 100 });
+        });
+      }
+      careerWorldLeagueBuildSeasonPeruPrimera(defPrimera, primeraPrev, forcedRoster);
+    }
+    if(!segundaPrev || (segundaPrev.stage === 'done' && allDone)){
+      let forcedRoster = null;
+      if(allDone){
+        const outIds = new Set(segundaPrev.promotedIds || []);
+        forcedRoster = segundaPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        (primeraPrev.relegatedIds || []).forEach(id => {
+          const t = primeraPrev.teams.find(x => x.id === id);
+          if(t) forcedRoster.push({ id:t.id, name:t.name, elo:t.elo });
+        });
+      }
+      careerWorldLeagueBuildSeasonPeruSegunda(defSegunda, segundaPrev, forcedRoster);
+    }
+    careerWorldLeagueCatchUpPeruPrimera(wl['peru-primera']);
+    careerWorldLeagueCatchUpPeruSegunda(wl['peru-segunda']);
+
+    if(defTercera){
+      const terceraPrev = wl['peru-tercera'];
+      if(!terceraPrev || terceraPrev.stage === 'done'){
+        careerWorldLeagueBuildSeasonPeruTercera(defTercera, terceraPrev, null);
+      }
+      careerWorldLeagueCatchUpPeruTercera(wl['peru-tercera']);
+    }
+  }
+  // ---------- Perú: Copa Caliente de la Liga (Copa Peru) ----------
+  // Arma un grupo de la fase de grupos: todos contra todos a una sola rueda (con una fecha libre por
+  // equipo en los grupos de 3, que roundRobinRounds resuelve solo con el "bye" de siempre).
+  function peruCopaBuildGrupo(ids, tag, startDate){
+    const rounds = roundRobinRounds(ids);
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home===null || m.away===null) return;
+        matches.push({ id:'wl_peru-copa_grupo'+tag+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    return { nombre:'Grupo '+tag, teamIds: ids, matches, table: [] };
+  }
+  // La Copa está lista para armarse apenas Liga1 y Liga2 Perú ya tengan plantel armado para la
+  // temporada (no depende de ninguna clasificación intermedia, a diferencia de la Copa BetPlay de
+  // Colombia).
+  function careerCopaPeruReady(P, S){
+    return !!(P && S && P.teams && P.teams.length && S.teams && S.teams.length && P.apertura && P.apertura.matches.length);
+  }
+  function careerWorldLeagueBuildCopaPeru(P, S){
+    const wl = careerWorldLeagues();
+    const prev = wl['peru-copa'];
+    const primeraIds = shuffleArr(P.teams.map(t=>t.id));
+    // La letra chica pide "16 de la liga2" sin decir cuáles de los 18 quedan afuera: se sortean cada
+    // temporada.
+    const segundaIds = shuffleArr(S.teams.map(t=>t.id)).slice(0,16);
+    const divisionOf = {};
+    P.teams.forEach(t => divisionOf[t.id] = 'primera');
+    S.teams.forEach(t => { if(segundaIds.indexOf(t.id) !== -1) divisionOf[t.id] = 'segunda'; });
+    const startDate = addDaysISO(P.apertura.matches[0].date, 7);
+    // Único reparto posible respetando "máximo 2 de la misma división por grupo" (ver el comentario
+    // del registro): los 4 grupos de 4 son 2 de Liga1 + 2 de Liga2; de los 6 grupos de 3, 4 son 2 de
+    // Liga1 + 1 de Liga2 y los otros 2 son 1 de Liga1 + 2 de Liga2.
+    const pPool = primeraIds.slice(), sPool = segundaIds.slice();
+    const grupos = {};
+    ['A','B','C','D'].forEach(g => {
+      const ids = pPool.splice(0,2).concat(sPool.splice(0,2));
+      grupos[g] = peruCopaBuildGrupo(shuffleArr(ids), g, startDate);
+    });
+    ['E','F','G','H'].forEach(g => {
+      const ids = pPool.splice(0,2).concat(sPool.splice(0,1));
+      grupos[g] = peruCopaBuildGrupo(shuffleArr(ids), g, startDate);
+    });
+    ['I','J'].forEach(g => {
+      const ids = pPool.splice(0,1).concat(sPool.splice(0,2));
+      grupos[g] = peruCopaBuildGrupo(shuffleArr(ids), g, startDate);
+    });
+    wl['peru-copa'] = {
+      key:'peru-copa', country:'Peru', name:'Copa Caliente de la Liga', format:'peru-copa',
+      season: (prev && prev.season) ? prev.season+1 : 1,
+      year: Number(startDate.slice(0,4)), primeraSeason: P.season, segundaSeason: S.season,
+      teams: P.teams.concat(S.teams.filter(t=>segundaIds.indexOf(t.id)!==-1)), divisionOf,
+      stage: 'grupos',
+      grupos,
+      octavos: null, cuartos: null, semis: null, final: null, championId: null, subChampionId: null,
+      history: (prev && prev.history) ? prev.history.slice() : []
+    };
+  }
+  function careerCopaPeruLiveById(league){
+    const wl = careerWorldLeagues();
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const P = wl['peru-primera'], S = wl['peru-segunda'];
+    if(P && P.season === league.primeraSeason) P.teams.forEach(t => byId[t.id] = t);
+    if(S && S.season === league.segundaSeason) S.teams.forEach(t => byId[t.id] = t);
+    return byId;
+  }
+  const PERU_COPA_GRUPOS = ['A','B','C','D','E','F','G','H','I','J'];
+  function careerWorldLeagueCatchUpCopaPeru(league){
+    const c = state.career;
+    const byId = careerCopaPeruLiveById(league);
+
+    if(league.stage === 'grupos'){
+      PERU_COPA_GRUPOS.forEach(g => {
+        const grp = league.grupos[g];
+        careerWorldLeaguePlayDue(grp.matches, byId, c.calendarDate, {});
+        grp.table = computeGenericStandings(grp.matches, grp.teamIds.map(id=>byId[id]));
+      });
+      const listas = PERU_COPA_GRUPOS.every(g => league.grupos[g].matches.every(m=>m.played));
+      if(listas){
+        const clasificados = [];
+        ['A','B','C','D'].forEach(g => clasificados.push(league.grupos[g].table[0].id, league.grupos[g].table[1].id));
+        const segundosChicos = [];
+        ['E','F','G','H','I','J'].forEach(g => {
+          clasificados.push(league.grupos[g].table[0].id);
+          segundosChicos.push(league.grupos[g].table[1]);
+        });
+        // Los 2 mejores segundos de los grupos de 3, comparando puntos, diferencia de gol, goles a
+        // favor y ELO — mismo criterio de desempate que usa computeGenericStandings.
+        segundosChicos.sort((x,y) => y.pts-x.pts || y.dg-x.dg || y.gf-x.gf || (byId[y.id].elo-byId[x.id].elo));
+        segundosChicos.slice(0,2).forEach(r => clasificados.push(r.id));
+        const all16 = shuffleArr(clasificados);
+        const lastDate = colombiaCopaMaxDate(PERU_COPA_GRUPOS.map(g=>league.grupos[g]).reduce((acc,g)=>acc.concat(g.matches),[]));
+        const startDate = addDaysISO(lastDate, 7);
+        const octavos = [];
+        for(let i=0;i<8;i++){
+          octavos.push({ id:'wl_peru-copa_octavos_'+i, home:all16[i*2], away:all16[i*2+1], date:startDate, neutral:true, homeScore:null, awayScore:null, played:false, winnerId:null, wentToPenalties:false });
+        }
+        league.octavos = octavos;
+        league.stage = 'octavos';
+      }
+    }
+
+    if(league.stage === 'octavos'){
+      careerWorldLeaguePlayDue(league.octavos, byId, c.calendarDate, {neutral:true});
+      league.octavos.forEach(m => colombiaCopaResolveSingle(m, byId));
+      if(league.octavos.every(m=>m.winnerId)){
+        const winners = shuffleArr(league.octavos.map(m=>m.winnerId));
+        const lastDate = colombiaCopaMaxDate(league.octavos);
+        const startDate = addDaysISO(lastDate, 7);
+        const cuartos = [];
+        for(let i=0;i<4;i++){
+          cuartos.push({ id:'wl_peru-copa_cuartos_'+i, home:winners[i*2], away:winners[i*2+1], date:startDate, neutral:true, homeScore:null, awayScore:null, played:false, winnerId:null, wentToPenalties:false });
+        }
+        league.cuartos = cuartos;
+        league.stage = 'cuartos';
+      }
+    }
+
+    if(league.stage === 'cuartos'){
+      careerWorldLeaguePlayDue(league.cuartos, byId, c.calendarDate, {neutral:true});
+      league.cuartos.forEach(m => colombiaCopaResolveSingle(m, byId));
+      if(league.cuartos.every(m=>m.winnerId)){
+        const winners = shuffleArr(league.cuartos.map(m=>m.winnerId));
+        const lastDate = colombiaCopaMaxDate(league.cuartos);
+        const startDate = addDaysISO(lastDate, 7);
+        const semis = [];
+        for(let i=0;i<2;i++){
+          const a = winners[i*2], b = winners[i*2+1];
+          // La letra chica no dice quién juega de local la vuelta de semis: no hay ninguna tabla que
+          // abarque a los 4 semifinalistas (vienen de grupos de distinto tamaño), así que se resuelve
+          // con el mismo criterio que ya usa este motor para desempatar sin dato disponible: local el
+          // de mayor ELO.
+          const better = byId[a].elo >= byId[b].elo ? a : b;
+          semis.push(careerWorldLeagueBuildTwoLegTie(a, b, better, startDate));
+        }
+        league.semis = semis;
+        league.stage = 'semis';
+      }
+    }
+
+    if(league.stage === 'semis'){
+      league.semis.forEach(tie => { careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {}); peruResolveTie(tie, byId); });
+      if(league.semis.every(t=>t.winnerId)){
+        const finalistas = league.semis.map(t=>t.winnerId);
+        const lastDate = colombiaCopaMaxDate(league.semis);
+        const startDate = addDaysISO(lastDate, 7);
+        league.final = { id:'wl_peru-copa_final', home:finalistas[0], away:finalistas[1], date:startDate, neutral:true, homeScore:null, awayScore:null, played:false, winnerId:null, wentToPenalties:false };
+        league.stage = 'final';
+      }
+    }
+
+    if(league.stage === 'final'){
+      careerWorldLeaguePlayDue([league.final], byId, c.calendarDate, {neutral:true});
+      colombiaCopaResolveSingle(league.final, byId);
+      if(league.final.winnerId){
+        league.championId = league.final.winnerId;
+        league.subChampionId = league.final.home===league.championId ? league.final.away : league.final.home;
+        league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
+        if(league.history.length > 15) league.history.length = 15;
+        league.stage = 'done';
+      }
+    }
+  }
+  function careerEnsureCopaPeru(){
+    const wl = careerWorldLeagues();
+    const P = wl['peru-primera'], S = wl['peru-segunda'];
+    let copa = wl['peru-copa'];
+    if((!copa || copa.primeraSeason !== (P && P.season)) && careerCopaPeruReady(P, S)){
+      careerWorldLeagueBuildCopaPeru(P, S);
+      copa = wl['peru-copa'];
+    }
+    if(copa && copa.stage !== 'done') careerWorldLeagueCatchUpCopaPeru(copa);
+  }
   function careerWorldLeagueBuildSeasonColombiaSegunda(def, prevLeague, forcedRoster){
     const wl = careerWorldLeagues();
     const teams = forcedRoster ? forcedRoster
@@ -12061,6 +13088,229 @@
     }
     return html;
   }
+  // Liga1 Perú: fase regular del Apertura y el Clausura, Tabla Anual, playoffs por el título (o la
+  // llave del subcampeón si hubo bicampeón), copas internacionales y tabla de descenso.
+  function renderWorldLeaguePeru(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    function simpleTable(rows, opts){
+      opts = opts || {};
+      return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        let tag = '';
+        if(opts.champion === r.id) tag = ' <span style="color:var(--gold-bright);font-size:11px;">&#127942; campeón</span>';
+        else if(opts.highlight && opts.highlight.includes(r.id)) tag = opts.highlightLabel || '';
+        return `<tr><td>${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+    }
+    function matchLine(m, label){
+      if(!m) return '';
+      const home = byId[m.home], away = byId[m.away];
+      const res = m.played ? `${m.homeScore} &ndash; ${m.awayScore}${m.wentToPenalties ? ' (penales)' : ''}` : `se juega el ${formatCareerDate(m.date)}`;
+      return `<div class="cs-fixture-card"><div>${label ? `<strong>${label}:</strong> ` : ''}${escapeHtml(home.name)} vs ${escapeHtml(away.name)}</div><div class="num">${res}</div></div>`;
+    }
+    function tieBlock(tie, label){
+      if(!tie) return '';
+      let h = `<h4 style="margin:10px 0 4px;">${label}: ${escapeHtml(byId[tie.teamA].name)} vs ${escapeHtml(byId[tie.teamB].name)}</h4>`;
+      h += matchLine(tie.legs[0], 'Ida');
+      h += matchLine(tie.legs[1], 'Vuelta');
+      if(tie.winnerId) h += `<p class="hint">Avanza: <strong style="color:var(--ink);">${escapeHtml(byId[tie.winnerId].name)}</strong>${tie.wentToPenalties ? ' (por penales)' : ''}</p>`;
+      return h;
+    }
+    const A = league.apertura, CL = league.clausura;
+    let html = `<div class="panel"><h3>Torneo Apertura &mdash; Fase Regular</h3>${A.table.length ? simpleTable(A.table, {champion: A.championId}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    if(CL){
+      html += `<div class="panel"><h3>Torneo Clausura &mdash; Fase Regular</h3>${CL.table.length ? simpleTable(CL.table, {champion: CL.championId}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    }
+    if(league.tablaAnual && league.tablaAnual.length){
+      const slots = league.isBicampeon ? (league.subPlayoffSlots||[]) : (league.playoffSlots||[]);
+      html += `<div class="panel"><h3>Tabla Anual</h3><p class="hint">Suma los puntos del Apertura y el Clausura. ${league.isBicampeon ? 'Los 3 equipos marcados juegan la llave del subcampeón.' : 'Los 4 equipos marcados juegan los playoffs por el título.'}</p>${simpleTable(league.tablaAnual, {
+        highlight: slots, highlightLabel: league.isBicampeon ? ' <span style="color:var(--gold-bright);font-size:11px;">llave del subcampeón</span>' : ' <span style="color:var(--gold-bright);font-size:11px;">&#9650; playoffs</span>'
+      })}</div>`;
+    }
+    if(league.semis && league.semis.length){
+      let h = league.semis.map(t => tieBlock(t, t.label)).join('');
+      if(league.semisByeId) h = `<p class="hint">${escapeHtml(byId[league.semisByeId].name)} pasa directo a la final por ser el mejor ubicado de los 3.</p>` + h;
+      html += `<div class="panel"><h3>${league.isBicampeon ? 'Llave del subcampeón &mdash; Semifinal' : 'Playoffs por el Título &mdash; Semifinales'}</h3>${h}</div>`;
+    }
+    if(league.final){
+      html += `<div class="panel"><h3>${league.isBicampeon ? 'Llave del subcampeón &mdash; Final' : 'Playoffs por el Título &mdash; Final'}</h3>${tieBlock(league.final, 'Final')}</div>`;
+    }
+    if(league.isBicampeon && league.championId){
+      html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón Nacional ${league.year} (bicampeón, Apertura y Clausura): <strong>${escapeHtml(byId[league.championId].name)}</strong></div></div>`;
+    } else if(league.championId){
+      html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón Nacional ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong></div></div>`;
+    }
+    if(league.subChampionId){
+      html += `<div class="panel"><p class="hint">Subcampeón ${league.year}: <strong style="color:var(--ink);">${escapeHtml(byId[league.subChampionId].name)}</strong></p></div>`;
+    }
+    if(league.stage === 'done'){
+      const libGrupos = league.libertadoresGruposIds.map(id => escapeHtml(byId[id].name)).join(', ');
+      const libF2 = league.libertadoresFase2Id ? escapeHtml(byId[league.libertadoresFase2Id].name) : '&mdash;';
+      const libF1 = league.libertadoresFase1Id ? escapeHtml(byId[league.libertadoresFase1Id].name) : '&mdash;';
+      const sud = league.sudamericanaIds.map(id => escapeHtml(byId[id].name)).join(', ');
+      html += `<div class="panel"><h3>Copas Internacionales ${league.year}</h3>
+        <p class="hint">Libertadores &middot; fase de grupos: <strong style="color:var(--ink);">${libGrupos}</strong></p>
+        <p class="hint">Libertadores &middot; fase 2: <strong style="color:var(--ink);">${libF2}</strong></p>
+        <p class="hint">Libertadores &middot; fase 1: <strong style="color:var(--ink);">${libF1}</strong></p>
+        <p class="hint">Sudamericana &middot; fase de grupos: <strong style="color:var(--ink);">${sud}</strong></p>
+      </div>`;
+    }
+    if(league.descensoTable && league.descensoTable.length && league.stage === 'done'){
+      const rows = league.descensoTable.map(r => Object.assign({ pj:0, pg:0, pe:0, pp:0, gf:0, gc:0, dg:0 }, r, { pts: Math.round(r.avg*100)/100 }));
+      html += `<div class="panel"><h3>Tabla de Descenso</h3><p class="hint">Promedio de puntos por partido de hasta las últimas 3 temporadas (Apertura + Clausura). Los 2 últimos descienden a Liga2, reemplazados por el campeón y el segundo ascendido de esa categoría.</p><table><thead><tr><th>#</th><th>Equipo</th><th class="num">Promedio</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        const tag = league.relegatedIds.includes(r.id) ? ' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>' : '';
+        return `<tr><td>${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num" style="color:var(--gold);">${r.pts.toFixed(2)}</td></tr>`;
+      }).join('')}
+      </tbody></table></div>`;
+    }
+    return html;
+  }
+  // Liga2 Perú: Fase Regional (2 grupos de 9), Fase Final por el campeonato (3 grupos de 4 con
+  // bonificación) y por la permanencia (2 grupos de 3), y los playoffs por el título y el segundo
+  // ascenso (semis, final, repechaje y partido por el segundo ascenso).
+  function renderWorldLeaguePeruSegunda(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    function simpleTable(rows, opts){
+      opts = opts || {};
+      return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th>${opts.showBonus ? '<th class="num">Bon.</th>' : ''}<th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        let tag = '';
+        if(opts.clasifica && opts.clasifica.indexOf(r.id) !== -1) tag = ' <span style="color:var(--gold-bright);font-size:11px;">&#9650; clasifica</span>';
+        else if(opts.relegated && opts.relegated.indexOf(r.id) !== -1) tag = ' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>';
+        return `<tr><td>${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td>${opts.showBonus ? `<td class="num">${r.bonusPts||0}</td>` : ''}<td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+    }
+    function matchLine(m, label){
+      if(!m) return '';
+      const home = byId[m.home], away = byId[m.away];
+      const res = m.played ? `${m.homeScore} &ndash; ${m.awayScore}${m.wentToPenalties ? ' (penales)' : ''}` : `se juega el ${formatCareerDate(m.date)}`;
+      return `<div class="cs-fixture-card"><div>${label ? `<strong>${label}:</strong> ` : ''}${escapeHtml(home.name)} vs ${escapeHtml(away.name)}</div><div class="num">${res}</div></div>`;
+    }
+    function tieBlock(tie, label){
+      if(!tie) return '';
+      let h = `<h4 style="margin:10px 0 4px;">${label}: ${escapeHtml(byId[tie.teamA].name)} vs ${escapeHtml(byId[tie.teamB].name)}</h4>`;
+      h += matchLine(tie.legs[0], 'Ida');
+      h += matchLine(tie.legs[1], 'Vuelta');
+      if(tie.winnerId) h += `<p class="hint">Avanza: <strong style="color:var(--ink);">${escapeHtml(byId[tie.winnerId].name)}</strong>${tie.wentToPenalties ? ' (por penales)' : ''}</p>`;
+      return h;
+    }
+    let html = `<div class="panel"><h3>Fase Regional &mdash; Grupo A</h3>${league.grupoA.table.length ? simpleTable(league.grupoA.table, {clasifica: league.grupoA.table.slice(0,6).map(r=>r.id)}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    html += `<div class="panel"><h3>Fase Regional &mdash; Grupo B</h3>${league.grupoB.table.length ? simpleTable(league.grupoB.table, {clasifica: league.grupoB.table.slice(0,6).map(r=>r.id)}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    html += `<p class="hint" style="margin:-6px 0 10px;">Los primeros 6 de cada grupo (marcados) pasan a la Fase Final por el campeonato; del 7° al 9° juegan la Fase Final por la permanencia.</p>`;
+
+    if(league.finalFase){
+      const ff = league.finalFase;
+      Object.keys(ff.grupos).forEach(nombre => {
+        const g = ff.grupos[nombre];
+        const clasifica = ff.clasificados ? g.table.filter(r => ff.clasificados.indexOf(r.id) !== -1).map(r=>r.id) : [];
+        html += `<div class="panel"><h3>Fase Final por el campeonato &mdash; ${nombre}</h3>${g.table.length ? simpleTable(g.table, {showBonus:true, clasifica}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+      });
+    }
+    if(league.descensoFase){
+      const df = league.descensoFase;
+      Object.keys(df.grupos).forEach(nombre => {
+        const g = df.grupos[nombre];
+        const relegated = g.table.length ? [g.table[g.table.length-1].id] : [];
+        html += `<div class="panel"><h3>Fase Final por la permanencia &mdash; ${nombre}</h3>${g.table.length ? simpleTable(g.table, {relegated}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+      });
+    }
+    if(league.playoff){
+      const po = league.playoff;
+      let h = po.semis.map((t,i) => tieBlock(t, i===0 ? 'Semifinal 1' : 'Semifinal 2')).join('');
+      html += `<div class="panel"><h3>Playoffs por el título &mdash; Semifinales</h3>${h}</div>`;
+      if(po.final || po.repechaje){
+        html += `<div class="panel"><h3>Final por el título</h3>${tieBlock(po.final,'Final')}<h3 style="margin-top:16px;">Repechaje por el segundo ascenso</h3>${tieBlock(po.repechaje,'Repechaje')}</div>`;
+      }
+      if(po.segundoAscenso){
+        html += `<div class="panel"><h3>Partido por el segundo ascenso</h3>${matchLine(po.segundoAscenso, 'Partido único')}${po.segundoAscenso.winnerId ? `<p class="hint">Segundo ascendido a Liga1: <strong style="color:var(--ink);">${escapeHtml(byId[po.segundoAscenso.winnerId].name)}</strong>${po.segundoAscenso.wentToPenalties ? ' (por penales)' : ''}</p>` : ''}</div>`;
+      }
+    }
+    if(league.championId){
+      html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de Liga2 ${league.year} y ascendido a Liga1: <strong>${escapeHtml(byId[league.championId].name)}</strong></div></div>`;
+    }
+    if(league.relegatedIds && league.relegatedIds.length && league.descensoFase && league.descensoFase.stage === 'lista'){
+      html += `<div class="panel"><p class="hint">Descienden a Liga3: <strong style="color:var(--ink);">${league.relegatedIds.map(id=>escapeHtml(byId[id].name)).join(', ')}</strong>. Todavía no está sincronizado el intercambio de planteles con Liga3, así que se marcan nada más y siguen en Liga2.</p></div>`;
+    }
+    return html;
+  }
+  // Liga3 Perú: Fase Regional (4 grupos), Fase Final (4 grupos con bonificación), cuartos, semis,
+  // final y el triangular por el segundo y tercer ascenso.
+  function renderWorldLeaguePeruTercera(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    function simpleTable(rows, opts){
+      opts = opts || {};
+      return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th>${opts.showBonus ? '<th class="num">Bon.</th>' : ''}<th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        let tag = '';
+        if(opts.clasifica && opts.clasifica.indexOf(r.id) !== -1) tag = ' <span style="color:var(--gold-bright);font-size:11px;">&#9650; clasifica</span>';
+        else if(opts.champion === r.id) tag = ' <span style="color:var(--gold-bright);font-size:11px;">&#127942; campeón</span>';
+        return `<tr><td>${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td>${opts.showBonus ? `<td class="num">${r.bonusPts||0}</td>` : ''}<td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+    }
+    function matchLine(m, label){
+      if(!m) return '';
+      const home = byId[m.home], away = byId[m.away];
+      const res = m.played ? `${m.homeScore} &ndash; ${m.awayScore}${m.wentToPenalties ? ' (penales)' : ''}` : `se juega el ${formatCareerDate(m.date)}`;
+      return `<div class="cs-fixture-card"><div>${label ? `<strong>${label}:</strong> ` : ''}${escapeHtml(home.name)} vs ${escapeHtml(away.name)}</div><div class="num">${res}</div></div>`;
+    }
+    function tieBlock(tie, label){
+      if(!tie) return '';
+      let h = `<h4 style="margin:10px 0 4px;">${label}: ${escapeHtml(byId[tie.teamA].name)} vs ${escapeHtml(byId[tie.teamB].name)}</h4>`;
+      h += matchLine(tie.legs[0], 'Ida');
+      h += matchLine(tie.legs[1], 'Vuelta');
+      if(tie.winnerId) h += `<p class="hint">Avanza: <strong style="color:var(--ink);">${escapeHtml(byId[tie.winnerId].name)}</strong>${tie.wentToPenalties ? ' (por penales)' : ''}</p>`;
+      return h;
+    }
+    let html = '';
+    ['grupo1','grupo2','grupo3','grupo4'].forEach((key,i) => {
+      const g = league[key];
+      html += `<div class="panel"><h3>Fase Regional &mdash; Grupo ${i+1}</h3>${g.table.length ? simpleTable(g.table, {clasifica: g.table.slice(0,4).map(r=>r.id)}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    });
+    html += `<p class="hint" style="margin:-6px 0 10px;">Los primeros 4 de cada grupo (marcados) pasan a la Fase Final.</p>`;
+
+    if(league.finalFase){
+      const ff = league.finalFase;
+      Object.keys(ff.grupos).forEach(nombre => {
+        const g = ff.grupos[nombre];
+        const clasifica = g.table.length ? g.table.slice(0,2).map(r=>r.id) : [];
+        html += `<div class="panel"><h3>Fase Final &mdash; Grupo ${nombre}</h3>${g.table.length ? simpleTable(g.table, {showBonus:true, clasifica}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+      });
+    }
+    const po = league.playoff;
+    if(po){
+      let h = po.cuartos.map((t,i) => tieBlock(t, 'Cuartos de final '+(i+1))).join('');
+      html += `<div class="panel"><h3>Playoffs &mdash; Cuartos de Final</h3>${h}</div>`;
+      if(po.semis){
+        let hs = po.semis.map((t,i) => tieBlock(t, i===0 ? 'Semifinal 1' : 'Semifinal 2')).join('');
+        html += `<div class="panel"><h3>Playoffs &mdash; Semifinales</h3>${hs}</div>`;
+      }
+      if(po.final){
+        html += `<div class="panel"><h3>Final</h3>${tieBlock(po.final, 'Final')}</div>`;
+      }
+      if(po.ascensoTriangular){
+        const tri = po.ascensoTriangular;
+        const played = tri.matches.filter(m=>m.played).map(m => matchLine(m)).join('');
+        const pending = tri.matches.filter(m=>!m.played).map(m => matchLine(m)).join('');
+        html += `<div class="panel"><h3>Triangular por el segundo y tercer ascenso</h3><p class="hint">Entre los 2 perdedores de semifinales y el mejor ubicado de los perdedores de cuartos de final.</p>${played}${pending}${tri.table.length ? simpleTable(tri.table, {clasifica: tri.table.slice(0,2).map(r=>r.id)}) : ''}</div>`;
+      }
+    }
+    if(league.championId){
+      html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de Liga3 ${league.year} y ascendido a Liga2: <strong>${escapeHtml(byId[league.championId].name)}</strong></div></div>`;
+    }
+    if(league.promotedIds && league.promotedIds.length > 1 && league.stage === 'done'){
+      const otros = league.promotedIds.slice(1).map(id=>escapeHtml(byId[id].name)).join(' y ');
+      html += `<div class="panel"><p class="hint">Segundo y tercer ascenso a Liga2: <strong style="color:var(--ink);">${otros}</strong>.</p></div>`;
+    }
+    return html;
+  }
   // Torneo BetPlay DIMAYOR de Colombia (Segunda): Torneo I completo (fase regular, cuadrangulares
   // A/B y final), Torneo II completo, Reclasificación Total, y la definición del ascenso (repechaje
   // y/o gran final según el escenario).
@@ -12160,6 +13410,50 @@
     if(league.final) html += `<div class="panel"><h3>Final</h3><p class="hint">Ida y vuelta; si el global sigue empatado, penales directos.</p>${tieCard(league.final, 'campeón')}</div>`;
     if(league.championId){
       html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Copa BetPlay ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong> &middot; clasificado a la fase preliminar de la Copa Sudamericana</div>`;
+    }
+    return html;
+  }
+  // Copa Caliente de la Liga (Copa Peru): 10 grupos (4 de 4, 6 de 3) a una rueda, octavos y cuartos
+  // a partido único por sorteo, semis ida y vuelta, final a partido único.
+  function renderWorldLeagueCopaPeru(league){
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const div = id => league.divisionOf[id] === 'segunda' ? 'Liga2' : 'Liga1';
+    let html = `<div class="panel"><p class="hint">34 equipos (los 18 de Liga1 y 16 de Liga2, sorteados cada temporada) en 10 grupos a una sola rueda: 4 grupos de 4 y 6 grupos de 3, con un máximo de 2 equipos de la misma división por grupo. Clasifican los 2 primeros de los grupos de 4 y, de los grupos de 3, los 6 primeros más los 2 mejores segundos. Los 16 clasificados juegan octavos y cuartos a partido único por sorteo (penales directos si hay empate), semifinales ida y vuelta (penales directos si el global sigue empatado) y una final a partido único. El campeón no obtiene cupo a la Libertadores ni a la Sudamericana: campeón y subcampeón suman +2 y +1 puntos de bonificación a la Tabla Anual de Liga1 de esa misma temporada.</p></div>`;
+    const grupoCard = (tag) => {
+      const grp = league.grupos[tag];
+      const cerrado = grp.matches.length > 0 && grp.matches.every(m=>m.played);
+      const corte = grp.teamIds.length === 4 ? 2 : 1;
+      const rows = grp.table.length ? grp.table : grp.teamIds.map(id => ({ id, pj:0, pg:0, pe:0, pp:0, gf:0, gc:0, dg:0, pts:0 }));
+      return `<div class="panel"><h3>${grp.nombre}</h3><table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        const pasa = cerrado && i < corte;
+        const style = pasa ? 'border-left:4px solid var(--green-win);' : '';
+        const tag2 = pasa ? ' <span style="color:var(--green-win);font-size:11px;">&#9650; a octavos</span>' : (cerrado && i===corte && grp.teamIds.length===3 ? ' <span class="hint" style="font-size:11px;">2° &mdash; puede clasificar como mejor segundo</span>' : '');
+        return `<tr><td style="${style}">${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)} <span class="hint">(${div(r.id)})</span>${tag2}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num"><strong>${r.pts}</strong></td></tr>`;
+      }).join('')}
+      </tbody></table></div>`;
+    };
+    PERU_COPA_GRUPOS.forEach(g => { html += grupoCard(g); });
+    const singleCard = (m, verbo) => {
+      const h = byId[m.home], a = byId[m.away];
+      let r = m.played ? `${m.homeScore}-${m.awayScore}` : `&mdash; &middot; ${formatCareerDate(m.date)}`;
+      if(m.winnerId) r += ` &middot; <span style="color:var(--green-win);">${verbo} ${escapeHtml(byId[m.winnerId].name)}${m.wentToPenalties?' (penales)':''}</span>`;
+      return `<div class="cs-fixture-card"><div>${escapeHtml(h.name)} <span class="hint">(${div(m.home)})</span> vs ${escapeHtml(a.name)} <span class="hint">(${div(m.away)})</span></div><div class="num">${r}</div></div>`;
+    };
+    const tieCard = (tie, verbo) => {
+      const A = byId[tie.teamA], B = byId[tie.teamB];
+      const l1 = tie.legs[0], l2 = tie.legs[1];
+      let r = `ida ${l1.played ? l1.homeScore+'-'+l1.awayScore : '&mdash;'} &middot; vuelta ${l2.played ? l2.homeScore+'-'+l2.awayScore : '&mdash;'}`;
+      if(tie.winnerId) r += ` &middot; <span style="color:var(--green-win);">${verbo} ${escapeHtml(byId[tie.winnerId].name)}${tie.wentToPenalties?' (penales)':''}</span>`;
+      return `<div class="cs-fixture-card"><div>${escapeHtml(A.name)} <span class="hint">(${div(tie.teamA)})</span> vs ${escapeHtml(B.name)} <span class="hint">(${div(tie.teamB)})</span></div><div class="num">${r}</div></div>`;
+    };
+    if(league.octavos) html += `<div class="panel"><h3>Octavos de final</h3><p class="hint">Partido único; cruces por sorteo entre los 16 clasificados. Penales directos si hay empate.</p>${league.octavos.map(m => singleCard(m, 'avanza')).join('')}</div>`;
+    if(league.cuartos) html += `<div class="panel"><h3>Cuartos de final</h3>${league.cuartos.map(m => singleCard(m, 'avanza')).join('')}</div>`;
+    if(league.semis) html += `<div class="panel"><h3>Semifinales</h3><p class="hint">Ida y vuelta; penales directos si el global sigue empatado.</p>${league.semis.map(t => tieCard(t, 'avanza')).join('')}</div>`;
+    if(league.final) html += `<div class="panel"><h3>Final</h3><p class="hint">Partido único; penales directos si hay empate.</p>${singleCard(league.final, 'campeón')}</div>`;
+    if(league.championId){
+      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Copa Caliente de la Liga ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong> (${div(league.championId)}) &middot; subcampeón: <strong>${escapeHtml(byId[league.subChampionId].name)}</strong> (${div(league.subChampionId)})</div>`;
     }
     return html;
   }
@@ -12412,7 +13706,7 @@
     return html;
   }
   // Íconos de país para las tarjetas de "Ligas del Mundo" (fallback: globo terráqueo).
-  const COUNTRY_FLAGS = { 'Brasil': '&#127463;&#127479;', 'Uruguay': '&#127482;&#127466;', 'Chile': '&#127464;&#127473;', 'Paraguay': '&#127477;&#127486;', 'Colombia': '&#127464;&#127476;', 'Ecuador': '&#127466;&#127464;' };
+  const COUNTRY_FLAGS = { 'Brasil': '&#127463;&#127479;', 'Uruguay': '&#127482;&#127466;', 'Chile': '&#127464;&#127473;', 'Paraguay': '&#127477;&#127486;', 'Colombia': '&#127464;&#127476;', 'Ecuador': '&#127466;&#127464;', 'Peru': '&#127477;&#127466;' };
   // Tarjeta clicable genérica, misma pinta que competitionCard pero con una data-action propia.
   function worldNavCard(icon, title, subtitle, action, dataAttrs){
     return `<div class="cs-comp-card" data-action="${action}" ${dataAttrs}>
@@ -12490,6 +13784,35 @@
       if(league.apertura.championId && league.stage.indexOf('clausura')===0) label = `Campeón del Apertura: ${escapeHtml(byId[league.apertura.championId].name)} &middot; ${label}`;
       return label;
     }
+    if(league.format === 'peru-primera'){
+      if(league.stage === 'done'){
+        return league.isBicampeon
+          ? `Campeón nacional ${league.year} (bicampeón): ${escapeHtml(byId[league.championId].name)}`
+          : `Campeón nacional ${league.year}: ${escapeHtml(byId[league.championId].name)}`;
+      }
+      const labels = {
+        'apertura-regular':'Torneo Apertura · fase regular', 'clausura-regular':'Torneo Clausura · fase regular',
+        'titulo-semis':'Playoffs por el título · semifinales', 'titulo-final':'Playoffs por el título · final',
+        'sub-semis':'Definición del subcampeón · semifinales', 'sub-final':'Definición del subcampeón · final'
+      };
+      let label = labels[league.stage] || 'En juego';
+      if(league.apertura.championId && league.stage.indexOf('clausura')===0) label = `Campeón del Apertura: ${escapeHtml(byId[league.apertura.championId].name)} &middot; ${label}`;
+      if(league.isBicampeon && (league.stage === 'sub-semis' || league.stage === 'sub-final')) label = `Campeón nacional: ${escapeHtml(byId[league.championId].name)} (bicampeón) &middot; ${label}`;
+      return label;
+    }
+    if(league.format === 'peru-segunda'){
+      if(league.stage === 'done') return `Ascienden a Liga1 ${league.year}: ${escapeHtml(byId[league.championId].name)} y ${escapeHtml(byId[league.subChampionId].name)}`;
+      const labels = { regional:'Fase Regional (2 grupos)', fases:'Fase Final (campeonato y permanencia)' };
+      return labels[league.stage] || 'En juego';
+    }
+    if(league.format === 'peru-tercera'){
+      if(league.stage === 'done'){
+        const ascendidos = (league.promotedIds||[]).map(id=>escapeHtml(byId[id].name)).join(', ');
+        return `Ascienden a Liga2 ${league.year}: ${ascendidos}`;
+      }
+      const labels = { regional:'Fase Regional (4 grupos)', 'final-fase':'Fase Final y playoffs' };
+      return labels[league.stage] || 'En juego';
+    }
     if(league.format === 'colombia-segunda'){
       if(league.stage === 'done'){
         const scenarioLabel = { 1:'bicampeón', 2:'directo por Reclasificación', 3:'uno directo, otro por Repechaje', 4:'Gran Final + Repechaje' }[league.ascenso.scenario] || '';
@@ -12513,6 +13836,11 @@
       if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
       if(!league.tie) return `Pendiente`;
       return league.tie.legs[1].played ? `Jugada` : `Se juega el ${formatCareerDate(league.tie.legs[1].date)}`;
+    }
+    if(league.format === 'peru-copa'){
+      if(league.stage === 'done' || league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
+      const labels = { grupos:'Fase de grupos', octavos:'Octavos de final', cuartos:'Cuartos de final', semis:'Semifinales', final:'Final' };
+      return labels[league.stage] || 'En juego';
     }
     if(league.format === 'uruguay-copa'){
       if(league.stage === 'done' || league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
@@ -13024,12 +14352,13 @@
 
     // Copa do Brasil y Supercopa do Brasil: eliminatoria/partido único sin pestañas de Tabla, ya
     // que no hay una tabla de posiciones que mostrar, solo el cuadro (o el partido) en sí.
-    if(league.format === 'copa-eliminacion' || league.format === 'copa-paraguay' || league.format === 'copa-ecuador' || league.format === 'partido-unico' || league.format === 'uruguay-copa' || league.format === 'uruguay-supercopa' || league.format === 'chile-copa-liga' || league.format === 'chile-copa' || league.format === 'chile-supercopa' || league.format === 'colombia-copa' || league.format === 'colombia-supercopa'){
+    if(league.format === 'copa-eliminacion' || league.format === 'copa-paraguay' || league.format === 'copa-ecuador' || league.format === 'partido-unico' || league.format === 'uruguay-copa' || league.format === 'uruguay-supercopa' || league.format === 'chile-copa-liga' || league.format === 'chile-copa' || league.format === 'chile-supercopa' || league.format === 'colombia-copa' || league.format === 'colombia-supercopa' || league.format === 'peru-copa'){
       let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
       if(league.format === 'copa-eliminacion') html += renderWorldLeagueKnockoutCopa(league);
       else if(league.format === 'copa-paraguay') html += renderWorldLeagueCopaParaguay(league);
       else if(league.format === 'copa-ecuador') html += renderWorldLeagueCopaEcuador(league);
       else if(league.format === 'colombia-copa') html += renderWorldLeagueColombiaCopa(league);
+      else if(league.format === 'peru-copa') html += renderWorldLeagueCopaPeru(league);
       else if(league.format === 'colombia-supercopa') html += renderWorldLeagueColombiaSupercopa(league);
       else if(league.format === 'uruguay-copa') html += renderWorldLeagueUruguayCopa(league);
       else if(league.format === 'uruguay-supercopa') html += renderWorldLeagueUruguaySupercopa(league);
@@ -13053,6 +14382,39 @@
       else if(league.format === 'uruguay-segunda') html += renderWorldLeagueUruguaySegunda(league);
       else if(league.format === 'uruguay-tercera') html += renderWorldLeagueUruguayTercera(league);
       else html += renderWorldLeagueUruguayCuarta(league);
+      if(league.history && league.history.length > 1){
+        const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
+        html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      return html;
+    }
+
+    // Liga1 Perú: formato propio, todo en un solo panel.
+    if(league.format === 'peru-primera'){
+      let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
+      html += renderWorldLeaguePeru(league);
+      if(league.history && league.history.length > 1){
+        const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
+        html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      return html;
+    }
+
+    // Liga2 Perú: formato propio, todo en un solo panel.
+    if(league.format === 'peru-segunda'){
+      let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
+      html += renderWorldLeaguePeruSegunda(league);
+      if(league.history && league.history.length > 1){
+        const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
+        html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      return html;
+    }
+
+    // Liga3 Perú: formato propio, todo en un solo panel.
+    if(league.format === 'peru-tercera'){
+      let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
+      html += renderWorldLeaguePeruTercera(league);
       if(league.history && league.history.length > 1){
         const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
         html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
