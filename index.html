@@ -381,7 +381,7 @@
       advancePerGroup: 2,
       swissRounds: 4,
       defaultElo: 1500,
-      kFactor: 24,
+      kFactor: 3,
       homeAdvantage: 40,
       drawProb: 0.25,
       surpriseFactor: 45,
@@ -420,7 +420,7 @@
       matchCounter: 0,
       playSeq: 0,
       fixtureNav: {},
-      engine: { homeAdvantage: 40, kFactor: 24, drawProb: 0.25, surpriseFactor: 45, allowDraws: true },
+      engine: { homeAdvantage: 40, kFactor: 3, drawProb: 0.25, surpriseFactor: 45, allowDraws: true },
       nacional: defaultNacional(),
       bmetro: defaultBmetro(),
       federal: defaultFederal(),
@@ -854,6 +854,14 @@
     return 1 / (1 + Math.pow(10, (eloB - eloA) / 400));
   }
 
+  // Tope de variación de ELO por partido: nadie gana ni pierde más de 3 puntos en un solo partido.
+  const ELO_MAX_DELTA = 3;
+  function eloDelta(k, score, expected){
+    const kEff = Math.min(Math.abs(Number(k)) || ELO_MAX_DELTA, ELO_MAX_DELTA);
+    const d = Math.round(kEff * (score - expected));
+    return Math.max(-ELO_MAX_DELTA, Math.min(ELO_MAX_DELTA, d));
+  }
+
   // Blends the pure ELO win expectation toward 50/50 as surpriseFactor rises (0-100).
   // At 0 the favorite's real ELO odds are used as-is; at 100 the match plays much more evenly.
   function adjustedProbability(expHome, surpriseFactor){
@@ -883,8 +891,8 @@
     else sHome = 0.5;
     const sAway = 1 - sHome;
     const k = state.config.kFactor;
-    const deltaHome = Math.round(k * (sHome - expHome));
-    const deltaAway = Math.round(k * (sAway - expAway));
+    const deltaHome = eloDelta(k, sHome, expHome);
+    const deltaAway = eloDelta(k, sAway, expAway);
     home.elo += deltaHome;
     away.elo += deltaAway;
     match.deltaHome = deltaHome;
@@ -1356,7 +1364,7 @@
       <p class="hint">Estos valores determinan cómo se calculan las probabilidades y cómo se actualiza el ranking tras cada partido.</p>
       <div class="grid cols-3">
         <div class="field"><label>ELO inicial por defecto</label><input type="number" id="cfgDefaultElo" value="${cfg.defaultElo}"></div>
-        <div class="field"><label>Factor K (sensibilidad)</label><input type="number" id="cfgKFactor" value="${cfg.kFactor}"></div>
+        <div class="field"><label>Factor K (máx. 3 por partido)</label><input type="number" id="cfgKFactor" value="${cfg.kFactor}"></div>
         <div class="field"><label>Ventaja de local (puntos ELO)</label><input type="number" id="cfgHomeAdv" value="${cfg.homeAdvantage}"></div>
       </div>
       <div class="grid cols-3" style="margin-top:16px;">
@@ -1896,7 +1904,7 @@
     else if(id==='cfgTwoLegged') cfg.twoLegged = e.target.checked;
     else if(id==='cfgSwissRounds') cfg.swissRounds = Math.max(1, Number(e.target.value)||1);
     else if(id==='cfgDefaultElo') cfg.defaultElo = Number(e.target.value)||1500;
-    else if(id==='cfgKFactor') cfg.kFactor = Number(e.target.value)||20;
+    else if(id==='cfgKFactor') cfg.kFactor = Number(e.target.value)||3;
     else if(id==='cfgHomeAdv') cfg.homeAdvantage = Number(e.target.value)||0;
     else if(id==='cfgSeedMethod') cfg.seedMethod = e.target.value;
     else return;
@@ -3186,8 +3194,8 @@
     else sHome = 0.5;
     const sAway = 1-sHome;
     const k = state.career.engine.kFactor;
-    const dH = Math.round(k*(sHome-expHome));
-    const dA = Math.round(k*(sAway-expAway));
+    const dH = eloDelta(k, sHome, expHome);
+    const dA = eloDelta(k, sAway, expAway);
     home.elo += dH; away.elo += dA;
     m.deltaHome = dH; m.deltaAway = dA;
   }
@@ -7886,11 +7894,11 @@
   function worldLeagueEloUpdate(eloHome, eloAway, homeScore, awayScore, opts){
     opts = opts || {};
     const adv = opts.neutral ? 0 : (opts.homeAdvantage != null ? opts.homeAdvantage : 40);
-    const k = opts.kFactor != null ? opts.kFactor : 24;
+    const k = opts.kFactor != null ? opts.kFactor : 3;
     const expHome = eloExpected(eloHome + adv, eloAway);
     const sHome = homeScore > awayScore ? 1 : (homeScore < awayScore ? 0 : 0.5);
-    const dHome = Math.round(k * (sHome - expHome));
-    const dAway = Math.round(k * ((1 - sHome) - (1 - expHome)));
+    const dHome = eloDelta(k, sHome, expHome);
+    const dAway = eloDelta(k, 1 - sHome, 1 - expHome);
     return [eloHome + dHome, eloAway + dAway];
   }
   // Definición de penales genérica (series ida y vuelta con el agregado empatado): casi un cara o
