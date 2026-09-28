@@ -1,0 +1,28 @@
+id_jugador,nombre,posicion,fecha_nacimiento,equipo
+J0001,Rafael Santos Borre,DEL,15-09-1995,River Plate
+J0002,Lucas Beltrán,DEL,29-03-2001,River Plate
+J0003,Agustin Ruberto,DEL,14-01-2006,River Plate
+J0004,Sebastian Driussi,DEL,09-02-1996,River Plate
+J0005,Thiago Almada,DEL,26-04-2001,River Plate
+J0006,Angel Correa,DEL,09-03-1995,River Plate
+J0007,Anibal Moreno,MED,13-05-1999,River Plate
+J0008,Fausto Vera,MED,26-03-2000,River Plate
+J0009,Mauro Arambarri,MED,30-09-1995,River Plate
+J0010,Tobias Andrada,MED,02-02-2007,River Plate
+J0011,Juan Cruz Meza,MED,14-03-2008,River Plate
+J0012,Tomas Galvan,MED,11-04-2000,River Plate
+J0013,Juan Carlos Portillo,MED,18-05-2000,River Plate
+J0014,Lucas Silva,MED,27-02-2007,River Plate
+J0015,Lautaro Pereyra,MED,28-03-2008,River Plate
+J0016,Nicolas Otamendi,DEF,12-02-1988,River Plate
+J0017,Gonzalo Montiel,DEF,01-01-1997,River Plate
+J0018,Marcos Acuña,DEF,28-10-1991,River Plate
+J0019,Lucas Martinez Quarta,DEF,10-05-1996,River Plate
+J0020,Lautaro Rivero,DEF,01-11-2003,River Plate
+J0021,Francisco Ortega,DEF,19-02-1999,River Plate
+J0022,Tobias Ramirez,DEF,11-11-2006,River Plate
+J0023,Giovanni Gonzalez,DEF,20-09-1994,River Plate
+J0024,Facundo Gonzalez,DEF,03-04-2006,River Plate
+J0025,Valentin Lucero,DEF,01-04-2006,River Plate
+J0026,Santiago Beltran,ARQ,04-10-2004,River Plate
+J0027,Ezequiel Centurion,ARQ,20-05-1997,River Plate
