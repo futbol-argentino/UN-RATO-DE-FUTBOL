@@ -419,6 +419,7 @@
       history: [],               // temporadas/torneos archivados de Primera
       matchCounter: 0,
       playSeq: 0,
+      players: null,             // plantel de jugadores {id, n, p, b, t}: se copia de jugadores.csv al empezar (o abrir) la carrera
       fixtureNav: {},
       engine: { homeAdvantage: 40, kFactor: 3, drawProb: 0.25, surpriseFactor: 45, allowDraws: true },
       nacional: defaultNacional(),
@@ -3202,7 +3203,156 @@
     return goalsForOutcome(outcome, adjusted);
   }
 
+  // ---------- Jugadores y goleadores ----------
+  // El plantel inicial se lee de jugadores.csv (mismo repositorio que la página). Cada carrera copia esos
+  // jugadores en state.career.players ({id, n:nombre, p:posición, b:nacimiento, t:equipo}) y de ahí en más
+  // los guarda ella misma: el CSV nunca se modifica desde la página.
+  const PLAYERS_CSV_URL = 'jugadores.csv';
+  let playersCsvRows = null;            // null = no cargó (o no existe el archivo)
+  let playersCacheData = null, playersCacheSrc = null;
+
+  function playerNormKey(s){
+    return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+  // CSV simple: comillas, saltos de línea CRLF y separador coma o punto y coma (Excel en español guarda con ;).
+  function parseCsvText(text){
+    text = String(text).replace(/^\uFEFF/, '');
+    const firstLine = text.split(/\r?\n/)[0] || '';
+    const delim = firstLine.split(';').length > firstLine.split(',').length ? ';' : ',';
+    const rows = []; let row = [], cur = '', q = false;
+    for(let i = 0; i < text.length; i++){
+      const ch = text[i];
+      if(q){
+        if(ch === '"'){ if(text[i+1] === '"'){ cur += '"'; i++; } else q = false; }
+        else cur += ch;
+      } else if(ch === '"'){ q = true; }
+      else if(ch === delim){ row.push(cur); cur = ''; }
+      else if(ch === '\n' || ch === '\r'){
+        if(ch === '\r' && text[i+1] === '\n') i++;
+        row.push(cur); cur = '';
+        if(row.some(x => x.trim() !== '')) rows.push(row);
+        row = [];
+      } else cur += ch;
+    }
+    row.push(cur);
+    if(row.some(x => x.trim() !== '')) rows.push(row);
+    return rows;
+  }
+  function playerPosCode(s){
+    const k = playerNormKey(s);
+    if(/^(arq|por|gk)/.test(k)) return 'ARQ';
+    if(/^(def|lat|zag)/.test(k)) return 'DEF';
+    if(/^(del|ata|ext)/.test(k)) return 'DEL';
+    return 'MED';
+  }
+  function playersFromCsv(text){
+    const rows = parseCsvText(text);
+    if(rows.length < 2) return [];
+    const head = rows[0].map(playerNormKey);
+    const col = keys => head.findIndex(h => keys.some(k => h.indexOf(k) === 0));
+    const cId = col(['id']), cName = col(['nombre']), cPos = col(['posicion']), cBirth = col(['fecha', 'nacimiento']), cTeam = col(['equipo']);
+    if(cName < 0 || cTeam < 0) return [];
+    const seen = {}, out = [];
+    rows.slice(1).forEach((r, i) => {
+      const n = (r[cName] || '').trim(), t = (r[cTeam] || '').trim();
+      if(!n || !t) return;
+      let id = cId >= 0 ? (r[cId] || '').trim() : '';
+      if(!id) id = 'P' + (i + 1);
+      while(seen[id]) id += '_';
+      seen[id] = true;
+      out.push({ id, n, p: playerPosCode(cPos >= 0 ? r[cPos] : ''), b: cBirth >= 0 ? (r[cBirth] || '').trim() : '', t });
+    });
+    return out;
+  }
+  function playersLoadCsv(){
+    try{
+      fetch(PLAYERS_CSV_URL + '?v=' + Date.now(), { cache: 'no-store' })
+        .then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+        .then(text => { const list = playersFromCsv(text); playersCsvRows = list.length ? list : null; })
+        .catch(() => { playersCsvRows = null; });
+    }catch(e){ playersCsvRows = null; }
+  }
+  // Si la carrera todavía no tiene jugadores y el CSV ya cargó, se copian acá.
+  function careerEnsurePlayers(){
+    const c = state.career;
+    if(!c || c.players || !playersCsvRows) return;
+    c.players = playersCsvRows.map(p => Object.assign({}, p));
+    playersCacheData = null;
+  }
+  // Llamar cuando cambie el plantel de algún equipo (retiros, pases) para rearmar el índice.
+  function playersInvalidateCache(){ playersCacheData = null; }
+  function playersCache(){
+    const c = state.career;
+    if(!c || !c.players) return null;
+    if(playersCacheData && playersCacheSrc === c.players) return playersCacheData;
+    const byTeam = {}, byId = {};
+    c.players.forEach(p => {
+      byId[p.id] = p;
+      if(p.r) return;                       // retirados: quedan en la lista pero no juegan
+      const k = playerNormKey(p.t);
+      (byTeam[k] = byTeam[k] || []).push(p);
+    });
+    playersCacheData = { byTeam, byId }; playersCacheSrc = c.players;
+    return playersCacheData;
+  }
+  const PLAYER_GOAL_WEIGHT = { DEL: 10, MED: 4, DEF: 1.5, ARQ: 0 };
+  function playerPickScorer(squad){
+    let total = 0;
+    squad.forEach(p => { total += PLAYER_GOAL_WEIGHT[p.p] || 0; });
+    if(total <= 0) return null;
+    let r = Math.random() * total;
+    for(let i = 0; i < squad.length; i++){
+      r -= PLAYER_GOAL_WEIGHT[squad[i].p] || 0;
+      if(r < 0 && (PLAYER_GOAL_WEIGHT[squad[i].p] || 0) > 0) return squad[i];
+    }
+    return squad[squad.length - 1];
+  }
+  // Reparte los goles ya definidos del partido entre los jugadores de cada equipo (solo si tiene plantel cargado).
+  function careerAssignScorers(m){
+    if(!m || m.bye || m.goals !== undefined) return;
+    if(typeof m.homeScore !== 'number' || typeof m.awayScore !== 'number') return;
+    careerEnsurePlayers();
+    const cache = playersCache();
+    if(!cache) return;
+    const home = careerTeamById(m.home), away = careerTeamById(m.away);
+    if(!home || !away) return;
+    const goals = [];
+    [['h', home, m.homeScore], ['a', away, m.awayScore]].forEach(([side, team, n]) => {
+      const squad = cache.byTeam[playerNormKey(team.name)];
+      if(!squad || !squad.length) return;
+      for(let i = 0; i < n; i++){
+        const p = playerPickScorer(squad);
+        if(!p) break;
+        goals.push({ s: side, p: p.id, m: 1 + Math.floor(Math.random() * 90) });
+      }
+    });
+    if(!goals.length) return;
+    goals.sort((a, b) => a.m - b.m);
+    m.goals = goals;
+  }
+  function careerScorersSide(m, side){
+    const cache = playersCache();
+    const order = [], mins = {};
+    m.goals.forEach(g => {
+      if(g.s !== side) return;
+      if(!mins[g.p]){ mins[g.p] = []; order.push(g.p); }
+      mins[g.p].push(g.m);
+    });
+    return order.map(id => {
+      const p = cache && cache.byId[id];
+      return escapeHtml(p ? p.n : '?') + ' ' + mins[id].map(x => x + "'").join(', ');
+    }).join(' &middot; ');
+  }
+  function careerScorersHtml(m){
+    if(!m.played || !m.goals || !m.goals.length) return '';
+    const h = careerScorersSide(m, 'h'), a = careerScorersSide(m, 'a');
+    return `<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:24px;font-size:11.5px;color:var(--ink-dim);line-height:1.5;">
+      <div style="text-align:right;">${h ? '&#9917; ' + h : ''}</div><div style="text-align:left;">${a ? '&#9917; ' + a : ''}</div>
+    </div>`;
+  }
+
   function careerApplyEloUpdate(m){
+    try{ careerAssignScorers(m); }catch(e){}
     const home = careerTeamById(m.home), away = careerTeamById(m.away);
     if(!home || !away) return;
     const adv = m.neutral ? 0 : state.career.engine.homeAdvantage;
@@ -5304,6 +5454,7 @@
       <input type="number" min="0" class="score-input" data-role="away-score" value="${m.awayScore ?? ''}" ${m.played?'disabled':''}>
       <div class="badge-wrap">${teamBadgeHtml(away, 28)}</div>
       <div class="side away ${winnerAway?'winner':''}">${escapeHtml(away.name)}<span class="elo-tag num">${away.elo}${m.played && m.deltaAway!==undefined ? ` <span class="delta ${m.deltaAway>0?'pos':(m.deltaAway<0?'neg':'')}">${m.deltaAway>=0?'+':''}${m.deltaAway}</span>`:''}</span>${renderPosForm(m.away, meta)}</div>
+      ${careerScorersHtml(m)}
       ${opts.serieGlobal ? careerSerieGlobalHtml(m) : ''}
       <div class="match-actions" style="grid-column:1/-1;justify-content:flex-end;">
         ${!m.played ? `<button class="btn small" data-action="career-simulate-match" data-id="${m.id}">Simular</button>
@@ -16727,6 +16878,7 @@
       newTournament();
     }
   })();
+  playersLoadCsv();
   render();
   // Los escudos guardados se leen de IndexedDB de forma asíncrona: cuando llegan se redibuja.
   crestLoadAll().then(function(){ render(); });
