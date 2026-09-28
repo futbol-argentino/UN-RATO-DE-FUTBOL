@@ -1817,8 +1817,8 @@
       const t = resolver(r.id);
       const zone = zoneForPosition(i+1, zones);
       const zoneColor = zone ? zone.color : null;
-      return `<tr class="${(i<3 && !zone)?'top3':''}">
-        <td><span class="pos-pill" style="${zoneColor?`background:${zoneColor}22;color:${zoneColor};border-color:${zoneColor};`:''}">${i+1}</span></td>
+      return `<tr class="${(i<3 && !zone)?'top3':''}" style="${zoneColor?`background:${zoneColor}1F;`:''}">
+        <td style="${zoneColor?`border-left:4px solid ${zoneColor};`:''}"><span class="pos-pill" style="${zoneColor?`background:${zoneColor}22;color:${zoneColor};border-color:${zoneColor};`:''}">${i+1}</span></td>
         <td><div style="display:flex;align-items:center;gap:8px;">${teamBadgeHtml(t,20)}<span>${escapeHtml(t.name)}</span></div></td>
         <td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td><td class="num">${t.elo}</td>
       </tr>`;
@@ -3473,16 +3473,31 @@
     return { annual, promedios, relegated, relegatedAnnual: [lastAnnual], relegatedPromedios };
   }
 
+  const ANNUAL_COLORS = { libG:'#3F7FD0', libF2:'#7FA8E3', sud:'#2FA69A', desc:'#B4433A' };
   function renderAnnualTable(rows, relegatedIds){
     relegatedIds = relegatedIds || [];
+    // Clasificación a copas según el orden de mérito real (campeones, Copa Argentina, Tabla Anual).
+    const qG = CONT_QUOTAS.Argentina.G, qF2 = CONT_QUOTAS.Argentina.F2;
+    const lib = careerLibertadoresArgQualifiers();
+    const sud = careerSudamericanaArgQualifiers();
+    const zoneOf = id => {
+      if(relegatedIds.includes(id)) return { color:ANNUAL_COLORS.desc, tag:'&#9660; desciende' };
+      const li = lib.indexOf(id);
+      if(li !== -1 && li < qG) return { color:ANNUAL_COLORS.libG, tag:'&#9650; Libertadores · grupos' };
+      if(li !== -1) return { color:ANNUAL_COLORS.libF2, tag:'&#9650; Libertadores · fase 2' };
+      if(sud.indexOf(id) !== -1) return { color:ANNUAL_COLORS.sud, tag:'&#9650; Sudamericana' };
+      return null;
+    };
+    const chip = (color, label) => `<span class="zone-chip"><i style="background:${color};"></i>${label}</span>`;
+    const legend = `<div class="zone-legend">${chip(ANNUAL_COLORS.libG,'Copa Libertadores · fase de grupos')}${chip(ANNUAL_COLORS.libF2,'Copa Libertadores · fase 2')}${chip(ANNUAL_COLORS.sud,'Copa Sudamericana')}${chip(ANNUAL_COLORS.desc,'Descenso')}</div>`;
     return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
     ${rows.map((r,i)=>{
       const t = careerTeamById(r.id);
-      const isRel = relegatedIds.includes(r.id);
-      const style = isRel ? 'border-left:4px solid var(--red);' : '';
-      return `<tr><td style="${style}">${i+1}</td><td><div style="display:flex;align-items:center;gap:7px;">${teamBadgeHtml(t,20)}${escapeHtml(t.name)}${isRel?' <span style="color:var(--red);font-size:11px;">&#9660; desciende</span>':''}</div></td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      const z = zoneOf(r.id);
+      const tdStyle = z ? `border-left:4px solid ${z.color};` : '';
+      return `<tr style="${z ? `background:${z.color}1F;` : ''}"><td style="${tdStyle}">${i+1}</td><td><div style="display:flex;align-items:center;gap:7px;">${teamBadgeHtml(t,20)}${escapeHtml(t.name)}${z ? ` <span style="color:${z.color};font-size:11px;white-space:nowrap;">${z.tag}</span>` : ''}</div></td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
     }).join('')}
-    </tbody></table>`;
+    </tbody></table>${legend}`;
   }
   function renderPromediosTable(rows, relegatedIds){
     relegatedIds = relegatedIds || [];
@@ -6447,8 +6462,11 @@
       html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de ${title} ${bucket.edition}: <strong>${champ ? escapeHtml(champ.name) : '&mdash;'}</strong></div>`;
     }
     html += renderContDrawPanel(cupKey, bucket);
-    html += careerContRenderEntrants(cupKey, bucket);
-    stages.forEach(stage => {
+    // La fase de grupos va primero (justo debajo del encabezado) para verla sin bajar; después la lista
+    // de clasificados y el resto de las fases en su orden.
+    const stageOrder = ['grupos'].concat(stages.filter(s => s !== 'grupos'));
+    stageOrder.forEach((stage, si) => {
+      if(si === 1) html += careerContRenderEntrants(cupKey, bucket);
       const ms = careerContStageMatches(bucket, stage);
       if(!ms.length) return;
       html += `<div class="panel"><div class="round-header"><h3>${CONT_LABELS[stage]}</h3></div>`;
