@@ -95,6 +95,13 @@
   .cs-topbar .cs-tb-left .season{ font-size:12px; color:var(--ink-dim); }
   .cs-topbar .cs-tb-right{ display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--ink-dim); }
   .cs-content{ padding:22px 26px 70px; max-width:1180px; }
+  .cs-content.cs-wide{ max-width:none; }
+  .cont-groups{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(540px,100%),1fr)); gap:14px; }
+  .cont-groups .table-scroll{ overflow-x:visible; }
+  .cont-groups table{ width:100%; }
+  .cont-groups th, .cont-groups td{ padding-left:8px; padding-right:8px; }
+  .cont-groups td:nth-child(2){ white-space:nowrap; }
+  .cont-groups td:nth-child(2) > div{ flex-wrap:nowrap; white-space:nowrap; }
   .cs-hero{
     background:linear-gradient(135deg, var(--panel-alt), var(--panel));
     border:1px solid var(--line); border-radius:16px; padding:22px 24px; margin-bottom:20px;
@@ -404,6 +411,10 @@
       seasonDraws: null,     // sorteo de zonas (Primera/Nacional) pendiente al arrancar el año
       libertadores: { foreignTeams: [], matches: [], built: false, champion: null },
       sudamericana: { foreignTeams: [], matches: [], built: false, champion: null },
+      recopa: { foreignTeams: [], matches: [], built: false, champion: null },
+      continentalNext: null,     // clasificados a las copas del año siguiente (se guardan al cerrar la temporada)
+      continentalHistory: [],    // campeones continentales de cada edición
+      intlTab: 'libertadores',
       cupMatches: [],            // Trofeo de Campeones / Supercopa Argentina / Supercopa Internacional
       history: [],               // temporadas/torneos archivados de Primera
       matchCounter: 0,
@@ -539,7 +550,8 @@
       (c.primerac && c.primerac.matches) || [],
       (c.promocional && c.promocional.matches) || [],
       (c.libertadores && c.libertadores.matches) || [],
-      (c.sudamericana && c.sudamericana.matches) || []
+      (c.sudamericana && c.sudamericana.matches) || [],
+      (c.recopa && c.recopa.matches) || []
     ];
   }
   // Todos los partidos con fecha asignada, jugados o no (el calendario muestra también los resultados del día).
@@ -579,8 +591,14 @@
       return 'Promocional Amateur · ' + (m.phase === 'clausura' ? 'Clausura' : 'Apertura');
     }
     if(m.comp === 'copa-argentina') return 'Copa Argentina' + (m.stage ? ' · ' + (COPA_ARG_LABELS[m.stage] || m.stage) : '');
-    if(m.comp === 'libertadores') return 'Copa Libertadores' + (m.stage ? ' · ' + (COPA_ARG_LABELS[m.stage] || m.stage) : '');
-    if(m.comp === 'sudamericana') return 'Copa Sudamericana' + (m.stage ? ' · ' + (COPA_ARG_LABELS[m.stage] || m.stage) : '');
+    if(m.comp === 'libertadores' || m.comp === 'sudamericana'){
+      let lbl = m.comp === 'libertadores' ? 'Copa Libertadores' : 'Copa Sudamericana';
+      if(m.stage) lbl += ' · ' + (CONT_LABELS[m.stage] || m.stage);
+      if(m.stage === 'grupos') lbl += ' · Grupo ' + m.zone + ' · Fecha ' + m.round;
+      else if(m.leg) lbl += ' · ' + (m.leg === 1 ? 'Ida' : 'Vuelta');
+      return lbl;
+    }
+    if(m.comp === 'recopa') return 'Recopa Sudamericana · ' + (m.leg === 1 ? 'Ida' : 'Vuelta');
     if(m.comp === 'trofeo-campeones') return 'Trofeo de Campeones';
     if(m.comp === 'supercopa-argentina') return 'Supercopa Argentina';
     if(m.comp === 'supercopa-internacional') return 'Supercopa Internacional';
@@ -590,6 +608,7 @@
   // para que "Avanzar calendario" no dependa de ir tocando botones torneo por torneo.
   function careerTryAutoAdvanceStages(){
     const c = state.career;
+    careerContEnsureEdition();
     let progressed = true, guard = 0;
     while(progressed && guard < 25){
       progressed = false; guard++;
@@ -621,26 +640,7 @@
           }
         });
       }
-      if(c.libertadores && c.libertadores.built){
-        CONTINENTAL_STAGES.forEach(stage => {
-          const ms = c.libertadores.matches.filter(m=>m.stage===stage);
-          if(ms.length===0) return;
-          const nextStage = CONTINENTAL_STAGES[CONTINENTAL_STAGES.indexOf(stage)+1];
-          if(ms.every(m=>m.played) && nextStage && c.libertadores.matches.filter(m=>m.stage===nextStage).length===0){
-            careerAdvanceContinental('libertadores', stage); progressed = true;
-          }
-        });
-      }
-      if(c.sudamericana && c.sudamericana.built){
-        CONTINENTAL_STAGES.forEach(stage => {
-          const ms = c.sudamericana.matches.filter(m=>m.stage===stage);
-          if(ms.length===0) return;
-          const nextStage = CONTINENTAL_STAGES[CONTINENTAL_STAGES.indexOf(stage)+1];
-          if(ms.every(m=>m.played) && nextStage && c.sudamericana.matches.filter(m=>m.stage===nextStage).length===0){
-            careerAdvanceContinental('sudamericana', stage); progressed = true;
-          }
-        });
-      }
+      if(careerContStepAll()) progressed = true;
       if(careerNacionalAutoAdvance()) progressed = true;
       if(careerBmetroAutoAdvance()) progressed = true;
       if(careerFederalAutoAdvance()) progressed = true;
@@ -1165,7 +1165,7 @@
           ${renderCarreraSidebar()}
           <div class="cs-main">
             ${renderCarreraTopbar()}
-            <div class="cs-content" id="stepContent">${stepHtml}${footer}</div>
+            <div class="cs-content${c.view === 'internacionales' && !c.seasonDraws ? ' cs-wide' : ''}" id="stepContent">${stepHtml}${footer}</div>
           </div>
         </div>`;
       } else {
@@ -1983,6 +1983,7 @@
     else if(action === 'career-set-view'){
       const view = btn.getAttribute('data-view');
       state.career.view = view;
+      if(btn.getAttribute('data-tab')) state.career.intlTab = btn.getAttribute('data-tab');
       if(view === 'equipos-list') state.career.selectedTeamId = null;
       render();
       return;
@@ -2054,29 +2055,25 @@
     else if(action === 'career-draw-zone'){ careerZoneDrawReveal(btn.getAttribute('data-kind')); render(); return; }
     else if(action === 'career-finish-season-draws'){ careerFinishSeasonDraws(); render(); return; }
     else if(action === 'career-build-continental'){
-      const cup = btn.getAttribute('data-cup');
-      if(cup === 'libertadores') careerBuildLibertadores(); else if(cup === 'sudamericana') careerBuildSudamericana();
+      if(!careerContEnsureEdition()) alert('La edición se arma al iniciar la temporada, una vez terminados los sorteos.');
       render();
       return;
     }
+    else if(action === 'career-intl-tab'){ state.career.intlTab = btn.getAttribute('data-tab') || 'libertadores'; render(); return; }
     else if(action === 'career-simulate-continental'){
       const cup = btn.getAttribute('data-cup');
       const stage = btn.getAttribute('data-stage');
       const bucket = state.career[cup];
       const list = bucket ? bucket.matches.filter(m=>m.stage===stage && !m.played && !m.bye) : [];
-      list.forEach(m => {
-        const [h,a] = careerSimulateResult(m);
-        m.homeScore = h; m.awayScore = a; m.played = true;
-        m.playedAt = ++state.career.playSeq;
-        if(h===a){ m.wentToPenalties = true; m.penaltyWinner = resolvePenaltiesWinner(m); }
-        careerApplyEloUpdate(m);
-        checkCareerChampion(m);
-      });
+      list.forEach(m => careerContPlayMatch(m));
+      careerContStepAll();
       render();
       return;
     }
+    else if(action === 'career-cont-draw-next'){ careerContDrawNext(btn.getAttribute('data-cup')); render(); return; }
+    else if(action === 'career-cont-draw-all'){ careerContDrawAll(btn.getAttribute('data-cup')); render(); return; }
     else if(action === 'career-advance-continental'){
-      careerAdvanceContinental(btn.getAttribute('data-cup'), btn.getAttribute('data-stage'));
+      careerContStepAll();
       render();
       return;
     }
@@ -2548,11 +2545,9 @@
   const COPA_ARG_STAGES = ['treintaidosavos','dieciseisavos','octavos','cuartos','semis','final'];
   const COPA_ARG_LABELS = { treintaidosavos:'32avos de Final', dieciseisavos:'16avos de Final', octavos:'Octavos de Final', cuartos:'Cuartos de Final', semis:'Semifinales', final:'Final' };
 
-  // ---------- Copa Libertadores / Copa Sudamericana ----------
-  // Cuadro de 16 equipos por copa. Los cupos argentinos salen del método de clasificación ya
-  // usado en la Tabla Anual / Copa Argentina; los cupos del exterior, hasta que carguemos esas
-  // ligas con datos reales, se sortean al azar entre los clubes más importantes de Sudamérica.
-  const CONTINENTAL_STAGES = ['octavos','cuartos','semis','final'];
+  // ---------- Copas internacionales: pool de respaldo ----------
+  // Clubes del exterior de respaldo (ya no se usan para armar las copas, que toman a los
+  // clasificados de las ligas del mundo; quedan solo para escudos y como referencia).
   const CAREER_EXTERIOR_TEAMS = [
     {name:'Flamengo', country:'Brasil', elo:1960}, {name:'Palmeiras', country:'Brasil', elo:1955},
     {name:'São Paulo', country:'Brasil', elo:1860}, {name:'Corinthians', country:'Brasil', elo:1870},
@@ -2584,73 +2579,531 @@
     const picks = shuffleArr(pool.slice()).slice(0, n);
     return picks.map((t,i) => ({ id:'ext'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)+i, name:t.name, elo:t.elo, division:'exterior', country:t.country }));
   }
-  // Equipos argentinos clasificados a cada copa según el mismo criterio que ya se mostraba en
-  // "Clasificación a Copas Internacionales": Libertadores = campeones de Apertura y Clausura,
-  // 1°-2°-3° de la Tabla Anual y el campeón de la Copa Argentina. Sudamericana = 4° al 10° de la
-  // Tabla Anual (excluyendo a los que ya clasificaron a la Libertadores).
+  // ---------- Copas Internacionales con formato real: Libertadores, Sudamericana y Recopa ----------
+  // La edición de cada año se arma al arrancar la temporada con los clasificados del año anterior
+  // (Argentina: Tabla Anual + títulos + Copa Argentina; resto de los países: sus ligas del mundo).
+  // Cupos por país (editables): suman 47 equipos en la Libertadores (6 en fase 1, 13 directos a la
+  // fase 2 y 28 directos a la fase de grupos) y 44 en la Sudamericana (32 en la primera fase, más
+  // 6 de Argentina y 6 de Brasil directos a grupos).
+  const CONT_LIB_STAGES = ['fase1','fase2','fase3','grupos','octavos','cuartos','semis','final'];
+  const CONT_SUD_STAGES = ['primera','grupos','playoff','octavos','cuartos','semis','final'];
+  const CONT_LABELS = {
+    fase1:'Fase 1', fase2:'Fase 2', fase3:'Fase 3', primera:'Primera Fase', grupos:'Fase de Grupos',
+    playoff:'Playoff de Octavos', octavos:'Octavos de Final', cuartos:'Cuartos de Final',
+    semis:'Semifinales', final:'Final', recopa:'Recopa'
+  };
+  const CONT_COUNTRIES = ['Argentina','Brasil','Bolivia','Chile','Colombia','Ecuador','Paraguay','Peru','Uruguay','Venezuela'];
+  // G = fase de grupos, F2 = fase 2, F1 = fase 1 (Libertadores) · S = Sudamericana
+  const CONT_QUOTAS = {
+    Argentina:{G:4,F2:2,F1:0,S:6}, Brasil:{G:6,F2:2,F1:0,S:6},
+    Bolivia:{G:2,F2:1,F1:1,S:4},   Chile:{G:3,F2:1,F1:0,S:4},
+    Colombia:{G:2,F2:1,F1:1,S:4},  Ecuador:{G:3,F2:2,F1:0,S:4},
+    Paraguay:{G:2,F2:1,F1:1,S:4},  Peru:{G:2,F2:1,F1:1,S:4},
+    Uruguay:{G:2,F2:1,F1:1,S:4},   Venezuela:{G:2,F2:1,F1:1,S:4}
+  };
+  const CONT_LEAGUE_KEY = {
+    Brasil:'brasileirao', Bolivia:'bolivia-primera', Chile:'chile-primera', Colombia:'colombia-primera',
+    Ecuador:'ecuador-primera', Paraguay:'paraguay-primera', Peru:'peru-primera',
+    Uruguay:'uruguay-primera', Venezuela:'venezuela-primera'
+  };
+
+  // ----- Clasificados de Argentina -----
+  // Orden de mérito: campeones de Apertura y Clausura, 1°-2°-3° de la Tabla Anual y campeón de la
+  // Copa Argentina; si se repiten, se completa con los siguientes de la Tabla Anual (hasta 6).
+  // Los 4 primeros van a la fase de grupos y los 2 últimos a la fase 2.
   function careerLibertadoresArgQualifiers(){
     const c = state.career;
-    const annual = careerAnnualTable();
-    const libertadores = [];
-    const aptChamp = careerGetTitle(c.year,'apertura');
-    const clzChamp = careerGetTitle(c.year,'clausura');
-    if(aptChamp) libertadores.push(aptChamp);
-    if(clzChamp && !libertadores.includes(clzChamp)) libertadores.push(clzChamp);
-    annual.slice(0,3).forEach(r => { if(!libertadores.includes(r.id)) libertadores.push(r.id); });
-    const copaChamp = (c.copaArgentina && c.copaArgentina.champion && c.copaArgentina.champion.year===c.year) ? c.copaArgentina.champion.teamId : null;
-    if(copaChamp && !libertadores.includes(copaChamp)) libertadores.push(copaChamp);
-    return libertadores;
+    const anyPlayed = c.matches.some(m => m.played && !m.bye);
+    if(!anyPlayed) return c.teams.slice().sort((a,b)=>b.elo-a.elo).slice(0,6).map(t=>t.id);
+    const annual = careerAnnualTable().map(r=>r.id);
+    const out = [];
+    const push = id => { if(id && out.indexOf(id)===-1) out.push(id); };
+    push(careerGetTitle(c.year,'apertura'));
+    push(careerGetTitle(c.year,'clausura'));
+    annual.slice(0,3).forEach(push);
+    if(c.copaArgentina && c.copaArgentina.champion && c.copaArgentina.champion.year===c.year) push(c.copaArgentina.champion.teamId);
+    annual.forEach(id => { if(out.length < 6) push(id); });
+    return out.slice(0,6);
   }
+  // Sudamericana: los 6 siguientes de la Tabla Anual que no clasificaron a la Libertadores.
   function careerSudamericanaArgQualifiers(){
-    const annual = careerAnnualTable();
-    const libertadores = careerLibertadoresArgQualifiers();
-    return annual.slice(3,10).map(r=>r.id).filter(id=>!libertadores.includes(id));
-  }
-  function careerBuildContinentalCup(cupKey, argIds){
     const c = state.career;
-    const need = Math.max(0, 16 - argIds.length);
-    const foreign = careerPickForeignTeams(need, []);
-    c[cupKey] = { foreignTeams: foreign, matches: [], built: true, champion: null };
-    const pool = argIds.concat(foreign.map(t=>t.id));
-    const seeded = shuffleArr(pool.slice());
-    const pairs = buildFirstKnockoutRound(seeded);
-    const date = nextWeekdayAfter(c.calendarDate || careerSeasonStart(c.year, c.tournament), 3);
-    pairs.forEach(p => c[cupKey].matches.push(careerMkMatch(cupKey, null, 1, p.home, p.away, {stage:'octavos', neutral:true, date})));
+    const lib = careerLibertadoresArgQualifiers();
+    const anyPlayed = c.matches.some(m => m.played && !m.bye);
+    if(!anyPlayed) return c.teams.slice().sort((a,b)=>b.elo-a.elo).map(t=>t.id).filter(id=>lib.indexOf(id)===-1).slice(0,6);
+    return careerAnnualTable().map(r=>r.id).filter(id=>lib.indexOf(id)===-1).slice(0,6);
   }
-  function careerBuildLibertadores(){
-    const c = state.career;
-    if(c.libertadores && c.libertadores.built) return;
-    careerBuildContinentalCup('libertadores', careerLibertadoresArgQualifiers());
+  function careerContArgQuals(){
+    const q = CONT_QUOTAS.Argentina;
+    const lib = careerLibertadoresArgQualifiers();
+    const sud = careerSudamericanaArgQualifiers();
+    const ref = id => ({ id });
+    return { G: lib.slice(0,q.G).map(ref), F2: lib.slice(q.G,q.G+q.F2).map(ref), F1: [], S: sud.slice(0,q.S).map(ref) };
   }
-  function careerBuildSudamericana(){
-    const c = state.career;
-    if(c.sudamericana && c.sudamericana.built) return;
-    const argIds = careerSudamericanaArgQualifiers();
-    const need = Math.max(0, 16 - argIds.length);
-    const usedForeignNames = (c.libertadores && c.libertadores.foreignTeams) ? c.libertadores.foreignTeams.map(t=>t.name) : [];
-    const foreign = careerPickForeignTeams(need, usedForeignNames);
-    c.sudamericana = { foreignTeams: foreign, matches: [], built: true, champion: null };
-    const pool = argIds.concat(foreign.map(t=>t.id));
-    const seeded = shuffleArr(pool.slice());
-    const pairs = buildFirstKnockoutRound(seeded);
-    const date = nextWeekdayAfter(c.calendarDate || careerSeasonStart(c.year, c.tournament), 3);
-    pairs.forEach(p => c.sudamericana.matches.push(careerMkMatch('sudamericana', null, 1, p.home, p.away, {stage:'octavos', neutral:true, date})));
+
+  // ----- Clasificados del resto de los países (ligas del mundo) -----
+  function careerContForeignRanking(country){
+    const key = CONT_LEAGUE_KEY[country];
+    const L = careerWorldLeagues()[key] || null;
+    const def = WORLD_LEAGUES_REGISTRY.find(d => d.key === key);
+    let teams = [];
+    if(L && L.teams && L.teams.length) teams = L.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+    else if(def) teams = def.teams.map((t,i) => ({ id:'reg_'+key+'_'+i, name:t.name, elo:t.elo }));
+    const byId = {}; teams.forEach(t => byId[t.id] = t);
+    let order = [];
+    if(L && L.tablaAnualOrder && L.tablaAnualOrder.length) order = L.tablaAnualOrder.slice();
+    else if(L && L.table && L.table.length) order = L.table.map(r => r.id);
+    order = order.filter(id => byId[id]);
+    teams.slice().sort((a,b)=>b.elo-a.elo).forEach(t => { if(order.indexOf(t.id)===-1) order.push(t.id); });
+    return { byId, orderIds: order, L };
   }
-  function careerAdvanceContinental(cupKey, fromStage){
+  function careerContForeignQuals(country){
+    const q = CONT_QUOTAS[country];
+    const info = careerContForeignRanking(country);
+    const byId = info.byId, L = info.L;
+    const uniq = arr => { const out = []; arr.forEach(id => { if(id && byId[id] && out.indexOf(id)===-1) out.push(id); }); return out; };
+    let lib = [], sud = [];
+    if(L){
+      if(L.libertadoresGruposIds){
+        lib = uniq([].concat(L.libertadoresGruposIds || [], L.libertadoresFase2Ids || [], [L.libertadoresFase2Id], [L.libertadoresFase1Id]));
+        sud = uniq(L.sudamericanaIds || []);
+      } else if(L.libertadores && L.libertadores.grupos){
+        lib = uniq([].concat(L.libertadores.grupos || [], [L.libertadores.fase2]));
+        sud = uniq(L.sudamericana || []);
+      }
+    }
+    const needLib = q.G + q.F2 + q.F1;
+    lib = lib.slice(0, needLib);
+    info.orderIds.forEach(id => { if(lib.length < needLib && lib.indexOf(id)===-1 && sud.indexOf(id)===-1) lib.push(id); });
+    sud = sud.filter(id => lib.indexOf(id)===-1).slice(0, q.S);
+    info.orderIds.forEach(id => { if(sud.length < q.S && lib.indexOf(id)===-1 && sud.indexOf(id)===-1) sud.push(id); });
+    const ref = id => ({ name:byId[id].name, elo:byId[id].elo, country });
+    return { G: lib.slice(0,q.G).map(ref), F2: lib.slice(q.G,q.G+q.F2).map(ref), F1: lib.slice(q.G+q.F2,needLib).map(ref), S: sud.map(ref) };
+  }
+  function careerContComputeQualifiers(){
+    const quals = {};
+    CONT_COUNTRIES.forEach(country => {
+      quals[country] = country === 'Argentina' ? careerContArgQuals() : careerContForeignQuals(country);
+    });
+    return quals;
+  }
+
+  // ----- Utilidades -----
+  function careerContCountryOf(id){ const t = careerTeamById(id); return (t && t.country) ? t.country : 'Argentina'; }
+  function careerContElo(id){ const t = careerTeamById(id); return t ? t.elo : 0; }
+  function careerContSameCountry(a,b){ return careerContCountryOf(a) === careerContCountryOf(b); }
+  function careerContStageMatches(bucket, stage){ return bucket.matches.filter(m => m.stage === stage); }
+  function careerContHas(bucket, stage){ return careerContStageMatches(bucket, stage).length > 0; }
+  function careerContDone(bucket, stage){ const ms = careerContStageMatches(bucket, stage); return ms.length > 0 && ms.every(m => m.played); }
+  // primera fecha con el día de la semana `dow` que esté al menos `gap` días después de `after`
+  function careerContDate(after, dow, gap){
+    // Si el sorteo se hace a mano días después de terminada la fase anterior, las fechas nuevas
+    // nunca pueden quedar antes de la fecha actual del calendario.
+    const cd = state.career && state.career.calendarDate;
+    if(cd && (!after || cd > after)) after = cd;
+    return nextWeekdayAfter(addDaysISO(after, gap-1), dow);
+  }
+  function careerContBase(){
     const c = state.career;
-    const bucket = c[cupKey];
-    if(!bucket) return;
-    const stages = CONTINENTAL_STAGES;
-    const nextStage = stages[stages.indexOf(fromStage)+1];
-    if(!nextStage) return;
-    const matches = bucket.matches.filter(m=>m.stage===fromStage);
-    const winners = matches.map(m=>careerMatchWinner(m));
-    const fromDate = (matches.length && matches[0].date) ? matches[0].date : c.calendarDate;
-    const date = addDaysISO(fromDate, 14);
-    const pairs = [];
-    for(let i=0;i<winners.length;i+=2) pairs.push({ home: winners[i], away: winners[i+1] });
-    const round = stages.indexOf(nextStage)+1;
-    pairs.forEach(p => bucket.matches.push(careerMkMatch(cupKey, null, round, p.home, p.away, {stage:nextStage, neutral:true, date})));
+    const S = careerSeasonStart(c.year, 'apertura');
+    return (c.calendarDate && c.calendarDate > S) ? c.calendarDate : S;
+  }
+  function careerContLastDate(bucket){ return careerMaxDate(bucket.matches) || careerContBase(); }
+  function careerContMaxIso(a, b){ return (a && b) ? (a > b ? a : b) : (a || b); }
+
+  // Series ida y vuelta: `first` juega la ida de local y `second` la vuelta de local.
+  function careerContAddSeries(bucket, cupKey, stage, pairs, d1, d2){
+    pairs.forEach((p,i) => {
+      const serie = stage + '-' + i;
+      bucket.matches.push(careerMkMatch(cupKey, null, 1, p.first,  p.second, { stage, serie, slot:i, leg:1, date:d1 }));
+      bucket.matches.push(careerMkMatch(cupKey, null, 2, p.second, p.first,  { stage, serie, slot:i, leg:2, date:d2 }));
+    });
+  }
+  function careerContSlotLegs(bucket, stage){
+    const bySlot = {};
+    careerContStageMatches(bucket, stage).forEach(m => { (bySlot[m.slot] = bySlot[m.slot] || []).push(m); });
+    return Object.keys(bySlot).map(Number).sort((a,b)=>a-b).map(k => bySlot[k].slice().sort((a,b)=>(a.leg||0)-(b.leg||0)));
+  }
+  function careerContWinners(bucket, stage){ return careerContSlotLegs(bucket, stage).map(legs => careerSerieWinner(legs)); }
+  function careerContLosers(bucket, stage){
+    return careerContSlotLegs(bucket, stage).map(legs => {
+      const w = careerSerieWinner(legs);
+      return legs[0].home === w ? legs[0].away : legs[0].home;
+    });
+  }
+  // Cruces entre cabezas de serie (mejor ELO) y no cabezas, evitando el mismo país cuando se puede.
+  // El cabeza de serie juega la vuelta de local. `forcedUnseeded` = ids que van sí o sí como no cabezas.
+  function careerContPairSeeded(ids, forcedUnseeded){
+    const n = Math.floor(ids.length / 2);
+    const forced = forcedUnseeded || [];
+    const byElo = ids.filter(id => forced.indexOf(id)===-1).sort((a,b)=>careerContElo(b)-careerContElo(a));
+    const seeded = byElo.slice(0, n);
+    const unseeded = byElo.slice(n).concat(ids.filter(id => forced.indexOf(id)!==-1));
+    let best = null;
+    for(let t=0; t<300; t++){
+      const un = shuffleArr(unseeded.slice());
+      let ok = true;
+      for(let i=0;i<n;i++){ if(careerContSameCountry(seeded[i], un[i])){ ok = false; break; } }
+      if(ok){ best = un; break; }
+      if(!best) best = un;
+    }
+    return seeded.map((s,i) => ({ first: best[i], second: s }));
+  }
+  // Sorteo de grupos: 4 bombos por ELO, un equipo de cada bombo por grupo, sin dos equipos del mismo
+  // país en un grupo (salvo que uno de ellos venga de otra fase: `exempt`).
+  function careerContDrawGroups(ids, nGroups, exempt){
+    exempt = exempt || [];
+    const sorted = ids.slice().sort((a,b)=>careerContElo(b)-careerContElo(a));
+    const bombos = [];
+    for(let b=0;b<4;b++) bombos.push(sorted.slice(b*nGroups, (b+1)*nGroups));
+    const conflict = (g, id) => g.some(x => careerContSameCountry(x,id) && exempt.indexOf(x)===-1 && exempt.indexOf(id)===-1);
+    for(let attempt=0; attempt<800; attempt++){
+      const groups = []; for(let i=0;i<nGroups;i++) groups.push([]);
+      let ok = true;
+      for(let b=0; b<4 && ok; b++){
+        const order = shuffleArr(bombos[b].slice());
+        for(let k=0;k<order.length;k++){
+          const id = order[k];
+          const cands = [];
+          groups.forEach((g,gi) => { if(g.length===b && !conflict(g,id)) cands.push(gi); });
+          if(!cands.length){ ok = false; break; }
+          groups[cands[Math.floor(Math.random()*cands.length)]].push(id);
+        }
+      }
+      if(ok) return groups;
+    }
+    const groups = []; for(let i=0;i<nGroups;i++) groups.push([]);
+    bombos.forEach(bomb => shuffleArr(bomb.slice()).forEach((id,i) => groups[i].push(id)));
+    return groups;
+  }
+  // Todos contra todos a dos ruedas (6 fechas), una por semana a partir de `startDate`.
+  function careerContBuildGroups(bucket, cupKey, groupIds, startDate){
+    bucket.groups = groupIds.map((ids,i) => ({ name: String.fromCharCode(65+i), teamIds: ids }));
+    bucket.groups.forEach(g => {
+      const rounds = roundRobinRounds(g.teamIds);
+      const all = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home }))));
+      all.forEach((r, ri) => {
+        const date = addDaysISO(startDate, ri*7);
+        r.forEach(m => bucket.matches.push(careerMkMatch(cupKey, g.name, ri+1, m.home, m.away, { stage:'grupos', date })));
+      });
+    });
+  }
+  function careerContGroupTable(bucket, g){
+    const ms = bucket.matches.filter(m => m.stage==='grupos' && m.zone===g.name);
+    return careerComputeStandingsFrom(ms, g.teamIds);
+  }
+  function careerContBuildRank(entries){
+    entries.sort((a,b) => a.pos-b.pos || b.row.pts-a.row.pts || b.row.dg-a.row.dg || b.row.gf-a.row.gf || careerContElo(b.id)-careerContElo(a.id));
+    const rank = {};
+    entries.forEach((e,i) => { rank[e.id] = i+1; });
+    return rank;
+  }
+  // Cuartos, semis y final a partir del cuadro ya armado (sin nuevo sorteo). El mejor ubicado en la
+  // fase de grupos juega la vuelta de local.
+  function careerContAdvanceBracket(bucket, cupKey, dow, gapDays){
+    let did = false;
+    [['octavos','cuartos'],['cuartos','semis']].forEach(pair => {
+      const from = pair[0], to = pair[1];
+      if(careerContDone(bucket, from) && !careerContHas(bucket, to)){
+        const w = careerContWinners(bucket, from);
+        const pairs = [];
+        for(let i=0; i+1<w.length; i+=2){
+          const a = w[i], b = w[i+1];
+          const better = (bucket.rank[a] || 999) <= (bucket.rank[b] || 999) ? a : b;
+          pairs.push({ first: better===a ? b : a, second: better });
+        }
+        const d1 = careerContDate(careerContLastDate(bucket), dow, gapDays);
+        careerContAddSeries(bucket, cupKey, to, pairs, d1, addDaysISO(d1, 7));
+        did = true;
+      }
+    });
+    if(careerContDone(bucket, 'semis') && !careerContHas(bucket, 'final')){
+      const w = careerContWinners(bucket, 'semis');
+      const a = w[0], b = w[1];
+      const better = (bucket.rank[a] || 999) <= (bucket.rank[b] || 999) ? a : b;
+      const d = careerContDate(careerContLastDate(bucket), dow, gapDays + 7);
+      bucket.matches.push(careerMkMatch(cupKey, null, 1, better, better===a ? b : a, { stage:'final', slot:0, neutral:true, date:d }));
+      did = true;
+    }
+    return did;
+  }
+
+
+  // ----- Sorteos manuales de las copas internacionales -----
+  // Cuando termina la fase previa, el sorteo queda PENDIENTE (bucket.pendingDraw) y se saca a mano:
+  // de a un equipo (grupos) o de a un cruce (llaves). Recién al completarse se arma el fixture y se
+  // agendan los partidos en el calendario. El resultado se calcula al momento de crear el sorteo con
+  // las mismas reglas de siempre (bombos por ELO, sin dos del mismo país en un grupo, etc.).
+  function careerContQueueGroupsDraw(bucket, stage, groups){
+    const steps = [];
+    for(let pot=0; pot<4; pot++){
+      const inPot = [];
+      groups.forEach((g,gi) => { if(g[pot] != null) inPot.push({ id:g[pot], g:gi, pot:pot }); });
+      shuffleArr(inPot).forEach(x => steps.push(x));
+    }
+    bucket.pendingDraw = { stage:stage, kind:'grupos', groups:groups, steps:steps, revealed:0 };
+  }
+  // pairs: [{first, second}] — `first` juega la ida de local, `second` la vuelta (es el cabeza de serie).
+  function careerContQueuePairsDraw(bucket, stage, pairs, potLabels){
+    bucket.pendingDraw = { stage:stage, kind:'pairs', pairs:pairs, revealed:0, potLabels:potLabels || ['Bombo 1','Bombo 2'] };
+  }
+  function careerContDrawTotal(d){ return d.kind === 'grupos' ? d.steps.length : d.pairs.length; }
+  function careerContFinalizeDraw(cupKey){
+    const c = state.career, bucket = c[cupKey];
+    if(!bucket || !bucket.pendingDraw) return false;
+    const d = bucket.pendingDraw;
+    const L = c.libertadores;
+    if(d.kind === 'grupos'){
+      if(cupKey === 'libertadores'){
+        careerContBuildGroups(bucket, cupKey, d.groups, careerContDate(careerContLastDate(bucket), 3, 14));
+      } else {
+        const l3 = careerMaxDate(L.matches.filter(m => m.stage==='fase3'));
+        const after = careerContMaxIso(careerContLastDate(bucket), l3);
+        careerContBuildGroups(bucket, cupKey, d.groups, careerContDate(after, 4, 14));
+      }
+    } else {
+      let d1;
+      if(cupKey === 'libertadores') d1 = careerContDate(careerContLastDate(bucket), 3, 21);
+      else if(d.stage === 'playoff') d1 = careerContDate(careerContMaxIso(careerContLastDate(bucket), careerContLastDate(L)), 4, 14);
+      else d1 = careerContDate(careerContLastDate(bucket), 4, 14);
+      careerContAddSeries(bucket, cupKey, d.stage, d.pairs, d1, addDaysISO(d1, 7));
+    }
+    bucket.pendingDraw = null;
+    return true;
+  }
+  function careerContDrawNext(cupKey){
+    const bucket = state.career[cupKey];
+    if(!bucket || !bucket.pendingDraw) return;
+    const d = bucket.pendingDraw;
+    if(d.revealed < careerContDrawTotal(d)) d.revealed++;
+    if(d.revealed >= careerContDrawTotal(d)){ careerContFinalizeDraw(cupKey); careerContStepAll(); }
+  }
+  function careerContDrawAll(cupKey){
+    const bucket = state.career[cupKey];
+    if(!bucket || !bucket.pendingDraw) return;
+    bucket.pendingDraw.revealed = careerContDrawTotal(bucket.pendingDraw);
+    careerContFinalizeDraw(cupKey);
+    careerContStepAll();
+  }
+  function careerContPendingDraws(){
+    const c = state.career, out = [];
+    ['libertadores','sudamericana'].forEach(k => { const b = c[k]; if(b && b.pendingDraw) out.push({ cup:k, stage:b.pendingDraw.stage }); });
+    return out;
+  }
+
+  // ----- Copa Libertadores: avance de fases -----
+  function careerLibStep(){
+    const c = state.career, L = c.libertadores;
+    if(!L || !L.built) return false;
+    let did = false;
+    const has = s => careerContHas(L, s), done = s => careerContDone(L, s), WED = 3;
+    if(done('fase1') && !has('fase2')){
+      const winners = careerContWinners(L, 'fase1');
+      const pairs = careerContPairSeeded(L.entrants.f2.concat(winners), winners);
+      const d1 = careerContDate(careerContLastDate(L), WED, 14);
+      careerContAddSeries(L, 'libertadores', 'fase2', pairs, d1, addDaysISO(d1, 7));
+      did = true;
+    }
+    if(done('fase2') && !has('fase3')){
+      const pairs = careerContPairSeeded(careerContWinners(L, 'fase2'));
+      const d1 = careerContDate(careerContLastDate(L), WED, 14);
+      careerContAddSeries(L, 'libertadores', 'fase3', pairs, d1, addDaysISO(d1, 7));
+      did = true;
+    }
+    if(done('fase3') && !has('grupos') && !L.pendingDraw){
+      const winners = careerContWinners(L, 'fase3');
+      L.f3Losers = careerContLosers(L, 'fase3');
+      L.f3Winners = winners;
+      const groups = careerContDrawGroups(L.entrants.g.concat(winners), 8, winners);
+      careerContQueueGroupsDraw(L, 'grupos', groups);
+      did = true;
+    }
+    if(done('grupos') && !has('octavos') && !L.pendingDraw){
+      const firsts = [], seconds = [], thirds = [], entries = [];
+      L.groups.forEach(g => {
+        const t = careerContGroupTable(L, g);
+        g.final = t.map(r => r.id);
+        t.forEach((r,i) => { if(i < 3) entries.push({ id:r.id, pos:i+1, row:r }); });
+        firsts.push(t[0].id); seconds.push(t[1].id); thirds.push(t[2].id);
+      });
+      L.rank = careerContBuildRank(entries);
+      L.thirds = thirds;
+      // Sorteo: bombo 1 (los 1°) vs bombo 2 (los 2°). El 2° juega la ida de local.
+      const sh = shuffleArr(seconds.slice());
+      const pairs = firsts.map((f,i) => ({ first: sh[i], second: f }));
+      careerContQueuePairsDraw(L, 'octavos', pairs, ['Bombo 1: primeros de grupo','Bombo 2: segundos de grupo']);
+      did = true;
+    }
+    if(L.rank && careerContAdvanceBracket(L, 'libertadores', WED, 14)) did = true;
+    return did;
+  }
+
+  // ----- Copa Sudamericana: avance de fases -----
+  function careerSudStep(){
+    const c = state.career, S = c.sudamericana, L = c.libertadores;
+    if(!S || !S.built) return false;
+    let did = false;
+    const has = s => careerContHas(S, s), done = s => careerContDone(S, s), THU = 4;
+    if(done('primera') && !has('grupos') && !S.pendingDraw && L && L.f3Losers){
+      const winners = careerContWinners(S, 'primera');
+      const ids = winners.concat(S.entrants.direct, L.f3Losers);
+      const groups = careerContDrawGroups(ids, 8, L.f3Losers);
+      careerContQueueGroupsDraw(S, 'grupos', groups);
+      did = true;
+    }
+    if(done('grupos') && !has('playoff') && !S.pendingDraw && L && L.thirds){
+      const firsts = [], seconds = [], entries = [];
+      S.groups.forEach(g => {
+        const t = careerContGroupTable(S, g);
+        g.final = t.map(r => r.id);
+        t.forEach((r,i) => { if(i < 2) entries.push({ id:r.id, pos:i+1, row:r }); });
+        firsts.push(t[0].id); seconds.push(t[1].id);
+      });
+      L.groups.forEach(g => {
+        const t = careerContGroupTable(L, g);
+        entries.push({ id:t[2].id, pos:3, row:t[2] });
+      });
+      S.rank = careerContBuildRank(entries);
+      S.firsts = firsts;
+      // Playoff: 2° de la Sudamericana vs 3° de la Libertadores; el 2° de la Sudamericana juega la vuelta de local.
+      const sh = shuffleArr(L.thirds.slice());
+      const pairs = seconds.map((s,i) => ({ first: sh[i], second: s }));
+      careerContQueuePairsDraw(S, 'playoff', pairs, ['Bombo 1: segundos de la Sudamericana','Bombo 2: terceros de la Libertadores']);
+      did = true;
+    }
+    if(done('playoff') && !has('octavos') && !S.pendingDraw){
+      // Sorteo: los 8 1° de grupo vs los 8 ganadores del playoff. El 1° juega la vuelta de local.
+      const w = shuffleArr(careerContWinners(S, 'playoff'));
+      const pairs = S.firsts.map((f,i) => ({ first: w[i], second: f }));
+      careerContQueuePairsDraw(S, 'octavos', pairs, ['Bombo 1: primeros de grupo','Bombo 2: ganadores del playoff']);
+      did = true;
+    }
+    if(S.rank && careerContAdvanceBracket(S, 'sudamericana', THU, 14)) did = true;
+    return did;
+  }
+  function careerContStepAll(){
+    let any = false;
+    for(let g=0; g<20; g++){
+      const a = careerLibStep();
+      const b = careerSudStep();
+      if(!a && !b) break;
+      any = true;
+    }
+    return any;
+  }
+
+  // ----- Armado de la edición del año -----
+  function careerContBuildEdition(){
+    const c = state.career;
+    const year = c.year;
+    const prevL = c.libertadores, prevS = c.sudamericana;
+    c.continentalHistory = c.continentalHistory || [];
+    const nameOf = id => { const t = careerTeamById(id); return t ? t.name : null; };
+    // Recopa: campeones de la edición anterior (hay que copiar los equipos del exterior antes de reemplazar los cuadros)
+    const base = careerContBase();
+    let recopa = { built:false, edition:year, foreignTeams:[], matches:[], champion:null };
+    if(prevL && prevL.built && prevS && prevS.built && prevL.edition){
+      const lc = prevL.champion ? prevL.champion.teamId : null;
+      const sc = prevS.champion ? prevS.champion.teamId : null;
+      c.continentalHistory.push({ year: prevL.edition, libertadores: lc ? { id:lc, name:nameOf(lc) } : null, sudamericana: sc ? { id:sc, name:nameOf(sc) } : null });
+      if(lc && sc && lc !== sc){
+        const copies = [];
+        [lc, sc].forEach(id => { const t = careerTeamById(id); if(t && t.division === 'exterior') copies.push(JSON.parse(JSON.stringify(t))); });
+        recopa = { built:true, edition:year, foreignTeams:copies, matches:[], champion:null, libId:lc, sudId:sc };
+        const d1 = careerContDate(careerContBase(), 3, 7);
+        // ida: cancha del campeón de la Sudamericana · vuelta: cancha del campeón de la Libertadores
+        recopa.matches.push(careerMkMatch('recopa', null, 1, sc, lc, { stage:'recopa', serie:'recopa-0', slot:0, leg:1, date:d1 }));
+        recopa.matches.push(careerMkMatch('recopa', null, 2, lc, sc, { stage:'recopa', serie:'recopa-0', slot:0, leg:2, date:addDaysISO(d1, 7) }));
+      }
+    }
+    const quals = (c.continentalNext && c.continentalNext.forYear === year) ? c.continentalNext.quals : careerContComputeQualifiers();
+    const L = { built:true, edition:year, foreignTeams:[], entrants:{ f1:[], f2:[], g:[] }, matches:[], groups:[], champion:null, f3Losers:null, f3Winners:null, thirds:null, rank:null };
+    const S = { built:true, edition:year, foreignTeams:[], entrants:{ primera:{}, direct:[] }, matches:[], groups:[], champion:null, rank:null, firsts:null };
+    let fcount = 0;
+    const toId = (ref, bucket) => {
+      if(ref.id) return ref.id;
+      const t = { id:'ext'+year+'_'+(fcount++)+'_'+Math.random().toString(36).slice(2,6), name:ref.name, elo:ref.elo, division:'exterior', country:ref.country };
+      bucket.foreignTeams.push(t);
+      return t.id;
+    };
+    CONT_COUNTRIES.forEach(country => {
+      const q = quals[country];
+      if(!q) return;
+      q.G.forEach(r => L.entrants.g.push(toId(r, L)));
+      q.F2.forEach(r => L.entrants.f2.push(toId(r, L)));
+      q.F1.forEach(r => L.entrants.f1.push(toId(r, L)));
+      const sIds = q.S.map(r => toId(r, S));
+      if(country === 'Argentina' || country === 'Brasil') sIds.forEach(id => S.entrants.direct.push(id));
+      else S.entrants.primera[country] = sIds;
+    });
+    // Fase 1 de la Libertadores (3 series ida y vuelta)
+    const d1 = careerContDate(base, 3, 14);
+    careerContAddSeries(L, 'libertadores', 'fase1', careerContPairSeeded(L.entrants.f1), d1, addDaysISO(d1, 7));
+    // Primera fase de la Sudamericana: los 4 de cada país se cruzan entre sí, partido único, localía sorteada
+    const dP = careerContDate(base, 4, 21);
+    Object.keys(S.entrants.primera).forEach(country => {
+      const ids = shuffleArr(S.entrants.primera[country].slice());
+      for(let i=0; i+1<ids.length; i+=2){
+        const homeFirst = Math.random() < 0.5;
+        S.matches.push(careerMkMatch('sudamericana', null, 1, homeFirst ? ids[i] : ids[i+1], homeFirst ? ids[i+1] : ids[i], { stage:'primera', slot:S.matches.length, pais:country, date:dP }));
+      }
+    });
+    c.libertadores = L; c.sudamericana = S; c.recopa = recopa;
+    c.continentalNext = null;
+    careerContStepAll();
+  }
+  function careerContEnsureEdition(){
+    const c = state.career;
+    if(!c.teams || !c.teams.length || c.seasonDraws || !c.matches || !c.matches.length) return false;
+    if(c.libertadores && c.libertadores.built && c.libertadores.edition === c.year) return false;
+    careerContBuildEdition();
+    return true;
+  }
+  function careerContPlayMatch(m){
+    const c = state.career;
+    const r = careerSimulateResult(m);
+    m.homeScore = r[0]; m.awayScore = r[1]; m.played = true;
+    m.playedAt = ++c.playSeq;
+    if(r[0] === r[1] && careerMatchNeedsPenalties(m)){ m.wentToPenalties = true; m.penaltyWinner = resolvePenaltiesWinner(m); }
+    careerApplyEloUpdate(m);
+    checkCareerChampion(m);
+  }
+  // Antes de pasar de año se termina de jugar lo que quede de las copas y se guardan los clasificados del año siguiente.
+  function careerContPrepareNextEdition(){
+    const c = state.career;
+    for(let g=0; g<300; g++){
+      let played = false;
+      ['libertadores','sudamericana'].forEach(k => { if(c[k] && c[k].pendingDraw){ careerContDrawAll(k); played = true; } });
+      [c.libertadores, c.sudamericana, c.recopa].forEach(b => {
+        if(!b || !b.built) return;
+        b.matches.filter(m => !m.played && !m.bye).forEach(m => { careerContPlayMatch(m); played = true; });
+      });
+      const stepped = careerContStepAll();
+      if(!played && !stepped) break;
+    }
+    c.continentalNext = { forYear: c.year + 1, quals: careerContComputeQualifiers() };
+  }
+  // Se llama después de jugar cualquier partido de las copas: define penales de las series y la Recopa.
+  function careerContAfterPlay(m){
+    const c = state.career;
+    if(m.stage === 'grupos'){ m.wentToPenalties = false; m.penaltyWinner = null; return; }
+    if(m.leg === 2){
+      const bucket = c[m.comp];
+      if(!bucket) return;
+      const legs = bucket.matches.filter(x => x.serie === m.serie).sort((a,b) => a.leg - b.leg);
+      if(legs.length === 2 && legs.every(x => x.played)){
+        const agg = careerSerieAggregate(legs);
+        const a = legs[0].home, b = legs[0].away;
+        if((agg[a]||0) === (agg[b]||0) && !legs[1].penaltyWinner){
+          legs[1].wentToPenalties = true;
+          legs[1].penaltyWinner = resolvePenaltiesWinner(legs[1]);
+        }
+        if(m.comp === 'recopa' && !bucket.champion){
+          const w = careerSerieWinner(legs);
+          if(w){ bucket.champion = { year: c.year, teamId: w }; careerRecordTitle('recopa', w); }
+        }
+      }
+    }
   }
 
   function careerTeamById(id){
@@ -2678,6 +3131,10 @@
     }
     if(state.career.sudamericana && state.career.sudamericana.foreignTeams){
       t = state.career.sudamericana.foreignTeams.find(t=>t.id===id);
+      if(t) return t;
+    }
+    if(state.career.recopa && state.career.recopa.foreignTeams){
+      t = state.career.recopa.foreignTeams.find(t=>t.id===id);
       if(t) return t;
     }
     return null;
@@ -2745,6 +3202,8 @@
   // Una serie de ida y vuelta se define por el global, nunca por un empate suelto.
   function careerMatchNeedsPenalties(m){
     if(!m.stage) return false;
+    if(m.comp === 'libertadores' || m.comp === 'sudamericana') return m.stage !== 'grupos' && !m.leg;
+    if(m.comp === 'recopa') return false;
     if(m.leg) return false;
     if(m.advantage) return false;
     return true;
@@ -2919,6 +3378,7 @@
   }
 
   function checkCareerChampion(m){
+    if(m && m.played && (m.comp === 'libertadores' || m.comp === 'sudamericana' || m.comp === 'recopa')) careerContAfterPlay(m);
     if(!m || !m.played || m.stage !== 'final') return;
     const winner = careerMatchWinner(m);
     if(m.comp === 'copa-argentina'){
@@ -4634,6 +5094,7 @@
   }
   function careerStartNextApertura(){
     const c = state.career;
+    careerContPrepareNextEdition();
     const annual = careerAnnualTable();
     if(!c.seasonLog) c.seasonLog = {};
     annual.forEach(r => {
@@ -4695,6 +5156,7 @@
     if(!careerSeasonDrawsComplete()) return;
     careerGenerateTournament();
     c.seasonDraws = null;
+    careerContEnsureEdition();
     c.view = 'calendario';
   }
 
@@ -4719,7 +5181,8 @@
       || (c.primerac && c.primerac.matches.find(m=>m.id===id))
       || (c.promocional && c.promocional.matches.find(m=>m.id===id))
       || (c.libertadores && c.libertadores.matches.find(m=>m.id===id))
-      || (c.sudamericana && c.sudamericana.matches.find(m=>m.id===id));
+      || (c.sudamericana && c.sudamericana.matches.find(m=>m.id===id))
+      || (c.recopa && c.recopa.matches.find(m=>m.id===id));
   }
 
   function careerMatchProbLabel(m){
@@ -4968,7 +5431,7 @@
       ${item('copa-argentina','&#127942;','Copa Argentina')}
       ${item('copas','&#128202;','Tablas y Copas')}
       <div class="cs-navgroup-label">Internacional</div>
-      ${item('internacionales','&#127758;','Copas Internacionales')}
+      ${item('internacionales','&#127758;','Copas Internacionales' + (careerContPendingDraws().length ? ' &#127922;' : ''))}
       ${item('ligas-mundo','&#127760;','Ligas del Mundo')}
       <div class="cs-navgroup-label">General</div>
       ${item('estadisticas','&#128200;','Estadísticas')}
@@ -5125,7 +5588,7 @@
     });
     // Al final, los equipos del exterior que no juegan en ninguna liga cargada (los que sí, ya
     // figuran en la suya, y comparten el mismo escudo).
-    add('Otros equipos del exterior (copas internacionales)', [].concat((c.libertadores && c.libertadores.foreignTeams) || [], CAREER_EXTERIOR_TEAMS));
+    add('Otros equipos del exterior (copas internacionales)', [].concat((c.libertadores && c.libertadores.foreignTeams) || [], (c.sudamericana && c.sudamericana.foreignTeams) || [], (c.recopa && c.recopa.foreignTeams) || [], CAREER_EXTERIOR_TEAMS));
     return groups;
   }
   function crestOnInput(e){
@@ -5432,8 +5895,8 @@
     return `<div class="panel cs-stub"><div class="big">${icon}</div><h2>${title}</h2><p class="hint">${msg}</p></div>`;
   }
 
-  function competitionCard(icon, title, subtitle, view){
-    return `<div class="cs-comp-card" data-action="career-set-view" data-view="${view}">
+  function competitionCard(icon, title, subtitle, view, tab){
+    return `<div class="cs-comp-card" data-action="career-set-view" data-view="${view}"${tab ? ` data-tab="${tab}"` : ''}>
       <div class="cc-icon">${icon}</div>
       <div class="cc-title">${escapeHtml(title)}</div>
       <div class="cc-sub">${escapeHtml(subtitle)}</div>
@@ -5449,12 +5912,7 @@
       if(ca.champion){ const t = careerTeamById(ca.champion.teamId); return `Campeón: ${t?t.name:'&mdash;'}`; }
       return 'Cuadro en juego';
     };
-    const cupStatus = (key) => {
-      const b = c[key];
-      if(!b || !b.built) return 'Todavía no se armó el cuadro';
-      if(b.champion){ const t = careerTeamById(b.champion.teamId); return `Campeón: ${t?t.name:'&mdash;'}`; }
-      return 'Cuadro en juego';
-    };
+    const cupStatus = (key) => careerContStatusText(key);
     let html = `<div class="panel"><h2>Competiciones</h2><p class="hint">Temporada ${c.year} &middot; ${c.tournament==='apertura'?'Apertura':'Clausura'}</p></div>`;
     html += `<div class="cs-section-title">Argentina</div><div class="cs-comp-grid">`;
     html += competitionCard('&#127942;','Primera División', `${c.tournament==='apertura'?'Apertura':'Clausura'} ${c.year} en juego`, 'liga');
@@ -5467,8 +5925,9 @@
     html += competitionCard('&#128202;','Tablas y Copas', 'Tabla Anual, promedios y clasificación', 'copas');
     html += `</div>`;
     html += `<div class="cs-section-title">Internacional</div><div class="cs-comp-grid">`;
-    html += competitionCard('&#127758;','Copa Libertadores', cupStatus('libertadores'), 'internacionales');
-    html += competitionCard('&#127758;','Copa Sudamericana', cupStatus('sudamericana'), 'internacionales');
+    html += competitionCard('&#127758;','Copa Libertadores', cupStatus('libertadores'), 'internacionales', 'libertadores');
+    html += competitionCard('&#127758;','Copa Sudamericana', cupStatus('sudamericana'), 'internacionales', 'sudamericana');
+    html += competitionCard('&#127942;','Recopa Sudamericana', cupStatus('recopa'), 'internacionales', 'recopa');
     html += competitionCard('&#127760;','Ligas del Mundo', WORLD_LEAGUES_REGISTRY.length ? 'Se juegan solas en segundo plano' : 'Todavía no hay ligas cargadas', 'ligas-mundo');
     html += `</div>`;
     return html;
@@ -5641,6 +6100,10 @@
       </div>
     </div>`;
 
+    const pendingDraws = careerContPendingDraws();
+    if(pendingDraws.length){
+      html += pendingDraws.map(pd => `<div class="panel" style="border:1px solid var(--gold);"><h3 style="margin-bottom:6px;">&#127922; Sorteo pendiente</h3><p class="hint" style="margin:0 0 8px;">${pd.cup === 'libertadores' ? 'Copa Libertadores' : 'Copa Sudamericana'} &middot; ${CONT_LABELS[pd.stage]}. Los partidos se agendan cuando se completa el sorteo.</p><div class="btn-row"><button class="btn small primary" data-action="career-set-view" data-view="internacionales" data-tab="${pd.cup}">Ir al sorteo</button></div></div>`).join('');
+    }
     if(todays.length === 0){
       html += `<div class="panel">`;
       if(pendingTotal === 0){
@@ -5824,7 +6287,7 @@
     const sudamericana = careerSudamericanaArgQualifiers();
     return `<div class="panel">
       <h2>Clasificación a Copas Internacionales ${c.year}</h2>
-      <p class="hint">Libertadores: campeones de Apertura y Clausura, 1&deg;-2&deg;-3&deg; de la Tabla Anual y el campeón de la Copa Argentina. Sudamericana: 4&deg; al 10&deg; de la Tabla Anual. Los cuadros de ambas copas (con los cupos del exterior) se arman en la pestaña "Copas Internacionales".</p>
+      <p class="hint">Libertadores (6 cupos): campeones de Apertura y Clausura, 1&deg;-2&deg;-3&deg; de la Tabla Anual y el campeón de la Copa Argentina; los 4 mejores ubicados entran a la fase de grupos y los otros 2 a la fase 2. Sudamericana (6 cupos): los siguientes 6 de la Tabla Anual, directo a la fase de grupos. Los cuadros se arman al iniciar la temporada siguiente, en la pestaña "Copas Internacionales"</p>
       <div class="grid cols-2">
         <div><strong style="color:var(--ink);">Copa Libertadores</strong><ul style="margin:8px 0 0 18px;color:var(--ink-dim);">${libertadores.map(id=>`<li>${escapeHtml(careerTeamById(id).name)}</li>`).join('')}</ul></div>
         <div><strong style="color:var(--ink);">Copa Sudamericana</strong><ul style="margin:8px 0 0 18px;color:var(--ink-dim);">${sudamericana.map(id=>`<li>${escapeHtml(careerTeamById(id).name)}</li>`).join('')}</ul></div>
@@ -5832,51 +6295,213 @@
     </div>`;
   }
 
-  function renderContinentalCup(cupKey, title){
+  // ---------- Pantallas de las copas internacionales ----------
+  function careerContStatusText(cupKey){
     const c = state.career;
-    const bucket = c[cupKey];
-    const clzChamp = careerGetTitle(c.year,'clausura');
-    if(!bucket || !bucket.built){
-      if(!clzChamp){
-        return `<div class="panel">
-          <h2>${title} ${c.year}</h2>
-          <p class="hint">El cuadro se arma cuando termine la temporada (hace falta el campeón del Clausura para tener la Tabla Anual definitiva).</p>
-        </div>`;
+    const b = c[cupKey];
+    if(!b || !b.built || (cupKey !== 'recopa' && b.edition !== c.year)) return cupKey === 'recopa' ? 'Se juega entre los campeones del año anterior' : 'Se arma al iniciar la temporada';
+    if(b.champion){ const t = careerTeamById(b.champion.teamId); return `Campeón: ${t ? t.name : '—'}`; }
+    if(cupKey === 'recopa') return 'En juego';
+    const stages = cupKey === 'libertadores' ? CONT_LIB_STAGES : CONT_SUD_STAGES;
+    const active = stages.find(s => b.matches.some(m => m.stage === s && !m.played));
+    return active ? CONT_LABELS[active] + ' en juego' : 'Cuadro en juego';
+  }
+  function careerContTeamCell(id){
+    const t = careerTeamById(id);
+    if(!t) return '?';
+    return `<div style="display:flex;align-items:center;gap:8px;">${teamBadgeHtml(t,20)}<span>${escapeHtml(t.name)}</span>${t.country ? `<span style="color:var(--ink-dim);font-size:11px;">${escapeHtml(t.country)}</span>` : ''}</div>`;
+  }
+  function careerContMatchBlock(m){
+    const lbl = m.leg ? (m.leg===1 ? 'Ida' : 'Vuelta') + ' · ' : '';
+    return `<div style="color:var(--ink-dim);font-size:11.5px;margin:6px 0 0;">${lbl}${formatCareerDate(m.date)}${m.neutral ? ' · cancha neutral' : ''}</div>` + renderCareerMatchRow(m, null);
+  }
+  function careerContRenderSeries(bucket, stage){
+    return careerContSlotLegs(bucket, stage).map((legs, k) => {
+      let head = `<div style="color:var(--ink);font-size:12.5px;margin:14px 0 0;font-weight:600;">Llave ${k+1}</div>`;
+      if(legs.length === 2 && legs.every(m => m.played)){
+        const a = legs[0].home, b = legs[0].away;
+        const agg = careerSerieAggregate(legs);
+        const w = careerTeamById(careerSerieWinner(legs));
+        head = `<div style="color:var(--ink-dim);font-size:12.5px;margin:14px 0 0;"><strong style="color:var(--ink);">Llave ${k+1}</strong> &middot; Global ${escapeHtml(careerTeamById(a).name)} ${agg[a]||0}&ndash;${agg[b]||0} ${escapeHtml(careerTeamById(b).name)}${legs[1].wentToPenalties ? ' (definió por penales)' : ''} &middot; pasa <strong style="color:var(--gold-bright);">${w ? escapeHtml(w.name) : '?'}</strong></div>`;
       }
-      const argIds = cupKey === 'libertadores' ? careerLibertadoresArgQualifiers() : careerSudamericanaArgQualifiers();
-      return `<div class="panel">
-        <h2>${title} ${c.year}</h2>
-        <p class="hint">Cuadro de 16: ${argIds.length} equipo${argIds.length===1?'':'s'} argentino${argIds.length===1?'':'s'} clasificado${argIds.length===1?'':'s'} por la Tabla Anual, la Copa Argentina y los títulos de Apertura/Clausura, más equipos del exterior elegidos al azar entre los clubes más importantes de Sudamérica (por ahora, hasta que carguemos esas ligas con datos reales). Octavos de Final a partido único en cancha neutral; el empate va directo a penales.</p>
-        <ul style="margin:8px 0 0 18px;color:var(--ink-dim);">${argIds.map(id=>`<li>${escapeHtml(careerTeamById(id).name)}</li>`).join('')}</ul>
-        <div class="btn-row"><button class="btn primary" data-action="career-build-continental" data-cup="${cupKey}">Sortear cuadro de octavos</button></div>
-      </div>`;
+      return head + legs.map(careerContMatchBlock).join('');
+    }).join('');
+  }
+  function careerContRenderGroups(bucket, cupKey){
+    const isLib = cupKey === 'libertadores';
+    const cards = bucket.groups.map(g => {
+      const rows = careerContGroupTable(bucket, g);
+      const trs = rows.map((r,i) => {
+        let col = 'transparent';
+        if(i === 0) col = 'var(--green-win)';
+        else if(i === 1) col = isLib ? 'var(--green-win)' : 'var(--gold)';
+        else if(i === 2 && isLib) col = '#4a9eff';
+        return `<tr><td style="border-left:4px solid ${col};">${i+1}</td><td>${careerContTeamCell(r.id)}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('');
+      const ms = bucket.matches.filter(m => m.stage==='grupos' && m.zone===g.name);
+      let fx = '';
+      for(let rn=1; rn<=6; rn++){
+        const list = ms.filter(m => m.round === rn);
+        if(!list.length) continue;
+        fx += `<div style="color:var(--ink-dim);font-size:12px;margin:10px 0 2px;">Fecha ${rn} &middot; ${formatCareerDate(list[0].date)}</div>` + list.map(m => renderCareerMatchRow(m, null)).join('');
+      }
+      return `<div class="panel" style="margin:0;"><h3 style="margin-bottom:8px;">Grupo ${g.name}</h3>
+        <div class="table-scroll"><table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>DG</th><th>Pts</th></tr></thead><tbody>${trs}</tbody></table></div>
+        <details style="margin-top:8px;"><summary style="cursor:pointer;color:var(--ink-dim);">Ver partidos</summary>${fx}</details></div>`;
+    }).join('');
+    const legend = isLib
+      ? '1° y 2° a octavos de final &middot; 3° al playoff de octavos de la Copa Sudamericana &middot; 4° eliminado'
+      : '1° a octavos de final &middot; 2° al playoff de octavos &middot; 3° y 4° eliminados';
+    return `<p class="hint">${legend}</p><div class="cont-groups">${cards}</div>`;
+  }
+  function careerContRenderEntrants(cupKey, bucket){
+    const nm = ids => ids.map(id => { const t = careerTeamById(id); return t ? escapeHtml(t.name) : '?'; }).join(', ');
+    let body = '';
+    if(cupKey === 'libertadores'){
+      body += `<p class="hint"><strong style="color:var(--ink);">Fase 1 (${bucket.entrants.f1.length}):</strong> ${nm(bucket.entrants.f1)}</p>`;
+      body += `<p class="hint"><strong style="color:var(--ink);">Directos a la fase 2 (${bucket.entrants.f2.length}):</strong> ${nm(bucket.entrants.f2)}</p>`;
+      body += `<p class="hint"><strong style="color:var(--ink);">Directos a la fase de grupos (${bucket.entrants.g.length}):</strong> ${nm(bucket.entrants.g)}</p>`;
+    } else {
+      body += `<p class="hint"><strong style="color:var(--ink);">Directos a la fase de grupos (Argentina y Brasil, ${bucket.entrants.direct.length}):</strong> ${nm(bucket.entrants.direct)}</p>`;
+      Object.keys(bucket.entrants.primera).forEach(country => {
+        body += `<p class="hint"><strong style="color:var(--ink);">Primera fase &middot; ${escapeHtml(country)}:</strong> ${nm(bucket.entrants.primera[country])}</p>`;
+      });
     }
-    let html = `<div class="panel"><h2>${title} ${c.year}</h2>${renderStageRail(CONTINENTAL_STAGES, COPA_ARG_LABELS, bucket.matches)}</div>`;
-    html += `<div class="panel">`;
-    CONTINENTAL_STAGES.forEach(stage => {
-      const ms = bucket.matches.filter(m=>m.stage===stage);
-      if(ms.length === 0) return;
-      html += `<div class="round-header"><h3>${COPA_ARG_LABELS[stage]}</h3></div>`;
-      html += ms.map(m=>renderCareerMatchRow(m, null)).join('');
-      const allPlayed = ms.every(m=>m.played);
-      const nextStage = CONTINENTAL_STAGES[CONTINENTAL_STAGES.indexOf(stage)+1];
-      if(!allPlayed){
-        html += `<div class="btn-row"><button class="btn small" data-action="career-simulate-continental" data-cup="${cupKey}" data-stage="${stage}">Simular ${COPA_ARG_LABELS[stage].toLowerCase()}</button></div>`;
+    return `<details class="panel"><summary style="cursor:pointer;">Equipos clasificados</summary>${body}</details>`;
+  }
+  // Las copas internacionales se juegan desde el Calendario único, igual que los torneos argentinos:
+  // acá solo se muestra cuándo toca el próximo partido pendiente de la fase.
+  function careerContCalendarNote(ms){
+    const pend = ms.filter(m => !m.played && !m.bye && m.date).map(m => m.date).sort();
+    if(!pend.length) return '';
+    return `<div class="btn-row" style="align-items:center;"><span class="hint" style="margin:0;">Se juega desde el Calendario &middot; próxima fecha: ${formatCareerDate(pend[0])}</span><button class="btn small" data-action="career-set-view" data-view="calendario">Ir al calendario</button></div>`;
+  }
+
+  function careerContNm(id){ const t = careerTeamById(id); return t ? escapeHtml(t.name) : '?'; }
+  function renderContDrawPanel(cupKey, bucket){
+    const d = bucket.pendingDraw;
+    if(!d) return '';
+    const title = cupKey === 'libertadores' ? 'Copa Libertadores' : 'Copa Sudamericana';
+    const total = careerContDrawTotal(d);
+    const done = d.revealed >= total;
+    const btns = `<div class="btn-row">
+        <button class="btn small primary" data-action="career-cont-draw-next" data-cup="${cupKey}">${d.kind === 'grupos' ? 'Sacar el próximo equipo' : 'Sacar el próximo cruce'}</button>
+        <button class="btn small" data-action="career-cont-draw-all" data-cup="${cupKey}">Sortear todo</button>
+      </div>`;
+    const dim = 'opacity:.35;text-decoration:line-through;';
+    let html = `<div class="panel" style="border:1px solid var(--gold);"><h2>&#127922; Sorteo &mdash; ${CONT_LABELS[d.stage]} &middot; ${title} ${bucket.edition}</h2>`;
+    if(d.kind === 'grupos'){
+      html += `<p class="hint">8 grupos de 4 equipos. Cuatro bombos por ELO, un equipo de cada bombo por grupo y sin dos equipos del mismo país en un mismo grupo. Se sacan de a uno (${d.revealed} de ${total}).</p>${btns}`;
+      if(d.revealed > 0){
+        const last = d.steps[d.revealed-1];
+        html += `<p style="margin:10px 0 0;color:var(--gold-bright);">Salió: <strong>${careerContNm(last.id)}</strong> &rarr; Grupo ${String.fromCharCode(65+last.g)} <span style="color:var(--ink-dim);">(Bombo ${last.pot+1})</span></p>`;
       }
-      if(allPlayed && nextStage && bucket.matches.filter(m=>m.stage===nextStage).length===0){
-        html += `<div class="btn-row"><button class="btn primary" data-action="career-advance-continental" data-cup="${cupKey}" data-stage="${stage}">Avanzar a ${COPA_ARG_LABELS[nextStage]}</button></div>`;
+      html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:12px;">`;
+      for(let p=0; p<4; p++){
+        const inPot = d.steps.map((x,i) => ({ x:x, i:i })).filter(o => o.x.pot === p).sort((a,b) => careerContElo(b.x.id)-careerContElo(a.x.id));
+        html += `<div><strong style="color:var(--ink);">Bombo ${p+1}</strong><ul style="margin:6px 0 0 18px;color:var(--ink-dim);font-size:12.5px;">${inPot.map(o => `<li style="${o.i < d.revealed ? dim : ''}">${careerContNm(o.x.id)}</li>`).join('')}</ul></div>`;
       }
-    });
-    if(bucket.champion){
-      const champ = careerTeamById(bucket.champion.teamId);
-      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de ${title} ${c.year}: <strong>${escapeHtml(champ.name)}</strong></div>`;
+      html += `</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:14px;">`;
+      d.groups.forEach((g,gi) => {
+        const got = d.steps.slice(0, d.revealed).filter(x => x.g === gi);
+        html += `<div class="panel" style="margin:0;"><h3 style="margin-bottom:6px;">Grupo ${String.fromCharCode(65+gi)}</h3>${got.length ? got.map(x => `<div style="padding:2px 0;">${careerContTeamCell(x.id)}</div>`).join('') : '<div class="hint" style="margin:0;">&mdash;</div>'}</div>`;
+      });
+      html += `</div>`;
+    } else {
+      html += `<p class="hint">${escapeHtml(d.potLabels[0])} contra ${escapeHtml(d.potLabels[1]).replace(/^Bombo 2: /,'')}. Se sacan los cruces de a uno (${d.revealed} de ${total}). El equipo de la izquierda juega la ida de local; el cabeza de serie cierra en su cancha.</p>${btns}`;
+      // Los bombos se muestran ordenados por ELO (no en el orden de los cruces, para no revelar el sorteo).
+      const out = {}; d.pairs.slice(0, d.revealed).forEach(pr => { out[pr.first] = true; out[pr.second] = true; });
+      const potList = ids => ids.slice().sort((x,y) => careerContElo(y)-careerContElo(x)).map(id => `<li style="${out[id] ? dim : ''}">${careerContNm(id)}</li>`).join('');
+      html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:12px;">
+        <div><strong style="color:var(--ink);">${escapeHtml(d.potLabels[0])}</strong><ul style="margin:6px 0 0 18px;color:var(--ink-dim);font-size:12.5px;">${potList(d.pairs.map(pr => pr.second))}</ul></div>
+        <div><strong style="color:var(--ink);">${escapeHtml(d.potLabels[1])}</strong><ul style="margin:6px 0 0 18px;color:var(--ink-dim);font-size:12.5px;">${potList(d.pairs.map(pr => pr.first))}</ul></div>
+      </div>`;
+      if(d.revealed > 0){
+        html += `<div style="margin-top:12px;">` + d.pairs.slice(0, d.revealed).map((pr,i) => `<div class="cs-fixture-card" style="margin-bottom:6px;"><div><div style="color:var(--ink-dim);font-size:11.5px;">Llave ${i+1}</div><div style="color:var(--ink);">${careerContNm(pr.first)} <span style="color:var(--ink-dim);">vs</span> ${careerContNm(pr.second)}</div></div><div style="color:var(--ink-dim);font-size:12px;">ida en ${careerContNm(pr.first)}</div></div>`).join('') + `</div>`;
+      }
     }
     html += `</div>`;
     return html;
   }
-  function renderCareraCopaLibertadores(){ return renderContinentalCup('libertadores', 'Copa Libertadores'); }
-  function renderCareraCopaSudamericana(){ return renderContinentalCup('sudamericana', 'Copa Sudamericana'); }
-  function renderCareraCopasInternacionales(){ return renderCareraCopaLibertadores() + renderCareraCopaSudamericana(); }
+  function renderContCup(cupKey){
+    const c = state.career;
+    const bucket = c[cupKey];
+    const title = cupKey === 'libertadores' ? 'Copa Libertadores' : 'Copa Sudamericana';
+    const stages = cupKey === 'libertadores' ? CONT_LIB_STAGES : CONT_SUD_STAGES;
+    if(!bucket || !bucket.built || bucket.edition !== c.year){
+      return `<div class="panel">
+        <h2>${title} ${c.year}</h2>
+        <p class="hint">La edición se arma sola al arrancar la temporada, con los clasificados del año anterior (Argentina por Tabla Anual, títulos y Copa Argentina; el resto de los países por sus ligas). Si recién empezás la carrera y no hay sorteos pendientes, podés armarla ahora.</p>
+        <div class="btn-row"><button class="btn primary" data-action="career-build-continental" data-cup="${cupKey}">Armar edición ${c.year}</button></div>
+      </div>`;
+    }
+    let html = `<div class="panel"><h2>${title} ${bucket.edition}</h2>${renderStageRail(stages, CONT_LABELS, bucket.matches)}</div>`;
+    if(bucket.champion){
+      const champ = careerTeamById(bucket.champion.teamId);
+      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de ${title} ${bucket.edition}: <strong>${champ ? escapeHtml(champ.name) : '&mdash;'}</strong></div>`;
+    }
+    html += renderContDrawPanel(cupKey, bucket);
+    html += careerContRenderEntrants(cupKey, bucket);
+    stages.forEach(stage => {
+      const ms = careerContStageMatches(bucket, stage);
+      if(!ms.length) return;
+      html += `<div class="panel"><div class="round-header"><h3>${CONT_LABELS[stage]}</h3></div>`;
+      if(stage === 'grupos'){
+        html += careerContRenderGroups(bucket, cupKey);
+      } else if(stage === 'primera'){
+        const countries = [];
+        ms.forEach(m => { if(countries.indexOf(m.pais)===-1) countries.push(m.pais); });
+        countries.forEach(p => {
+          html += `<div style="color:var(--ink);font-size:12.5px;margin:14px 0 0;font-weight:600;">${escapeHtml(p)}</div>`;
+          html += ms.filter(m => m.pais === p).map(careerContMatchBlock).join('');
+        });
+      } else if(stage === 'final'){
+        html += ms.map(careerContMatchBlock).join('');
+      } else {
+        html += careerContRenderSeries(bucket, stage);
+      }
+      html += careerContCalendarNote(ms);
+      html += `</div>`;
+    });
+    return html;
+  }
+  function renderContRecopa(){
+    const c = state.career;
+    const R = c.recopa;
+    let html = `<div class="panel"><h2>Recopa Sudamericana</h2>
+      <p class="hint">La juegan el campeón de la Copa Libertadores y el campeón de la Copa Sudamericana del año anterior. Son dos partidos: la ida en cancha del campeón de la Sudamericana y la vuelta en cancha del campeón de la Libertadores. Si la serie termina igualada, se define por penales.</p></div>`;
+    if(!R || !R.built || !R.matches.length){
+      return html + `<div class="cs-empty-hint">Todavía no hay Recopa este año: se arma cuando existen los dos campeones de la edición anterior.</div>`;
+    }
+    if(R.champion){
+      const champ = careerTeamById(R.champion.teamId);
+      html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Recopa ${R.edition}: <strong>${champ ? escapeHtml(champ.name) : '&mdash;'}</strong></div>`;
+    }
+    html += `<div class="panel">${careerContRenderSeries(R, 'recopa')}`;
+    html += careerContCalendarNote(R.matches);
+    html += `</div>`;
+    return html;
+  }
+  function renderContHistorial(){
+    const c = state.career;
+    const hist = (c.continentalHistory || []).slice().reverse();
+    let html = `<div class="panel"><h2>Campeones continentales</h2>`;
+    if(!hist.length) return html + `<p class="hint">Todavía no hay ediciones terminadas.</p></div>`;
+    html += `<div class="table-scroll"><table><thead><tr><th>Edición</th><th>Libertadores</th><th>Sudamericana</th></tr></thead><tbody>${hist.map(h => `<tr><td class="num">${h.year}</td><td>${h.libertadores && h.libertadores.name ? escapeHtml(h.libertadores.name) : '&mdash;'}</td><td>${h.sudamericana && h.sudamericana.name ? escapeHtml(h.sudamericana.name) : '&mdash;'}</td></tr>`).join('')}</tbody></table></div></div>`;
+    return html;
+  }
+  function renderCareraCopasInternacionales(){
+    const c = state.career;
+    careerContEnsureEdition();
+    const tab = c.intlTab || 'libertadores';
+    const tabs = [['libertadores','Copa Libertadores'],['sudamericana','Copa Sudamericana'],['recopa','Recopa'],['historial','Campeones']];
+    let html = `<div class="btn-row" style="flex-wrap:wrap;">${tabs.map(t => `<button class="btn small ${t[0]===tab?'primary':''}" data-action="career-intl-tab" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>`;
+    if(tab === 'sudamericana') html += renderContCup('sudamericana');
+    else if(tab === 'recopa') html += renderContRecopa();
+    else if(tab === 'historial') html += renderContHistorial();
+    else html += renderContCup('libertadores');
+    return html;
+  }
 
   // ==================== LIGAS DEL MUNDO (fútbol no argentino) ====================
   // A diferencia de todo lo argentino (que el usuario juega fecha a fecha, con calendario y
@@ -7091,10 +7716,8 @@
       //  - Fase de grupos de la Sudamericana: los subcampeones (el perdedor de cada final) del Apertura
       //    y el Clausura, siempre que no hayan clasificado ya a la Libertadores, más los siguientes 2
       //    mejores de la Tabla Anual sin clasificar.
-      // Descenso: el último de la Tabla Anual. Todavía no está cargada la Liga FUTVE2 en este
-      // simulador, así que (mismo criterio que otras categorías inferiores sin pirámide todavía
-      // conectada en este motor) el descendido queda marcado nada más: el plantel de la temporada
-      // siguiente repite sin reemplazo hasta que se cargue la Segunda División.
+      // Descenso: el último de la Tabla Anual, que baja a la Liga FUTVE2 (ver el registro de
+      // 'venezuela-segunda') a cambio del campeón de esa categoría, que asciende.
       key: 'venezuela-primera',
       country: 'Venezuela',
       name: 'Liga FUTVE',
@@ -7108,6 +7731,82 @@
         { name:'Trujillanos', elo:1470 }, { name:'Zamora', elo:1443 },
         { name:'Academia Anzoátegui', elo:1425 }, { name:'Rayo Zuliano', elo:1383 }
       ]
+    },
+    {
+      // Liga FUTVE2 de Venezuela (Segunda División). Formato propio ('venezuela-segunda'), resuelto
+      // junto con la Primera en careerEnsureVenezuelaLeagues (mismo criterio de sincronización que
+      // careerEnsureColombiaLeagues/careerEnsurePeruLeagues: se espera a que las dos terminen su
+      // temporada antes de mover un solo equipo entre ellas):
+      // Fase Regular: los 16 equipos se sortean en 2 grupos de 8 (el reglamento no especifica el
+      // criterio de armado, así que se usa el mismo criterio sin regla explícita que ya tiene este
+      // motor para casos iguales, ver Liga2/Liga3 Perú) -> cada grupo juega todos contra todos a 4
+      // ruedas (ida-vuelta-ida-vuelta).
+      // Fase Final: los 4 primeros de cada grupo (8 equipos en total) arman un cuadro único de
+      // eliminación directa a partido ida y vuelta -> cuartos de final -> semifinales -> final. Como
+      // el reglamento no da una siembra explícita entre los clasificados de los dos grupos, se arma
+      // una tabla combinada de las posiciones 1ª a 4ª de ambos grupos (mismo criterio que ya usa este
+      // motor en Liga3 Perú para combinar grupos regionales) y se siembra con el bracket estándar de
+      // 8 (1° vs 8°, 4° vs 5°, 3° vs 6°, 2° vs 7°, con las semifinales ya fijas por mitad de cuadro),
+      // así los mejores ubicados no se cruzan hasta la final. En cada llave cierra de local, en la
+      // vuelta, el mejor sembrado; si sigue empatada en puntos y diferencia de gol, penales directos.
+      // Ascenso: el campeón de la Liga FUTVE2 asciende a la Primera División. No hay un segundo
+      // ascenso. El ascendido pierde 100 de ELO al subir de categoría (mismo criterio que ya usa este
+      // motor con los ascendidos de Colombia y Perú).
+      // Descenso desde la Liga FUTVE2: el reglamento no menciona una Tercera División de Venezuela
+      // conectada a esta pirámide, así que (mismo criterio que otras categorías inferiores sin
+      // pirámide todavía conectada en este motor) no hay descenso propio: el plantel de la Segunda
+      // repite temporada a temporada salvo el ascendido, que es reemplazado por el descendido de la
+      // Primera.
+      key: 'venezuela-segunda',
+      country: 'Venezuela',
+      name: 'Liga FUTVE2',
+      format: 'venezuela-segunda',
+      teams: [
+        { name:'Deportivo Lara', elo:1576 }, { name:'Barquisimeto SC', elo:1482 },
+        { name:'Aragua Maracay', elo:1450 }, { name:'Yaracuyanos San Felipe', elo:1427 },
+        { name:'Ureña SC', elo:1421 }, { name:'Bolívar SC', elo:1409 },
+        { name:'Deportivo Miranda', elo:1407 }, { name:'Monagas SC', elo:1379 },
+        { name:'Mineros de Guayana', elo:1355 }, { name:'Zamora II', elo:1351 },
+        { name:'Dynamo Puerto FC', elo:1336 }, { name:'Academia Puerto Cabello II', elo:1335 },
+        { name:'Atlético El Vigía', elo:1334 }, { name:'Atlético Barinas', elo:1326 },
+        { name:'Atlético Ávila', elo:1275 }, { name:'Real Frontera', elo:1224 }
+      ]
+    },
+    {
+      // Copa Venezuela. Sin plantel propio: usa los equipos de la Liga FUTVE y de la Liga FUTVE2
+      // (careerEnsureVenezuelaCopa). El reglamento que pasó el usuario dice que la Fase de Grupos
+      // tiene 20 equipos (8 de la Primera y 12 de la Segunda) y que en la Fase Final "se incorporan"
+      // 6 equipos más de Primera — pero no dice cuáles 8 de los 14 de Primera juegan la Fase de
+      // Grupos, así que acá se resuelve así (simplificación de este motor, documentada en
+      // careerWorldLeagueBuildVenezuelaCopa): los 8 que clasificaron a los cuadrangulares del
+      // Apertura de esa temporada juegan la Fase de Grupos, y los otros 6 (los que no llegaron a esos
+      // cuadrangulares) son los que se "incorporan" directo en la Fase Final — así los 14 de Primera
+      // quedan repartidos sin superponerse. De la Segunda entran 12 de sus 16 (se sortean, el
+      // reglamento tampoco especifica el criterio).
+      // Fase de Grupos: 20 equipos en 5 grupos de 4, todos contra todos a 2 ruedas. Clasifican 8: el
+      // 1° de cada grupo (5) más los 3 mejores 2° (por puntos, diferencia de gol, goles a favor y ELO).
+      // Fase Final: se suman los 6 incorporados de Primera a los 8 clasificados de grupos (14 en
+      // total). Como el reglamento nombra 4 rondas (Octavos, Cuartos, Semis, Final) que piden 16
+      // equipos para cerrar redondo, los 2 incorporados con mejor ELO reciben un bye directo a
+      // Cuartos de Final, y los otros 12 (8 de grupos + 4 incorporados) juegan los Octavos. Todas las
+      // llaves son ida y vuelta, con penales directos si una serie sigue empatada.
+      // El campeón obtiene el título de Copa Venezuela y juega la Supercopa de Venezuela.
+      key: 'venezuela-copa',
+      country: 'Venezuela',
+      name: 'Copa Venezuela',
+      format: 'venezuela-copa',
+      pendingHint: 'Se arma apenas la Liga FUTVE define los 8 clasificados a los cuadrangulares del Torneo Apertura de la temporada.'
+    },
+    {
+      // Partido único entre el campeón de la Liga FUTVE (Campeón Absoluto) y el campeón de la Copa
+      // Venezuela. Si es el mismo equipo, el rival pasa a ser el subcampeón de la Liga FUTVE (el
+      // perdedor de la Final Absoluta, o el mejor ubicado de la Tabla Anual sin contar al campeón si
+      // hubo bicampeón y no se jugó Final Absoluta). Se arma en careerEnsureSupercopaVenezuela.
+      key: 'supercopa-venezuela',
+      country: 'Venezuela',
+      name: 'Supercopa de Venezuela',
+      format: 'partido-unico',
+      pendingHint: 'Se arma cuando ya están el campeón de la Liga FUTVE y el campeón de la Copa Venezuela de la temporada.'
     }
   ];
 
@@ -9747,7 +10446,7 @@
       // procesan aparte, después de que el resto ya esté al día — ver más abajo. La Copa Paceña
       // tampoco tiene plantel propio (usa los de la Liga boliviana) y se procesa junto con
       // careerEnsureBoliviaCopas, arriba.
-      if(def.format === 'copa-eliminacion' || def.format === 'copa-paraguay' || def.format === 'copa-ecuador' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta' || def.format === 'uruguay-copa' || def.format === 'uruguay-supercopa' || def.format === 'chile-copa-liga' || def.format === 'chile-copa' || def.format === 'chile-supercopa' || def.format === 'colombia-primera' || def.format === 'colombia-segunda' || def.format === 'colombia-copa' || def.format === 'colombia-supercopa' || def.format === 'peru-primera' || def.format === 'peru-segunda' || def.format === 'peru-tercera' || def.format === 'peru-copa' || def.format === 'bolivia-pacena' || def.format === 'venezuela-primera') return;
+      if(def.format === 'copa-eliminacion' || def.format === 'copa-paraguay' || def.format === 'copa-ecuador' || def.format === 'partido-unico' || def.format === 'uruguay-primera' || def.format === 'uruguay-segunda' || def.format === 'uruguay-tercera' || def.format === 'uruguay-cuarta' || def.format === 'uruguay-copa' || def.format === 'uruguay-supercopa' || def.format === 'chile-copa-liga' || def.format === 'chile-copa' || def.format === 'chile-supercopa' || def.format === 'colombia-primera' || def.format === 'colombia-segunda' || def.format === 'colombia-copa' || def.format === 'colombia-supercopa' || def.format === 'peru-primera' || def.format === 'peru-segunda' || def.format === 'peru-tercera' || def.format === 'peru-copa' || def.format === 'bolivia-pacena' || def.format === 'venezuela-primera' || def.format === 'venezuela-segunda' || def.format === 'venezuela-copa') return;
       let league = wl[def.key];
       // El arranque de la temporada siguiente de cada división depende de que esa división (y,
       // si es parte de la pirámide brasileña, las otras 3) ya haya terminado la suya — no de que
@@ -9810,6 +10509,8 @@
     careerEnsureCopaEcuador();
     careerEnsureSupercopaEcuador();
     careerEnsureVenezuelaLeagues();
+    careerEnsureVenezuelaCopa();
+    careerEnsureSupercopaVenezuela();
   }
   // ---------- Chile: Copa de la Liga ----------
   // Se juega ANTES de la Liga de Primera, con los mismos 16 equipos: 4 grupos de 4 (todos contra
@@ -11756,7 +12457,7 @@
       if(pool[1]) sud.push(pool[1]);
       league.sudamericanaIds = sud;
 
-      // Descenso: el último de la Tabla Anual (todavía sin Liga FUTVE2 cargada, ver el registro).
+      // Descenso: el último de la Tabla Anual (baja a la Liga FUTVE2, ver careerEnsureVenezuelaLeagues).
       league.relegatedId = league.tablaAnualOrder[league.tablaAnualOrder.length-1] || null;
 
       if(champA === champC){
@@ -11787,19 +12488,355 @@
       }
     }
   }
-  // Punto de entrada de Venezuela: arma la temporada cuando no hay una en curso (o la anterior ya
-  // terminó) y pone al día los resultados según el calendario. Todavía no está cargada la Liga
-  // FUTVE2, así que el plantel de la Primera se repite temporada a temporada sin ascensos/descensos
-  // reales (el descendido de la Tabla Anual solo queda marcado, ver el comentario del registro).
+  // ---------- Venezuela: Liga FUTVE2 (Segunda División) ----------
+  // Ver el comentario del registro ('venezuela-segunda') para el detalle completo del formato.
+  function careerWorldLeagueBuildSeasonVenezuelaSegunda(def, prevLeague, forcedRoster){
+    const wl = careerWorldLeagues();
+    const teams = forcedRoster ? forcedRoster
+      : (prevLeague && prevLeague.teams && prevLeague.teams.length)
+        ? prevLeague.teams.map(t => ({ id:t.id, name:t.name, elo:t.elo }))
+        : def.teams.map((t,i) => ({ id:'wl_'+def.key+'_'+i, name:t.name, elo:t.elo }));
+    // Los 2 grupos de 8 se sortean cada temporada (el reglamento no especifica el criterio de
+    // armado, mismo criterio sin regla explícita que ya usa este motor en Liga2/Liga3 Perú).
+    const shuffled = shuffleArr(teams.slice());
+    const startDate = careerWorldSeasonStart(!!prevLeague);
+    function armarGrupo(teamsArr, tag){
+      const ids = teamsArr.map(t=>t.id);
+      let rounds = roundRobinRounds(ids);
+      rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home })))); // 2 ruedas
+      rounds = rounds.concat(rounds); // 4 ruedas en total (ida-vuelta-ida-vuelta)
+      const matches = [];
+      rounds.forEach((round, ri) => {
+        const date = addDaysISO(startDate, ri*7);
+        round.forEach(m => {
+          if(m.home === null || m.away === null) return;
+          matches.push({ id:'wl_'+def.key+'_regular'+tag+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+        });
+      });
+      return { nombre:'Grupo '+tag, teamIds: ids, teams: teamsArr, matches, table: [] };
+    }
+    wl[def.key] = {
+      key: def.key, country: def.country, name: def.name, format: def.format,
+      season: (prevLeague && prevLeague.season) ? prevLeague.season + 1 : 1,
+      year: Number(startDate.slice(0,4)), teams,
+      stage: 'regular',
+      grupoA: armarGrupo(shuffled.slice(0,8), 'A'), grupoB: armarGrupo(shuffled.slice(8,16), 'B'),
+      playoff: null, championId: null, promotedIds: [],
+      history: (prevLeague && prevLeague.history) ? prevLeague.history.slice() : []
+    };
+  }
+  // Combina los 4 primeros de cada grupo en una sola tabla (mismo criterio que ya usa este motor en
+  // Liga3 Perú para combinar grupos regionales) y arma el cuadro de cuartos de final con el bracket
+  // estándar de 8 (1° vs 8°, 4° vs 5°, 3° vs 6°, 2° vs 7°), ida y vuelta.
+  function venezuelaSegundaBuildCuartos(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    function betterFirst(x,y){ return (y.pts-x.pts) || (y.dg-x.dg) || (y.gf-x.gf) || (byId[y.id].elo-byId[x.id].elo); }
+    const clasA = league.grupoA.table.slice(0,4), clasB = league.grupoB.table.slice(0,4);
+    const tablaFinal = [].concat(clasA, clasB).slice().sort(betterFirst);
+    const seedOrder = tablaFinal.map(r=>r.id);
+    const lastDate = careerMaxDate([].concat(league.grupoA.matches, league.grupoB.matches));
+    const startDate = addDaysISO(lastDate, 7);
+    const cuartos = [
+      careerWorldLeagueBuildTwoLegTie(seedOrder[0], seedOrder[7], seedOrder[0], startDate),
+      careerWorldLeagueBuildTwoLegTie(seedOrder[3], seedOrder[4], seedOrder[3], startDate),
+      careerWorldLeagueBuildTwoLegTie(seedOrder[2], seedOrder[5], seedOrder[2], startDate),
+      careerWorldLeagueBuildTwoLegTie(seedOrder[1], seedOrder[6], seedOrder[1], startDate)
+    ];
+    league.playoff = { seedOrder, tablaFinal, cuartos, semis: null, final: null };
+  }
+  function careerWorldLeagueCatchUpVenezuelaSegunda(league){
+    const c = state.career;
+    if(!c.calendarDate) return;
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+
+    if(league.stage === 'regular'){
+      careerWorldLeaguePlayDue(league.grupoA.matches, byId, c.calendarDate, {});
+      careerWorldLeaguePlayDue(league.grupoB.matches, byId, c.calendarDate, {});
+      league.grupoA.table = computeGenericStandings(league.grupoA.matches, league.grupoA.teams);
+      league.grupoB.table = computeGenericStandings(league.grupoB.matches, league.grupoB.teams);
+      if(league.grupoA.matches.every(m=>m.played) && league.grupoB.matches.every(m=>m.played)){
+        venezuelaSegundaBuildCuartos(league);
+        league.stage = 'playoff-cuartos';
+      }
+      return;
+    }
+
+    const po = league.playoff;
+    if(!po) return;
+    const seedIdx = id => po.seedOrder.indexOf(id);
+
+    if(league.stage === 'playoff-cuartos'){
+      po.cuartos.forEach(tie => { careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {}); colombiaResolveTie(tie, byId); });
+      if(po.cuartos.every(t=>t.winnerId)){
+        const winners = po.cuartos.map(t=>t.winnerId).slice().sort((a,b)=>seedIdx(a)-seedIdx(b));
+        const lastDate = careerMaxDate([].concat(po.cuartos[0].legs, po.cuartos[1].legs, po.cuartos[2].legs, po.cuartos[3].legs));
+        const startDate = addDaysISO(lastDate, 7);
+        po.semis = [
+          careerWorldLeagueBuildTwoLegTie(winners[0], winners[3], winners[0], startDate),
+          careerWorldLeagueBuildTwoLegTie(winners[1], winners[2], winners[1], startDate)
+        ];
+        league.stage = 'playoff-semis';
+      }
+    }
+
+    if(league.stage === 'playoff-semis'){
+      po.semis.forEach(tie => { careerWorldLeaguePlayDue(tie.legs, byId, c.calendarDate, {}); colombiaResolveTie(tie, byId); });
+      if(po.semis.every(t=>t.winnerId)){
+        const finalistas = po.semis.map(t=>t.winnerId);
+        const lastDate = careerMaxDate([].concat(po.semis[0].legs, po.semis[1].legs));
+        const startDate = addDaysISO(lastDate, 7);
+        const better = seedIdx(finalistas[0]) < seedIdx(finalistas[1]) ? finalistas[0] : finalistas[1];
+        po.final = careerWorldLeagueBuildTwoLegTie(finalistas[0], finalistas[1], better, startDate);
+        league.stage = 'playoff-final';
+      }
+    }
+
+    if(league.stage === 'playoff-final'){
+      careerWorldLeaguePlayDue(po.final.legs, byId, c.calendarDate, {});
+      colombiaResolveTie(po.final, byId);
+      if(po.final.winnerId){
+        league.championId = po.final.winnerId;
+        league.promotedIds = [league.championId];
+        league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
+        if(league.history.length > 15) league.history.length = 15;
+        league.stage = 'done';
+      }
+    }
+  }
+  // ---------- Venezuela: Copa Venezuela ----------
+  // Ver el comentario del registro ('venezuela-copa') para el detalle del formato y de las
+  // simplificaciones que se tomaron donde el reglamento no era explícito.
+  function careerVenezuelaCopaLiveById(league){
+    const wl = careerWorldLeagues();
+    const byId = {}; league.teams.forEach(t => byId[t.id] = t);
+    const P = wl['venezuela-primera'], S = wl['venezuela-segunda'];
+    if(P && P.season === league.primeraSeason) P.teams.forEach(t => byId[t.id] = t);
+    if(S && S.season === league.segundaSeason) S.teams.forEach(t => byId[t.id] = t);
+    return byId;
+  }
+  function careerVenezuelaCopaReady(P, S){
+    if(!P || !S) return false;
+    if(!P.apertura || !P.apertura.gruposOrder) return false;
+    if(!S.teams || !S.teams.length) return false;
+    return true;
+  }
+  function venezuelaCopaBuildGrupo(ids, tag, startDate){
+    let rounds = roundRobinRounds(ids);
+    rounds = rounds.concat(rounds.map(r => r.map(m => ({ home:m.away, away:m.home })))); // 2 ruedas
+    const matches = [];
+    rounds.forEach((round, ri) => {
+      const date = addDaysISO(startDate, ri*7);
+      round.forEach(m => {
+        if(m.home === null || m.away === null) return;
+        matches.push({ id:'wl_venezuela-copa_grupo'+tag+'_'+matches.length, home:m.home, away:m.away, round:ri+1, date, homeScore:null, awayScore:null, played:false });
+      });
+    });
+    return { nombre:'Grupo '+tag, teamIds: ids, matches, table: [] };
+  }
+  function careerWorldLeagueBuildVenezuelaCopa(P, S){
+    const wl = careerWorldLeagues();
+    const prev = wl['venezuela-copa'];
+    // 8 de Primera a la Fase de Grupos: los clasificados a los cuadrangulares del Apertura. Los otros
+    // 6 se incorporan directo en la Fase Final. De la Segunda entran 12 de 16 (sorteo).
+    const pGrupos = P.apertura.gruposOrder.slice();
+    const pIncorporados = P.teams.map(t=>t.id).filter(id => pGrupos.indexOf(id) === -1);
+    const sGrupos = shuffleArr(S.teams.map(t=>t.id)).slice(0,12);
+    const pool = shuffleArr(pGrupos.concat(sGrupos));
+    const lastDate = P.apertura.matches.reduce((mx,m)=> m.date>mx?m.date:mx, P.apertura.matches[0].date);
+    const startDate = addDaysISO(lastDate, 14);
+    const grupos = {};
+    ['A','B','C','D','E'].forEach((g,i) => { grupos[g] = venezuelaCopaBuildGrupo(pool.slice(i*4,i*4+4), g, startDate); });
+    const divisionOf = {};
+    P.teams.forEach(t => divisionOf[t.id] = 'primera'); S.teams.forEach(t => divisionOf[t.id] = 'segunda');
+    wl['venezuela-copa'] = {
+      key:'venezuela-copa', country:'Venezuela', name:'Copa Venezuela', format:'venezuela-copa',
+      season: (prev && prev.season) ? prev.season+1 : 1,
+      year: Number(startDate.slice(0,4)), primeraSeason: P.season, segundaSeason: S.season,
+      teams: P.teams.concat(S.teams), divisionOf,
+      stage: 'grupos', grupos, incorporados: pIncorporados, byes: [], seedOrder: [],
+      octavos: null, cuartos: null, semis: null, final: null, championId: null, runnerUpId: null,
+      history: (prev && prev.history) ? prev.history.slice() : []
+    };
+  }
+  function careerWorldLeagueCatchUpVenezuelaCopa(league){
+    const c = state.career;
+    const byId = careerVenezuelaCopaLiveById(league);
+    const seedIdx = id => league.seedOrder.indexOf(id);
+    const nextStart = (ties) => {
+      let mx = null;
+      ties.forEach(t => t.legs.forEach(m => { if(m.date && (!mx || m.date > mx)) mx = m.date; }));
+      return addDaysISO(mx, 7);
+    };
+    const buildTies = (ids, startDate) => {
+      // Cruce estándar por siembra: mejor vs peor; el mejor sembrado cierra de local la vuelta.
+      const sorted = ids.slice().sort((a,b)=>seedIdx(a)-seedIdx(b));
+      const ties = [];
+      for(let i=0;i<sorted.length/2;i++){
+        const a = sorted[i], b = sorted[sorted.length-1-i];
+        ties.push(careerWorldLeagueBuildTwoLegTie(a, b, a, startDate));
+      }
+      return ties;
+    };
+    const playRound = (ties) => { ties.forEach(t => { careerWorldLeaguePlayDue(t.legs, byId, c.calendarDate, {}); colombiaResolveTie(t, byId); }); return ties.every(t => t.winnerId); };
+
+    if(league.stage === 'grupos'){
+      const keys = Object.keys(league.grupos);
+      keys.forEach(k => {
+        const g = league.grupos[k];
+        careerWorldLeaguePlayDue(g.matches, byId, c.calendarDate, {});
+        g.table = computeGenericStandings(g.matches, g.teamIds.map(id => ({ id })));
+      });
+      if(!keys.every(k => league.grupos[k].matches.every(m => m.played))) return;
+      const better = (x,y) => (y.pts-x.pts) || (y.dg-x.dg) || (y.gf-x.gf) || (byId[y.id].elo-byId[x.id].elo);
+      const winners = keys.map(k => league.grupos[k].table[0]);
+      const seconds = keys.map(k => league.grupos[k].table[1]).sort(better).slice(0,3);
+      const clasificados = winners.concat(seconds).sort(better).map(r => r.id);
+      // Incorporados: los 2 de mejor ELO tienen bye a cuartos.
+      const inc = league.incorporados.slice().sort((a,b)=>byId[b].elo-byId[a].elo);
+      league.byes = inc.slice(0,2);
+      league.seedOrder = clasificados.concat(inc);
+      league.clasificadosGrupos = clasificados;
+      const octavosIds = clasificados.concat(inc.slice(2));
+      const allMatches = [];
+      keys.forEach(k => league.grupos[k].matches.forEach(m => allMatches.push(m)));
+      let mx = allMatches.reduce((a,m)=> m.date>a?m.date:a, allMatches[0].date);
+      league.octavos = buildTies(octavosIds, addDaysISO(mx, 7));
+      league.stage = 'octavos';
+    }
+    if(league.stage === 'octavos'){
+      if(playRound(league.octavos)){
+        const ids = league.octavos.map(t=>t.winnerId).concat(league.byes);
+        league.cuartos = buildTies(ids, nextStart(league.octavos));
+        league.stage = 'cuartos';
+      }
+    }
+    if(league.stage === 'cuartos'){
+      if(playRound(league.cuartos)){
+        // Bracket por mitades: 1° vs 8° con 4° vs 5°, 3° vs 6° con 2° vs 7°.
+        const w = league.cuartos.map(t=>t.winnerId).sort((a,b)=>seedIdx(a)-seedIdx(b));
+        const sd = nextStart(league.cuartos);
+        league.semis = [
+          careerWorldLeagueBuildTwoLegTie(w[0], w[3], w[0], sd),
+          careerWorldLeagueBuildTwoLegTie(w[1], w[2], w[1], sd)
+        ];
+        league.stage = 'semis';
+      }
+    }
+    if(league.stage === 'semis'){
+      if(playRound(league.semis)){
+        const f = league.semis.map(t=>t.winnerId);
+        const better = seedIdx(f[0]) < seedIdx(f[1]) ? f[0] : f[1];
+        league.final = careerWorldLeagueBuildTwoLegTie(f[0], f[1], better, nextStart(league.semis));
+        league.stage = 'final';
+      }
+    }
+    if(league.stage === 'final'){
+      careerWorldLeaguePlayDue(league.final.legs, byId, c.calendarDate, {});
+      colombiaResolveTie(league.final, byId);
+      if(league.final.winnerId){
+        league.championId = league.final.winnerId;
+        league.runnerUpId = league.final.teamA === league.championId ? league.final.teamB : league.final.teamA;
+        league.history.unshift({ year: league.year, championId: league.championId, championName: byId[league.championId].name });
+        if(league.history.length > 15) league.history.length = 15;
+        league.stage = 'done';
+      }
+    }
+  }
+  function careerEnsureVenezuelaCopa(){
+    const wl = careerWorldLeagues();
+    const P = wl['venezuela-primera'], S = wl['venezuela-segunda'];
+    let copa = wl['venezuela-copa'];
+    if((!copa || copa.primeraSeason !== (P && P.season)) && careerVenezuelaCopaReady(P, S)){
+      careerWorldLeagueBuildVenezuelaCopa(P, S);
+      copa = wl['venezuela-copa'];
+    }
+    if(copa && copa.stage !== 'done') careerWorldLeagueCatchUpVenezuelaCopa(copa);
+  }
+  // ---------- Venezuela: Supercopa de Venezuela ----------
+  function venezuelaSubcampeonLiga(P){
+    if(P.finalAbsoluta) return P.finalAbsoluta.teamA === P.campeonAbsolutoId ? P.finalAbsoluta.teamB : P.finalAbsoluta.teamA;
+    return P.tablaAnualOrder.filter(id => id !== P.campeonAbsolutoId)[0] || null;
+  }
+  function careerEnsureSupercopaVenezuela(){
+    const c = state.career;
+    const wl = careerWorldLeagues();
+    let sc = wl['supercopa-venezuela'];
+    if(sc && sc.match && !sc.match.played){
+      const byIdAll = {}; sc.teams.forEach(t=>byIdAll[t.id]=t);
+      careerWorldLeaguePlayDue([sc.match], byIdAll, c.calendarDate, {neutral:true});
+      if(sc.match.played){
+        const m = sc.match;
+        if(m.homeScore > m.awayScore) sc.championId = m.home;
+        else if(m.awayScore > m.homeScore) sc.championId = m.away;
+        else { sc.wentToPenalties = true; sc.championId = worldLeaguePenaltyWinner(byIdAll[m.home].elo, byIdAll[m.away].elo) === 'A' ? m.home : m.away; }
+        sc.history.unshift({ year:sc.year, championId:sc.championId, championName:byIdAll[sc.championId].name });
+        if(sc.history.length > 10) sc.history.length = 10;
+      }
+      return;
+    }
+    const copa = wl['venezuela-copa'], P = wl['venezuela-primera'];
+    if(!copa || !copa.championId) return;
+    if(!P || P.stage !== 'done' || copa.primeraSeason !== P.season) return;
+    if(sc && sc.copaSeason === copa.season && sc.aSeason === P.season) return;
+    const aId = P.campeonAbsolutoId;
+    let rivalId = copa.championId, rivalIsSubcampeon = false;
+    if(aId === copa.championId){ rivalId = venezuelaSubcampeonLiga(P); rivalIsSubcampeon = true; }
+    const teamA = P.teams.find(t=>t.id===aId);
+    const teamB = P.teams.find(t=>t.id===rivalId) || copa.teams.find(t=>t.id===rivalId);
+    if(!teamA || !teamB) return;
+    const prevHistory = (sc && sc.history) ? sc.history.slice() : [];
+    const base = { key:'supercopa-venezuela', country:'Venezuela', name:'Supercopa de Venezuela', format:'partido-unico', year:P.year, copaSeason:copa.season, aSeason:P.season, rivalIsSubcampeon };
+    const date = nextWeekdayAfter(c.calendarDate, 3);
+    const match = { id:'wl_supercopa-venezuela_'+P.year+'_'+copa.season, home:teamA.id, away:teamB.id, date, homeScore:null, awayScore:null, played:false };
+    wl['supercopa-venezuela'] = Object.assign({}, base, { teams:[teamA,teamB], match, championId:null, wentToPenalties:false, history:prevHistory });
+  }
+  // Sincroniza la Liga FUTVE (Primera) y la Liga FUTVE2 (Segunda) de Venezuela: arranca cada una de
+  // nuevo recién cuando LAS DOS terminaron su temporada (mismo criterio que careerEnsureColombiaLeagues
+  // y careerEnsurePeruLeagues), intercambiando el único descendido de la Primera por el único
+  // ascendido (el campeón) de la Segunda. Solo el que asciende pierde 100 de ELO.
   function careerEnsureVenezuelaLeagues(){
     const wl = careerWorldLeagues();
-    const def = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'venezuela-primera');
-    if(!def) return;
-    const prev = wl['venezuela-primera'];
-    if(!prev || prev.stage === 'done'){
-      careerWorldLeagueBuildSeasonVenezuelaPrimera(def, prev, null);
+    const defP = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'venezuela-primera');
+    const defS = WORLD_LEAGUES_REGISTRY.find(d => d.key === 'venezuela-segunda');
+    if(!defP || !defS) return;
+    const primeraPrev = wl['venezuela-primera'];
+    const segundaPrev = wl['venezuela-segunda'];
+    let leaguesDone = !!(primeraPrev && segundaPrev && primeraPrev.stage === 'done' && segundaPrev.stage === 'done');
+    // No arrancar la temporada siguiente hasta que la Copa de esta temporada termine y su Supercopa
+    // quede armada (así ninguna se queda colgada del objeto de liga viejo).
+    if(leaguesDone){
+      careerEnsureVenezuelaCopa();
+      careerEnsureSupercopaVenezuela();
+      const cp = wl['venezuela-copa'], sp = wl['supercopa-venezuela'];
+      if(cp && cp.primeraSeason === primeraPrev.season){
+        if(cp.stage !== 'done') leaguesDone = false;
+        else if(!sp || sp.aSeason !== primeraPrev.season) leaguesDone = false;
+      }
+    }
+
+    if(!primeraPrev || (primeraPrev.stage === 'done' && leaguesDone)){
+      let newRoster = null;
+      if(leaguesDone){
+        newRoster = primeraPrev.teams.filter(t => t.id !== primeraPrev.relegatedId).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        const promId = (segundaPrev.promotedIds || [])[0];
+        const t = promId && segundaPrev.teams.find(x => x.id === promId);
+        if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo - 100 });
+      }
+      careerWorldLeagueBuildSeasonVenezuelaPrimera(defP, primeraPrev, newRoster);
+    }
+    if(!segundaPrev || (segundaPrev.stage === 'done' && leaguesDone)){
+      let newRoster = null;
+      if(leaguesDone){
+        const promId = (segundaPrev.promotedIds || [])[0];
+        newRoster = segundaPrev.teams.filter(t => t.id !== promId).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        const relId = primeraPrev.relegatedId;
+        const t = relId && primeraPrev.teams.find(x => x.id === relId);
+        if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo });
+      }
+      careerWorldLeagueBuildSeasonVenezuelaSegunda(defS, segundaPrev, newRoster);
     }
     careerWorldLeagueCatchUpVenezuelaPrimera(wl['venezuela-primera']);
+    careerWorldLeagueCatchUpVenezuelaSegunda(wl['venezuela-segunda']);
   }
   // ---------- Perú: Liga2 (Segunda División) ----------
   function careerWorldLeagueBuildSeasonPeruSegunda(def, prevLeague, forcedRoster){
@@ -13923,8 +14960,61 @@
         <p class="hint">Sudamericana &middot; fase de grupos: <strong style="color:var(--ink);">${sud}</strong></p>
       </div>`;
       if(league.relegatedId){
-        html += `<div class="panel"><p class="hint">Desciende a la Liga FUTVE2: <strong style="color:var(--ink);">${escapeHtml(byId[league.relegatedId].name)}</strong>. Todavía no está cargada la Liga FUTVE2 en este simulador, así que queda marcado nada más y sigue en Primera la temporada siguiente.</p></div>`;
+        html += `<div class="panel"><p class="hint">Desciende a la Liga FUTVE2: <strong style="color:var(--ink);">${escapeHtml(byId[league.relegatedId].name)}</strong>.</p></div>`;
       }
+    }
+    return html;
+  }
+  // Liga FUTVE2 de Venezuela: Fase Regular (2 grupos de 8 a 4 ruedas) y Fase Final (cuartos, semis y
+  // final ida y vuelta entre los 4 primeros de cada grupo).
+  function renderWorldLeagueVenezuelaSegunda(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    function simpleTable(rows, opts){
+      opts = opts || {};
+      return `<table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>
+      ${rows.map((r,i) => {
+        const t = byId[r.id];
+        let tag = '';
+        if(opts.clasifica && opts.clasifica.indexOf(r.id) !== -1) tag = ' <span style="color:var(--gold-bright);font-size:11px;">&#9650; a la Fase Final</span>';
+        return `<tr><td>${i+1}</td><td>${teamBadgeHtml(t,20)} ${escapeHtml(t.name)}${tag}</td><td class="num">${r.pj}</td><td class="num">${r.pg}</td><td class="num">${r.pe}</td><td class="num">${r.pp}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+    }
+    function matchLine(m, label){
+      if(!m) return '';
+      const home = byId[m.home], away = byId[m.away];
+      const res = m.played ? `${m.homeScore} &ndash; ${m.awayScore}${m.wentToPenalties ? ' (penales)' : ''}` : `se juega el ${formatCareerDate(m.date)}`;
+      return `<div class="cs-fixture-card"><div>${label ? `<strong>${label}:</strong> ` : ''}${escapeHtml(home.name)} vs ${escapeHtml(away.name)}</div><div class="num">${res}</div></div>`;
+    }
+    function tieBlock(tie, label){
+      if(!tie) return '';
+      let h = `<h4 style="margin:10px 0 4px;">${label}: ${escapeHtml(byId[tie.teamA].name)} vs ${escapeHtml(byId[tie.teamB].name)}</h4>`;
+      h += matchLine(tie.legs[0], 'Ida');
+      h += matchLine(tie.legs[1], 'Vuelta');
+      if(tie.winnerId) h += `<p class="hint">Avanza: <strong style="color:var(--ink);">${escapeHtml(byId[tie.winnerId].name)}</strong>${tie.wentToPenalties ? ' (por penales)' : ''}</p>`;
+      return h;
+    }
+    let html = '';
+    ['grupoA','grupoB'].forEach((key,i) => {
+      const g = league[key];
+      html += `<div class="panel"><h3>Fase Regular &mdash; Grupo ${i===0?'A':'B'}</h3>${g.table.length ? simpleTable(g.table, {clasifica: g.table.slice(0,4).map(r=>r.id)}) : '<p class="hint">Todavía sin jugar.</p>'}</div>`;
+    });
+    html += `<p class="hint" style="margin:-6px 0 10px;">Los primeros 4 de cada grupo (marcados) pasan a la Fase Final.</p>`;
+
+    const po = league.playoff;
+    if(po){
+      let h = po.cuartos.map((t,i) => tieBlock(t, 'Cuartos de final '+(i+1))).join('');
+      html += `<div class="panel"><h3>Fase Final &mdash; Cuartos de Final</h3>${h}</div>`;
+      if(po.semis){
+        let hs = po.semis.map((t,i) => tieBlock(t, i===0 ? 'Semifinal 1' : 'Semifinal 2')).join('');
+        html += `<div class="panel"><h3>Fase Final &mdash; Semifinales</h3>${hs}</div>`;
+      }
+      if(po.final){
+        html += `<div class="panel"><h3>Final</h3><p class="hint">Serie ida y vuelta; si sigue empatada en puntos y diferencia de gol tras las dos idas, penales directos.</p>${tieBlock(po.final, 'Final')}</div>`;
+      }
+    }
+    if(league.championId){
+      html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Liga FUTVE2 ${league.year} y ascendido a la Primera División: <strong>${escapeHtml(byId[league.championId].name)}</strong></div></div>`;
     }
     return html;
   }
@@ -14588,6 +15678,15 @@
       if(league.stage === 'final-absoluta') label = `Apertura: ${escapeHtml(byId[league.apertura.championId].name)} &middot; Clausura: ${escapeHtml(byId[league.clausura.championId].name)} &middot; ${label}`;
       return label;
     }
+    if(league.format === 'venezuela-copa'){
+      if(league.championId) return `Campeón: ${escapeHtml(byId[league.championId].name)}`;
+      return { grupos:'Fase de Grupos', octavos:'Octavos de final', cuartos:'Cuartos de final', semis:'Semifinales', final:'Final' }[league.stage] || 'En juego';
+    }
+    if(league.format === 'venezuela-segunda'){
+      if(league.stage === 'done') return `Asciende a la Liga FUTVE ${league.year}: ${escapeHtml(byId[league.championId].name)}`;
+      const labels = { regular:'Fase Regular (2 grupos)', 'playoff-cuartos':'Fase Final · cuartos de final', 'playoff-semis':'Fase Final · semifinales', 'playoff-final':'Fase Final · final' };
+      return labels[league.stage] || 'En juego';
+    }
     if(league.format === 'colombia-segunda'){
       if(league.stage === 'done'){
         const scenarioLabel = { 1:'bicampeón', 2:'directo por Reclasificación', 3:'uno directo, otro por Repechaje', 4:'Gran Final + Repechaje' }[league.ascenso.scenario] || '';
@@ -15086,6 +16185,40 @@
     html += `</div>`;
     return html;
   }
+  // Copa Venezuela: Fase de Grupos (5 grupos de 4) y Fase Final (octavos, cuartos, semis y final ida y vuelta).
+  function renderWorldLeagueVenezuelaCopa(league){
+    const byId = {}; league.teams.forEach(t=>byId[t.id]=t);
+    function tieBlock(tie, label){
+      const line = (m, l) => `<div class="cs-fixture-card"><div><strong>${l}:</strong> ${escapeHtml(byId[m.home].name)} vs ${escapeHtml(byId[m.away].name)}</div><div class="num">${m.played ? `${m.homeScore} &ndash; ${m.awayScore}` : `se juega el ${formatCareerDate(m.date)}`}</div></div>`;
+      let h = `<h4 style="margin:10px 0 4px;">${label}: ${escapeHtml(byId[tie.teamA].name)} vs ${escapeHtml(byId[tie.teamB].name)}</h4>` + line(tie.legs[0],'Ida') + line(tie.legs[1],'Vuelta');
+      if(tie.winnerId) h += `<p class="hint">Avanza: <strong style="color:var(--ink);">${escapeHtml(byId[tie.winnerId].name)}</strong>${tie.wentToPenalties ? ' (por penales)' : ''}</p>`;
+      return h;
+    }
+    let html = '';
+    Object.keys(league.grupos).forEach(k => {
+      const g = league.grupos[k];
+      const rows = g.table.length ? g.table : g.teamIds.map(id => ({ id, pj:0, pg:0, pe:0, pp:0, gf:0, gc:0, dg:0, pts:0 }));
+      html += `<div class="panel"><h3>Fase de Grupos &mdash; ${g.nombre}</h3><table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>DG</th><th class="num">Pts</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${teamBadgeHtml(byId[r.id],20)} ${escapeHtml(byId[r.id].name)}${(league.clasificadosGrupos && league.clasificadosGrupos.indexOf(r.id)!==-1) ? ' <span style="color:var(--gold-bright);font-size:11px;">&#9650;</span>' : ''}</td><td class="num">${r.pj}</td><td class="num">${r.dg}</td><td class="num" style="color:var(--gold);">${r.pts}</td></tr>`).join('')}</tbody></table></div>`;
+    });
+    if(league.octavos){
+      html += `<div class="panel"><h3>Fase Final &mdash; Octavos de Final</h3><p class="hint">Con bye directo a Cuartos: ${league.byes.map(id=>escapeHtml(byId[id].name)).join(' y ')}.</p>${league.octavos.map((t,i)=>tieBlock(t,'Octavos '+(i+1))).join('')}</div>`;
+    }
+    if(league.cuartos) html += `<div class="panel"><h3>Cuartos de Final</h3>${league.cuartos.map((t,i)=>tieBlock(t,'Cuartos '+(i+1))).join('')}</div>`;
+    if(league.semis) html += `<div class="panel"><h3>Semifinales</h3>${league.semis.map((t,i)=>tieBlock(t,'Semifinal '+(i+1))).join('')}</div>`;
+    if(league.final) html += `<div class="panel"><h3>Final</h3>${tieBlock(league.final,'Final')}</div>`;
+    if(league.championId) html += `<div class="panel"><div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de la Copa Venezuela ${league.year}: <strong>${escapeHtml(byId[league.championId].name)}</strong></div></div>`;
+    return html;
+  }
+  function renderWorldLeagueSupercopaVenezuela(league){
+    if(!league.match) return `<div class="panel"><p class="hint">Se arma cuando ya están el campeón de la Liga FUTVE y el campeón de la Copa Venezuela de la temporada.</p></div>`;
+    const byIdAll = {}; league.teams.forEach(t => byIdAll[t.id] = t);
+    const m = league.match;
+    let html = `<div class="panel">`;
+    if(league.rivalIsSubcampeon) html += `<p class="hint">${escapeHtml(byIdAll[m.home].name)} ganó la Liga FUTVE y la Copa Venezuela, así que el rival pasa a ser el subcampeón de la Liga FUTVE.</p>`;
+    html += `<div class="cs-fixture-card"><div>${escapeHtml(byIdAll[m.home].name)} vs ${escapeHtml(byIdAll[m.away].name)} <span class="hint">(cancha neutral)</span></div><div class="num">${m.played ? `${m.homeScore} &ndash; ${m.awayScore}` : '&mdash;'}</div></div>`;
+    if(league.championId) html += `<p class="hint" style="margin-top:10px;">&#127942; Campeón de la Supercopa de Venezuela ${league.year}: <strong>${escapeHtml(byIdAll[league.championId].name)}</strong>${league.wentToPenalties?' (penales)':''}</p>`;
+    return html + `</div>`;
+  }
   // ---------- Ligas del Mundo: navegación en 3-4 niveles (país -> competición -> [grupo] -> pestaña) ----------
   function renderCareraLigasMundo(){
     const c = state.career;
@@ -15148,13 +16281,14 @@
 
     // Copa do Brasil y Supercopa do Brasil: eliminatoria/partido único sin pestañas de Tabla, ya
     // que no hay una tabla de posiciones que mostrar, solo el cuadro (o el partido) en sí.
-    if(league.format === 'copa-eliminacion' || league.format === 'copa-paraguay' || league.format === 'copa-ecuador' || league.format === 'partido-unico' || league.format === 'uruguay-copa' || league.format === 'uruguay-supercopa' || league.format === 'chile-copa-liga' || league.format === 'chile-copa' || league.format === 'chile-supercopa' || league.format === 'colombia-copa' || league.format === 'colombia-supercopa' || league.format === 'peru-copa' || league.format === 'bolivia-pacena'){
+    if(league.format === 'copa-eliminacion' || league.format === 'copa-paraguay' || league.format === 'copa-ecuador' || league.format === 'partido-unico' || league.format === 'uruguay-copa' || league.format === 'uruguay-supercopa' || league.format === 'chile-copa-liga' || league.format === 'chile-copa' || league.format === 'chile-supercopa' || league.format === 'colombia-copa' || league.format === 'colombia-supercopa' || league.format === 'peru-copa' || league.format === 'venezuela-copa' || league.format === 'bolivia-pacena'){
       let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
       if(league.format === 'bolivia-pacena') html += renderWorldLeagueCopaPacena(league);
       else if(league.format === 'copa-eliminacion') html += renderWorldLeagueKnockoutCopa(league);
       else if(league.format === 'copa-paraguay') html += renderWorldLeagueCopaParaguay(league);
       else if(league.format === 'copa-ecuador') html += renderWorldLeagueCopaEcuador(league);
       else if(league.format === 'colombia-copa') html += renderWorldLeagueColombiaCopa(league);
+      else if(league.format === 'venezuela-copa') html += renderWorldLeagueVenezuelaCopa(league);
       else if(league.format === 'peru-copa') html += renderWorldLeagueCopaPeru(league);
       else if(league.format === 'colombia-supercopa') html += renderWorldLeagueColombiaSupercopa(league);
       else if(league.format === 'uruguay-copa') html += renderWorldLeagueUruguayCopa(league);
@@ -15164,6 +16298,7 @@
       else if(league.format === 'chile-supercopa') html += renderWorldLeagueChileSupercopa(league);
       else if(league.key === 'supercopa-paraguay') html += renderWorldLeagueSupercopaParaguay(league);
       else if(league.key === 'supercopa-ecuador') html += renderWorldLeagueSupercopaEcuador(league);
+      else if(league.key === 'supercopa-venezuela') html += renderWorldLeagueSupercopaVenezuela(league);
       else html += renderWorldLeagueSupercopa(league);
       if(league.history && league.history.length > 1){
         const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
@@ -15223,6 +16358,17 @@
     if(league.format === 'venezuela-primera'){
       let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
       html += renderWorldLeagueVenezuela(league);
+      if(league.history && league.history.length > 1){
+        const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
+        html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      return html;
+    }
+
+    // Liga FUTVE2 de Venezuela: formato propio, todo en un solo panel.
+    if(league.format === 'venezuela-segunda'){
+      let html = `<div class="panel">${backBar}<h2>${escapeHtml(league.name)} ${league.year}</h2><p class="hint">${worldLeagueStatusLabel(league)}</p></div>`;
+      html += renderWorldLeagueVenezuelaSegunda(league);
       if(league.history && league.history.length > 1){
         const rows = league.history.slice(1).map(h => `<tr><td class="num">${h.year}</td><td>${escapeHtml(h.championName)}</td></tr>`).join('');
         html += `<div class="panel"><h3>Campeones anteriores</h3><table><thead><tr><th>Año</th><th>Campeón</th></tr></thead><tbody>${rows}</tbody></table></div>`;
@@ -15376,6 +16522,7 @@
     'supercopa-argentina': 'Supercopa Argentina',
     libertadores: 'Copa Libertadores',
     sudamericana: 'Copa Sudamericana',
+    recopa: 'Recopa Sudamericana',
     'supercopa-internacional': 'Supercopa Internacional',
     nacional: 'Primera Nacional (ascenso)',
     bmetro: 'B Metropolitana (ascenso)',
@@ -15384,7 +16531,7 @@
     'promocional-apertura': 'Promocional Amateur — Apertura',
     'promocional-clausura': 'Promocional Amateur — Clausura'
   };
-  const COMPETITION_ORDER = ['apertura','clausura','trofeo-campeones','copa-argentina','supercopa-argentina','libertadores','sudamericana','supercopa-internacional','nacional','bmetro','federal','primerac','promocional-apertura','promocional-clausura'];
+  const COMPETITION_ORDER = ['apertura','clausura','trofeo-campeones','copa-argentina','supercopa-argentina','libertadores','sudamericana','recopa','supercopa-internacional','nacional','bmetro','federal','primerac','promocional-apertura','promocional-clausura'];
   function renderCareraHistorialCampeones(){
     const c = state.career;
     const titles = c.titles || [];
