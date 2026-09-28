@@ -5206,8 +5206,31 @@
     return Math.round(careerMatchAdjustedProb(m)*100) + '%';
   }
 
-  function renderCareerMatchRow(m, meta){
+  // Resultado global de una serie ida y vuelta: se muestra debajo del partido de vuelta, con quién pasa.
+  function careerSerieLegsOf(m){
+    if(!m.serie) return null;
+    const legs = [];
+    careerMatchLists().forEach(l => l.forEach(x => { if(x.serie === m.serie && x.comp === m.comp && x.stage === m.stage) legs.push(x); }));
+    legs.sort((a,b) => (a.leg||1) - (b.leg||1));
+    return legs.length >= 2 ? legs : null;
+  }
+  function careerSerieGlobalHtml(m){
+    if(!m.played || !m.serie || !m.leg || m.leg < 2) return '';
+    const legs = careerSerieLegsOf(m);
+    if(!legs || !legs.every(x => x.played)) return '';
+    const a = legs[0].home, b = legs[0].away;
+    const ta = careerTeamById(a), tb = careerTeamById(b);
+    if(!ta || !tb) return '';
+    const agg = careerSerieAggregate(legs);
+    const ga = agg[a] || 0, gb = agg[b] || 0;
+    const w = careerTeamById(careerSerieWinner(legs));
+    let why = '';
+    if(ga === gb) why = legs[0].advantage ? ' <span style="color:var(--ink-dim);">(ventaja deportiva)</span>' : ' <span style="color:var(--ink-dim);">(por penales)</span>';
+    return `<div style="grid-column:1/-1;text-align:center;font-size:12.5px;margin-top:4px;padding-top:6px;border-top:1px dashed var(--line);color:var(--ink-dim);">Global: <strong style="color:var(--ink);">${escapeHtml(ta.name)} ${ga} &ndash; ${gb} ${escapeHtml(tb.name)}</strong> &middot; pasa <strong style="color:var(--gold-bright);">${w ? escapeHtml(w.name) : '?'}</strong>${why}</div>`;
+  }
+  function renderCareerMatchRow(m, meta, opts){
     meta = meta || null;
+    opts = opts || {};
     if(m.bye){
       const survivor = m.home !== null ? careerTeamById(m.home) : careerTeamById(m.away);
       return `<div class="match played">
@@ -5230,6 +5253,7 @@
       <input type="number" min="0" class="score-input" data-role="away-score" value="${m.awayScore ?? ''}" ${m.played?'disabled':''}>
       <div class="badge-wrap">${teamBadgeHtml(away, 28)}</div>
       <div class="side away ${winnerAway?'winner':''}">${escapeHtml(away.name)}<span class="elo-tag num">${away.elo}${m.played && m.deltaAway!==undefined ? ` <span class="delta ${m.deltaAway>0?'pos':(m.deltaAway<0?'neg':'')}">${m.deltaAway>=0?'+':''}${m.deltaAway}</span>`:''}</span>${renderPosForm(m.away, meta)}</div>
+      ${opts.serieGlobal ? careerSerieGlobalHtml(m) : ''}
       <div class="match-actions" style="grid-column:1/-1;justify-content:flex-end;">
         ${!m.played ? `<button class="btn small" data-action="career-simulate-match" data-id="${m.id}">Simular</button>
         <button class="btn small primary" data-action="career-confirm-match" data-id="${m.id}">Confirmar resultado</button>` : ''}
@@ -6141,7 +6165,7 @@
       groups.forEach((g,i) => { g.idx = i; g.rank = intlRank(g.matches[0].comp); });
       groups.sort((a,b) => a.rank - b.rank || a.idx - b.idx);
       groups.forEach(g => {
-        html += `<div class="panel"><h2>${g.label}</h2>${g.matches.map(m=>renderCareerMatchRow(m, null)).join('')}</div>`;
+        html += `<div class="panel"><h2>${g.label}</h2>${g.matches.map(m=>renderCareerMatchRow(m, null, { serieGlobal:true })).join('')}</div>`;
       });
       if(!pendingToday.length && pendingTotal > 0){
         html += `<p class="hint">Ya se jugó todo lo de hoy. Avanzá el calendario para ir al próximo día con partidos.</p>`;
