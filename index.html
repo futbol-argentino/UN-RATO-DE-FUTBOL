@@ -408,7 +408,7 @@
       titles: [],                // historial completo: {year, competition, teamId}
       seasonLog: {},             // {teamId: [{year, pts, pj}, ...]} últimas hasta 3 temporadas, para la Tabla de Promedios
       copaArgentina: { otherTeams: [], matches: [], built: false, champion: null },
-      seasonDraws: null,     // sorteo de zonas (Primera/Nacional) pendiente al arrancar el año
+      seasonDraws: null,     // sorteo de zonas de Primera y Copa Argentina pendiente al arrancar el año
       libertadores: { foreignTeams: [], matches: [], built: false, champion: null },
       sudamericana: { foreignTeams: [], matches: [], built: false, champion: null },
       recopa: { foreignTeams: [], matches: [], built: false, champion: null },
@@ -612,6 +612,10 @@
     let progressed = true, guard = 0;
     while(progressed && guard < 25){
       progressed = false; guard++;
+      // Terminada la final del Apertura, el Clausura arranca solo (ya no hace falta ir a buscar el botón).
+      if(c.tournament === 'apertura' && c.champion && c.champion.tournament === 'apertura' && c.champion.year === c.year && !c.seasonDraws){
+        careerStartClausura(); progressed = true; continue;
+      }
       const ligaMatches = c.matches.filter(m=>m.comp===c.tournament);
       const ligaDone = ligaMatches.length>0 && ligaMatches.every(m=>m.played);
       const zoneACount = c.teams.filter(t=>t.zone===0).length;
@@ -653,11 +657,25 @@
   }
   // Avanza el calendario único al próximo día con partidos programados de cualquier competencia.
   // Devuelve true si encontró una fecha nueva, false si no queda nada programado por ahora.
+  // La temporada terminó de verdad: campeón del Clausura, ningún partido pendiente en ninguna
+  // competencia y ningún sorteo de copa internacional por hacer.
+  function careerSeasonFinished(){
+    const c = state.career;
+    if(c.seasonDraws || c.tournament !== 'clausura') return false;
+    if(!(c.champion && c.champion.tournament === 'clausura' && c.champion.year === c.year)) return false;
+    if(careerAllUnplayedDatedMatches().length > 0) return false;
+    if(careerContPendingDraws().length > 0) return false;
+    return true;
+  }
   function careerAdvanceCalendar(){
     const c = state.career;
     careerTryAutoAdvanceStages();
     const pending = careerAllUnplayedDatedMatches();
-    if(pending.length === 0) return false;
+    if(pending.length === 0){
+      // Fin de año: en vez de quedar trabado, el mismo botón pasa a la temporada siguiente.
+      if(careerSeasonFinished()){ careerStartNextApertura(); return true; }
+      return false;
+    }
     c.calendarDate = pending.map(m=>m.date).sort()[0];
     return true;
   }
@@ -2043,8 +2061,9 @@
       render();
       return;
     }
-    else if(action === 'career-build-copa-argentina'){ careerBuildCopaArgentina(); render(); return; }
+    else if(action === 'career-build-copa-argentina'){ careerBuildCopaArgentina(); if(btn.getAttribute('data-all')) careerCopaArgentinaRevealAll(); render(); return; }
     else if(action === 'career-draw-next-copa'){ careerCopaArgentinaRevealNext(); render(); return; }
+    else if(action === 'career-draw-copa-all'){ careerCopaArgentinaRevealAll(); render(); return; }
     else if(action === 'career-simulate-copa'){
       const stage = btn.getAttribute('data-stage');
       const list = state.career.copaArgentina.matches.filter(m=>m.stage===stage && !m.played && !m.bye);
@@ -2061,6 +2080,7 @@
     }
     else if(action === 'career-advance-copa'){ careerAdvanceCopaArgentina(btn.getAttribute('data-stage')); render(); return; }
     else if(action === 'career-draw-zone'){ careerZoneDrawReveal(btn.getAttribute('data-kind')); render(); return; }
+    else if(action === 'career-draw-zone-all'){ careerZoneDrawRevealAll(btn.getAttribute('data-kind')); render(); return; }
     else if(action === 'career-finish-season-draws'){ careerFinishSeasonDraws(); render(); return; }
     else if(action === 'career-build-continental'){
       if(!careerContEnsureEdition()) alert('La edición se arma al iniciar la temporada, una vez terminados los sorteos.');
@@ -5147,10 +5167,11 @@
     const n = careerNacional();
     n.matches = []; n.champion = null;
     n.teams.forEach(t=>{ t.zone = null; });
+    // Las zonas de la Primera Nacional ya no se sortean a mano: se reparten solas al azar.
+    careerAutoAssignNacionalZones();
     c.seasonDraws = {
       year: c.year,
-      primera: { order: shuffleArr(c.teams.map(t=>t.id)), revealed: 0 },
-      nacional: { order: shuffleArr(n.teams.map(t=>t.id)), revealed: 0 }
+      primera: { order: shuffleArr(c.teams.map(t=>t.id)), revealed: 0 }
     };
     c.copaArgentina = { otherTeams: [], matches: [], built: false, champion: null, draw: null };
     c.view = 'sorteos';
@@ -5166,17 +5187,39 @@
     if(team) team.zone = zone;
     draw.revealed++;
   }
+  function careerZoneDrawRevealAll(kind){
+    const c = state.career;
+    const draw = c.seasonDraws && c.seasonDraws[kind];
+    if(!draw) return;
+    while(draw.revealed < draw.order.length) careerZoneDrawReveal(kind);
+  }
+  function careerCopaArgentinaRevealAll(){
+    const ca = state.career.copaArgentina;
+    if(!ca || !ca.draw) return;
+    while(ca.draw.revealed < ca.draw.pairs.length) careerCopaArgentinaRevealNext();
+  }
+  // Reparte al azar y en partes iguales a los equipos de la Primera Nacional que no tengan zona.
+  function careerAutoAssignNacionalZones(){
+    const n = careerNacional();
+    const sinZona = n.teams.filter(t => t.zone !== 0 && t.zone !== 1);
+    if(!sinZona.length) return;
+    const cantA = n.teams.filter(t => t.zone === 0).length;
+    const cantB = n.teams.filter(t => t.zone === 1).length;
+    let next = cantA <= cantB ? 0 : 1;
+    shuffleArr(sinZona.slice()).forEach(t => { t.zone = next; next = next === 0 ? 1 : 0; });
+  }
   function careerSeasonDrawsComplete(){
     const c = state.career;
     const sd = c.seasonDraws;
     if(!sd) return false;
-    const zonesDone = sd.primera.revealed >= sd.primera.order.length && sd.nacional.revealed >= sd.nacional.order.length;
+    const zonesDone = sd.primera.revealed >= sd.primera.order.length;
     const copaDone = !!(c.copaArgentina && c.copaArgentina.built);
     return zonesDone && copaDone;
   }
   function careerFinishSeasonDraws(){
     const c = state.career;
     if(!careerSeasonDrawsComplete()) return;
+    careerAutoAssignNacionalZones(); // por si es una carrera vieja con el sorteo de la Nacional a medias
     careerGenerateTournament();
     c.seasonDraws = null;
     careerContEnsureEdition();
@@ -5392,7 +5435,7 @@
     let html = `<div class="panel"><h3>Sorteo de zonas &mdash; ${label}</h3>`;
     if(draw.revealed < total){
       html += `<p class="hint">Se van sacando los equipos de a uno y se reparten alternadamente entre la Zona A y la Zona B (${draw.revealed} de ${total}).</p>`;
-      html += `<div class="btn-row"><button class="btn small" data-action="career-draw-zone" data-kind="${kind}">Sacar el próximo equipo</button></div>`;
+      html += `<div class="btn-row"><button class="btn small" data-action="career-draw-zone" data-kind="${kind}">Sacar el próximo equipo</button><button class="btn small primary" data-action="career-draw-zone-all" data-kind="${kind}">Sortear todo</button></div>`;
     } else {
       html += `<p class="hint">Sorteo completo.</p>`;
     }
@@ -5408,10 +5451,10 @@
     let html = `<div class="panel"><h3>Sorteo de la Copa Argentina</h3>`;
     if(!ca || (!ca.draw && !ca.built)){
       html += `<p class="hint">64 equipos: tus 28 mejores de Primera (por ELO) + 15 de la Nacional + 10 del Federal A + 6 de la B Metro + 5 de la Primera C.</p>`;
-      html += `<div class="btn-row"><button class="btn primary" data-action="career-build-copa-argentina">Armar el bombo</button></div>`;
+      html += `<div class="btn-row"><button class="btn primary" data-action="career-build-copa-argentina">Armar el bombo</button><button class="btn" data-action="career-build-copa-argentina" data-all="1">Armar el bombo y sortear todo</button></div>`;
     } else if(ca.draw && !ca.built){
       html += `<p class="hint">Se van sacando los cruces de a uno (${ca.draw.revealed} de ${ca.draw.pairs.length}).</p>`;
-      html += `<div class="btn-row"><button class="btn small" data-action="career-draw-next-copa">Sacar el próximo cruce</button></div>`;
+      html += `<div class="btn-row"><button class="btn small" data-action="career-draw-next-copa">Sacar el próximo cruce</button><button class="btn small primary" data-action="career-draw-copa-all">Sortear todo</button></div>`;
       if(ca.matches.length) html += ca.matches.map(m=>renderCareerMatchRow(m, null)).join('');
     } else {
       html += `<p class="hint">Sorteo completo &mdash; 32avos de Final armados.</p>`;
@@ -5422,9 +5465,8 @@
   function renderCareraSorteos(){
     const c = state.career;
     if(!c.seasonDraws) return `<div class="panel"><p class="hint">No hay sorteos pendientes.</p></div>`;
-    let html = `<div class="panel"><h2>Sorteos de la Temporada ${c.year}</h2><p class="hint">Antes de arrancar el Apertura hay que sortear las zonas de la Primera División y de la Primera Nacional, y el cuadro de la Copa Argentina.</p></div>`;
+    let html = `<div class="panel"><h2>Sorteos de la Temporada ${c.year}</h2><p class="hint">Antes de arrancar el Apertura hay que sortear las zonas de la Primera División y el cuadro de la Copa Argentina. Las zonas de la Primera Nacional se reparten solas.</p></div>`;
     html += renderZoneDrawPanel('primera', 'Primera División', c.teams);
-    html += renderZoneDrawPanel('nacional', 'Primera Nacional', careerNacional().teams);
     html += renderCopaArgentinaDrawPanel();
     if(careerSeasonDrawsComplete()){
       html += `<div class="panel"><div class="btn-row"><button class="btn primary" data-action="career-finish-season-draws">Confirmar sorteos e iniciar la temporada ${c.year}</button></div></div>`;
@@ -6143,7 +6185,7 @@
       <div class="meta">${todays.length ? `${todays.length} partido${todays.length===1?'':'s'} programado${todays.length===1?'':'s'} &middot; ${pendingToday.length ? pendingToday.length+' sin jugar' : 'ya se jugaron todos'}.` : 'Sin partidos programados para hoy.'}</div>
       <div class="btn-row">
         ${pendingToday.length ? `<button class="btn" data-action="career-simulate-day">Simular los ${pendingToday.length} partidos que faltan hoy</button>` : ''}
-        <button class="btn primary" data-action="career-advance-calendar" ${pendingTotal>0?'':'disabled'}>&#9654; Avanzar calendario</button>
+        <button class="btn primary" data-action="career-advance-calendar" ${(pendingTotal>0 || careerSeasonFinished())?'':'disabled'}>${(pendingTotal===0 && careerSeasonFinished()) ? `&#9654; Pasar a la temporada ${c.year+1}` : '&#9654; Avanzar calendario'}</button>
       </div>
     </div>`;
 
@@ -6153,8 +6195,10 @@
     }
     if(todays.length === 0){
       html += `<div class="panel">`;
-      if(pendingTotal === 0){
-        html += `<p class="hint">No hay más partidos programados por el momento. Puede que haga falta armar algo desde el menú de la izquierda (por ejemplo sortear la Copa Argentina, o pasar de temporada una vez terminado el Clausura).</p>`;
+      if(pendingTotal === 0 && careerSeasonFinished()){
+        html += `<p class="hint">&#127942; La temporada ${c.year} terminó. Antes de seguir podés mirar la Tabla Anual, la Tabla de Promedios y los descensos en \"Tablas y Copas\"; cuando quieras, tocá \"Pasar a la temporada ${c.year+1}\" arriba.</p>`;
+      } else if(pendingTotal === 0){
+        html += `<p class="hint">No hay más partidos programados por el momento. Puede que haga falta armar algo desde el menú de la izquierda (por ejemplo sortear la Copa Argentina).</p>`;
       } else {
         html += `<p class="hint">Tocá "Avanzar calendario" para ir al próximo día con partidos.</p>`;
       }
@@ -6295,7 +6339,7 @@
       return `<div class="panel">
         <h2>Copa Argentina ${c.year}</h2>
         <p class="hint">64 equipos: tus 28 mejores de Primera División (por ELO) + 15 de la Primera Nacional + 10 del Federal A + 6 de la B Metropolitana + 5 de la Primera C. Partidos a un solo encuentro en cancha neutral; si hay empate, se define directo por penales.</p>
-        <div class="btn-row"><button class="btn primary" data-action="career-build-copa-argentina">Armar el bombo</button></div>
+        <div class="btn-row"><button class="btn primary" data-action="career-build-copa-argentina">Armar el bombo</button><button class="btn" data-action="career-build-copa-argentina" data-all="1">Armar el bombo y sortear todo</button></div>
       </div>`;
     }
     if(c.copaArgentina.draw && !c.copaArgentina.built){
@@ -6303,7 +6347,7 @@
       let html = `<div class="panel">
         <h2>Copa Argentina ${c.year} &mdash; Sorteo de 32avos</h2>
         <p class="hint">Se van sacando los cruces de a uno (${draw.revealed} de ${draw.pairs.length}).</p>
-        <div class="btn-row"><button class="btn primary" data-action="career-draw-next-copa">Sacar el próximo cruce</button></div>
+        <div class="btn-row"><button class="btn primary" data-action="career-draw-next-copa">Sacar el próximo cruce</button><button class="btn" data-action="career-draw-copa-all">Sortear todo</button></div>
       </div>`;
       if(c.copaArgentina.matches.length){
         html += `<div class="panel">` + c.copaArgentina.matches.map(m=>renderCareerMatchRow(m, null)).join('') + `</div>`;
