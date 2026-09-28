@@ -1889,6 +1889,7 @@
       if(e.target.hasAttribute('data-crest-bulk')){ crestHandleBulk(e.target); return; }
       if(e.target.hasAttribute('data-crest-import')){ crestImport(e.target); return; }
       if(e.target.hasAttribute('data-crest-group')){ crestUi.group = e.target.value; render(); return; }
+      if(e.target.hasAttribute('data-mercado-club')){ mercadoUi.club = e.target.value; render(); return; }
     }
     if(e.target.hasAttribute && e.target.hasAttribute('data-career-elo')){
       const tid = e.target.getAttribute('data-career-elo');
@@ -2012,8 +2013,15 @@
       state.career.view = view;
       if(btn.getAttribute('data-tab')) state.career.intlTab = btn.getAttribute('data-tab');
       if(view === 'equipos-list') state.career.selectedTeamId = null;
+      if(view === 'jugadores'){ playersUi.tab = 'divisiones'; playersUi.div = ''; playersUi.team = ''; }
       render();
       return;
+    }
+    else if(action === 'career-pl-nav'){
+      if(btn.hasAttribute('data-tab')){ const tb = btn.getAttribute('data-tab'); if(tb) playersUi.tab = tb; }
+      playersUi.div = btn.getAttribute('data-div') || '';
+      playersUi.team = btn.getAttribute('data-team') || '';
+      render(); return;
     }
     else if(action === 'career-view-team'){ state.career.selectedTeamId = btn.getAttribute('data-id') || null; render(); return; }
     else if(action === 'career-wl-set-pais'){
@@ -3349,6 +3357,334 @@
     return `<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:24px;font-size:11.5px;color:var(--ink-dim);line-height:1.5;">
       <div style="text-align:right;">${h ? '&#9917; ' + h : ''}</div><div style="text-align:left;">${a ? '&#9917; ' + a : ''}</div>
     </div>`;
+  }
+
+  // Tabla de goleadores de un torneo: suma los goles guardados en cada partido (m.goals).
+  // Solo cuentan partidos jugados de equipos con plantel cargado; si nadie convirtió, no se muestra nada.
+  function careerTopScorers(matches){
+    const cache = playersCache();
+    if(!cache) return [];
+    const by = {};
+    (matches || []).forEach(m => {
+      if(!m || m.bye || !m.played || !m.goals) return;
+      m.goals.forEach(g => {
+        const p = cache.byId[g.p];
+        if(!p) return;
+        const r = by[g.p] || (by[g.p] = { id: g.p, name: p.n, pos: p.p, teams: [], goals: 0 });
+        const tid = g.s === 'h' ? m.home : m.away;
+        if(r.teams.indexOf(tid) < 0) r.teams.push(tid);
+        r.goals++;
+      });
+    });
+    return Object.keys(by).map(k => by[k]).sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
+  }
+  function careerScorersPanelHtml(matches, title){
+    const rows = careerTopScorers(matches);
+    if(!rows.length) return '';
+    const LIMIT = 15;
+    let prevGoals = null, prevPos = 0;
+    const body = rows.slice(0, LIMIT).map((r, i) => {
+      const pos = (r.goals === prevGoals) ? prevPos : i + 1;
+      prevGoals = r.goals; prevPos = pos;
+      const teams = r.teams.map(id => careerTeamById(id)).filter(Boolean);
+      const teamCell = teams.length
+        ? teams.map(t => `<div style="display:flex;align-items:center;gap:8px;">${teamBadgeHtml(t, 20)}<span>${escapeHtml(t.name)}</span></div>`).join('')
+        : '&mdash;';
+      return `<tr class="${pos === 1 ? 'top3' : ''}"><td><span class="pos-pill">${pos}</span></td>
+        <td>${escapeHtml(r.name)} <span style="color:var(--ink-dim);font-size:11px;">${r.pos}</span></td>
+        <td>${teamCell}</td><td class="num" style="color:var(--gold);">${r.goals}</td></tr>`;
+    }).join('');
+    const more = rows.length > LIMIT ? `<p class="hint" style="margin:8px 0 0;">Se muestran los primeros ${LIMIT} de ${rows.length} goleadores.</p>` : '';
+    return `<div class="panel"><h3>&#9917; ${title}</h3>
+      <div class="table-scroll"><table><thead><tr><th>#</th><th>Jugador</th><th>Equipo</th><th>Goles</th></tr></thead><tbody>${body}</tbody></table></div>${more}</div>`;
+  }
+  // Qué partidos y qué título le corresponden a la pantalla de torneo que se está viendo.
+  function careerScorersForView(c){
+    const v = c.view;
+    const lst = o => (o && o.matches) || [];
+    if(v === 'liga'){
+      const ms = (c.matches || []).filter(m => m.comp === c.tournament).concat(c.knockout || []);
+      return careerScorersPanelHtml(ms, `Goleadores &mdash; Copa de la Liga ${c.tournament === 'apertura' ? 'Apertura' : 'Clausura'} ${c.year}`);
+    }
+    if(v === 'nacional') return careerScorersPanelHtml(lst(c.nacional), `Goleadores &mdash; Primera Nacional ${c.year}`);
+    if(v === 'bmetro') return careerScorersPanelHtml(lst(c.bmetro), `Goleadores &mdash; Primera B Metropolitana ${c.year}`);
+    if(v === 'federal') return careerScorersPanelHtml(lst(c.federal), `Goleadores &mdash; Torneo Federal A ${c.year}`);
+    if(v === 'primerac') return careerScorersPanelHtml(lst(c.primerac), `Goleadores &mdash; Primera C Metropolitana ${c.year}`);
+    if(v === 'promocional') return careerScorersPanelHtml(lst(c.promocional), `Goleadores &mdash; Torneo Promocional Amateur ${c.year}`);
+    if(v === 'copa-argentina') return careerScorersPanelHtml(lst(c.copaArgentina), `Goleadores &mdash; Copa Argentina ${c.year}`);
+    if(v === 'internacionales'){
+      const tab = c.intlTab || 'libertadores';
+      if(tab === 'libertadores' || tab === 'sudamericana'){
+        const b = c[tab];
+        if(!b || !b.built || b.edition !== c.year) return '';
+        return careerScorersPanelHtml(lst(b), `Goleadores &mdash; ${tab === 'libertadores' ? 'Copa Libertadores' : 'Copa Sudamericana'} ${b.edition}`);
+      }
+    }
+    return '';
+  }
+
+  // ---------- Retiros por edad ----------
+  // Se corren al cerrar la temporada (al pasar al Apertura del año siguiente). La edad es
+  // "año de la temporada - año de nacimiento". Desde los 35 hay chance de retirarse y sube de a
+  // poco; a los 40 el retiro es obligatorio. Para cambiar las chances se toca solo esta tabla.
+  const PLAYER_RETIRE_MIN_AGE = 35, PLAYER_RETIRE_FORCED_AGE = 40;
+  const PLAYER_RETIRE_CHANCE = { 35: 0.10, 36: 0.20, 37: 0.35, 38: 0.50, 39: 0.70 };
+  function playerBirthYear(b){
+    const m = String(b == null ? '' : b).match(/\b(1[89]\d{2}|20\d{2})\b/);
+    return m ? parseInt(m[1], 10) : null;
+  }
+  function playerRetireChance(age){
+    if(age >= PLAYER_RETIRE_FORCED_AGE) return 1;
+    if(age < PLAYER_RETIRE_MIN_AGE) return 0;
+    return PLAYER_RETIRE_CHANCE[age] || 0;
+  }
+  function careerRunRetirements(year){
+    const c = state.career;
+    careerEnsurePlayers();
+    if(!c || !c.players) return;
+    if(!c.retiredLog) c.retiredLog = [];
+    if(c.retiredLog.some(e => e.year === year)) return;     // ya se corrió este año
+    const list = [];
+    c.players.forEach(p => {
+      if(p.r) return;
+      const by = playerBirthYear(p.b);
+      if(by === null) return;                                // sin fecha de nacimiento no se retira
+      const age = year - by;
+      if(Math.random() < playerRetireChance(age)){
+        p.r = true; p.ry = year; p.ra = age;
+        list.push({ id: p.id, n: p.n, p: p.p, t: p.t, age });
+      }
+    });
+    c.retiredLog.push({ year, list });
+    playersInvalidateCache();
+  }
+  function renderCareraRetiros(){
+    const c = state.career;
+    careerEnsurePlayers();
+    if(!c.players){
+      return renderCareraStub('&#128100;', 'Jugadores', 'No hay jugadores cargados en esta carrera (falta el archivo jugadores.csv junto a la página).');
+    }
+    const activos = c.players.filter(p => !p.r).length;
+    const log = (c.retiredLog || []).slice().sort((a, b) => b.year - a.year);
+    let html = `<div class="panel"><h2>Jugadores</h2>
+      <p class="hint">${activos} en actividad &middot; ${c.players.length - activos} retirados. Desde los ${PLAYER_RETIRE_MIN_AGE} años cada jugador puede retirarse al cerrar la temporada, con una chance que sube año a año; a los ${PLAYER_RETIRE_FORCED_AGE} se retira sí o sí.</p></div>`;
+    if(!log.length){
+      return html + `<div class="panel"><p class="hint" style="margin:0;">Todavía no hubo retiros. Se sortean al terminar cada temporada.</p></div>`;
+    }
+    const posOrder = { ARQ: 0, DEF: 1, MED: 2, DEL: 3 };
+    log.forEach((e, i) => {
+      const rows = e.list.slice().sort((a, b) => b.age - a.age || a.n.localeCompare(b.n)).map(r =>
+        `<tr><td>${escapeHtml(r.n)}</td><td>${r.p}</td><td>${escapeHtml(r.t)}</td><td class="num">${r.age}</td></tr>`).join('');
+      html += `<div class="panel"><details ${i === 0 ? 'open' : ''}><summary style="cursor:pointer;font-weight:600;">Retiros de la temporada ${e.year} (${e.list.length})</summary>
+        ${e.list.length ? `<div class="table-scroll" style="margin-top:8px;"><table><thead><tr><th>Jugador</th><th>Pos.</th><th>Último equipo</th><th>Edad</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="hint">Ningún retiro este año.</p>`}
+      </details></div>`;
+    });
+    return html;
+  }
+
+
+
+  // ---------- Sección Jugadores: divisiones > equipos > plantel por posición ----------
+  const playersUi = { tab: 'divisiones', div: '', team: '' };
+  const PLAYER_POS_GROUPS = [
+    { code: 'ARQ', label: 'Arqueros' }, { code: 'DEF', label: 'Defensores' },
+    { code: 'MED', label: 'Mediocampistas' }, { code: 'DEL', label: 'Delanteros' }
+  ];
+  function playersSquadHtml(team){
+    const c = state.career;
+    const cache = playersCache();
+    const squad = (cache && cache.byTeam[playerNormKey(team.name)]) || [];
+    let html = `<div class="btn-row"><button class="btn small" data-action="career-pl-nav" data-div="${playersUi.div}" data-team="">&larr; Volver a equipos</button></div>`;
+    html += `<div class="cs-hero" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      ${teamBadgeHtml(team, 52)}
+      <div><div class="season-tag" style="margin-bottom:4px;">${team.id === c.myTeamId ? 'Tu equipo' : 'Plantel'} &middot; ${squad.length} jugadores</div><div class="matchup" style="margin:0;">${escapeHtml(team.name)}</div></div>
+    </div>`;
+    if(!squad.length){
+      return html + `<div class="cs-empty-hint">Este equipo no tiene jugadores cargados.</div>`;
+    }
+    PLAYER_POS_GROUPS.forEach(g => {
+      const list = squad.filter(p => p.p === g.code).sort((a, b) => a.n.localeCompare(b.n));
+      if(!list.length) return;
+      const rows = list.map(p => {
+        const by = playerBirthYear(p.b);
+        return `<tr><td>${escapeHtml(p.n)}</td><td class="num">${by === null ? '&mdash;' : (c.year - by)}</td></tr>`;
+      }).join('');
+      html += `<div class="panel"><h3>${g.label} (${list.length})</h3>
+        <div class="table-scroll"><table><thead><tr><th>Jugador</th><th>Edad</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    });
+    return html;
+  }
+  function renderCareraJugadores(){
+    const c = state.career;
+    careerEnsurePlayers();
+    if(!c.players){
+      return renderCareraStub('&#128100;', 'Jugadores', 'No hay jugadores cargados en esta carrera (falta el archivo jugadores.csv junto a la página).');
+    }
+    const cache = playersCache();
+    const groups = careerAllRosterTeams();
+    const tabBtn = (tab, label) => `<button class="btn small ${playersUi.tab === tab ? 'primary' : ''}" data-action="career-pl-nav" data-tab="${tab}" data-div="" data-team="">${label}</button>`;
+    let html = `<div class="btn-row" style="margin-bottom:12px;">${tabBtn('divisiones', 'Divisiones')}${tabBtn('retiros', 'Retiros')}</div>`;
+    if(playersUi.tab === 'retiros') return html + renderCareraRetiros();
+
+    // Nivel 3: plantel de un equipo
+    if(playersUi.team){
+      const t = careerTeamById(playersUi.team);
+      if(t) return html + playersSquadHtml(t);
+      playersUi.team = '';
+    }
+    // Nivel 2: equipos de una división
+    const g = groups.find(x => x.key === playersUi.div);
+    if(g){
+      html += `<div class="btn-row"><button class="btn small" data-action="career-pl-nav" data-div="" data-team="">&larr; Volver a divisiones</button></div>`;
+      html += `<div class="panel"><h2>${g.label}</h2><p class="hint">Tocá un equipo para ver su plantel.</p></div><div class="cs-team-grid">`;
+      g.teams.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(t => {
+        const n = ((cache && cache.byTeam[playerNormKey(t.name)]) || []).length;
+        html += `<div class="cs-team-card" data-action="career-pl-nav" data-div="${g.key}" data-team="${t.id}">
+          ${teamBadgeHtml(t, 38)}
+          <div class="ctc-name">${escapeHtml(t.name)}${t.id === c.myTeamId ? '<span class="ctc-tag">TU EQUIPO</span>' : ''}</div>
+          <div class="ctc-elo num">${n}</div>
+        </div>`;
+      });
+      return html + `</div>`;
+    }
+    // Nivel 1: divisiones
+    playersUi.div = '';
+    const activos = c.players.filter(p => !p.r).length;
+    html += `<div class="panel"><h2>Jugadores</h2><p class="hint">${activos} en actividad &middot; ${c.players.length - activos} retirados. Elegí una división para ver sus equipos.</p></div><div class="cs-comp-grid">`;
+    groups.forEach(gr => {
+      if(!gr.teams.length) return;
+      html += `<div class="cs-comp-card" data-action="career-pl-nav" data-div="${gr.key}" data-team="">
+        <div class="cc-icon">&#9917;</div>
+        <div class="cc-title">${gr.label}</div>
+        <div class="cc-sub">${gr.teams.length} equipos</div>
+        <div class="cc-cta">Ver equipos &rarr;</div>
+      </div>`;
+    });
+    return html + `</div>`;
+  }
+
+  // ---------- Mercado de pases ----------
+  // Se corre una vez por año, al pasar a la temporada nueva (después de los retiros y de los ascensos y
+  // descensos). Cada club con plantel cargado puede fichar hasta MERCADO_MAX_COMPRAS jugadores y vender
+  // hasta MERCADO_MAX_VENTAS. Cada pase mueve al jugador de club (p.t) y queda anotado en c.transferLog.
+  const MERCADO_MAX_COMPRAS = 3, MERCADO_MAX_VENTAS = 3;
+  const MERCADO_MIN_PLANTEL = 14, MERCADO_MAX_PLANTEL = 38;
+  const mercadoUi = { club: '' };
+  function careerMercadoClubs(){
+    const c = state.career, out = [], seen = {};
+    const add = (arr, tier) => (arr || []).forEach(t => {
+      if(!t || !t.name) return;
+      const key = playerNormKey(t.name);
+      if(seen[key]) return;
+      seen[key] = true;
+      out.push({ name: t.name, key, tier });
+    });
+    add(c.teams, 1);
+    add(c.nacional && c.nacional.teams, 2);
+    add(c.bmetro && c.bmetro.teams, 3);
+    add(c.federal && c.federal.teams, 4);
+    add(c.primerac && c.primerac.teams, 5);
+    add(c.promocional && c.promocional.teams, 6);
+    return out;
+  }
+  function mercadoPickWeighted(items, weightFn){
+    let total = 0;
+    const ws = items.map(it => { const w = Math.max(0, weightFn(it)); total += w; return w; });
+    if(total <= 0) return null;
+    let r = Math.random() * total;
+    for(let i = 0; i < items.length; i++){ r -= ws[i]; if(r < 0 && ws[i] > 0) return items[i]; }
+    return items[items.length - 1];
+  }
+  function careerRunTransfers(year){
+    const c = state.career;
+    careerEnsurePlayers();
+    if(!c || !c.players) return;
+    if(!c.transferLog) c.transferLog = [];
+    if(c.transferLog.some(e => e.year === year)) return;      // ya se corrió este año
+    playersInvalidateCache();
+    const cache = playersCache();
+    if(!cache) return;
+    const clubs = careerMercadoClubs().filter(cl => (cache.byTeam[cl.key] || []).length);
+    const st = {};
+    clubs.forEach(cl => { st[cl.key] = { club: cl, buys: 0, sells: 0, squad: cache.byTeam[cl.key].slice() }; });
+    const moved = {}, list = [];
+    const target = Math.round(clubs.length * (1.2 + Math.random() * 0.8));
+    for(let tries = 0; list.length < target && tries < target * 25; tries++){
+      const sellers = clubs.map(cl => st[cl.key]).filter(x => x.sells < MERCADO_MAX_VENTAS && x.squad.length > MERCADO_MIN_PLANTEL);
+      const seller = mercadoPickWeighted(sellers, () => 1);
+      if(!seller) break;
+      const arqs = seller.squad.filter(p => p.p === 'ARQ').length;
+      const cands = seller.squad.filter(p => !moved[p.id] && !(p.p === 'ARQ' && arqs <= 1));
+      const player = mercadoPickWeighted(cands, p => {
+        const by = playerBirthYear(p.b);
+        return (by !== null && year - by >= 36) ? 0.3 : 1;
+      });
+      if(!player) continue;
+      const buyers = clubs.map(cl => st[cl.key]).filter(x => x !== seller && x.buys < MERCADO_MAX_COMPRAS && x.squad.length < MERCADO_MAX_PLANTEL);
+      const buyer = mercadoPickWeighted(buyers, x => 1 / (1 + Math.abs(x.club.tier - seller.club.tier)));
+      if(!buyer) continue;
+      seller.squad = seller.squad.filter(p => p !== player);
+      buyer.squad.push(player);
+      seller.sells++; buyer.buys++;
+      moved[player.id] = true;
+      const by = playerBirthYear(player.b);
+      list.push({ id: player.id, n: player.n, p: player.p, age: by === null ? null : year - by, from: seller.club.name, to: buyer.club.name });
+      player.t = buyer.club.name;
+    }
+    c.transferLog.push({ year, list });
+    playersInvalidateCache();
+  }
+  function mercadoClubCell(name){
+    return `<div style="display:flex;align-items:center;gap:8px;">${teamBadgeHtml({ name }, 20)}<span>${escapeHtml(name)}</span></div>`;
+  }
+  function mercadoTableHtml(rows){
+    const body = rows.map(r => `<tr>
+      <td>${escapeHtml(r.n)}</td><td>${r.p}</td><td class="num">${r.age === null ? '&mdash;' : r.age}</td>
+      <td>${mercadoClubCell(r.from)}</td><td style="text-align:center;color:var(--gold);">&rarr;</td><td>${mercadoClubCell(r.to)}</td></tr>`).join('');
+    return `<div class="table-scroll" style="margin-top:8px;"><table><thead><tr><th>Jugador</th><th>Pos.</th><th>Edad</th><th>Club de origen</th><th></th><th>Club de destino</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+  function renderCareraMercado(){
+    const c = state.career;
+    careerEnsurePlayers();
+    if(!c.players){
+      return renderCareraStub('&#128260;', 'Mercado', 'No hay jugadores cargados en esta carrera (falta el archivo jugadores.csv junto a la página).');
+    }
+    const log = (c.transferLog || []).slice().sort((a, b) => b.year - a.year);
+    const clubSet = {};
+    log.forEach(e => e.list.forEach(t => { clubSet[t.from] = true; clubSet[t.to] = true; }));
+    const clubNames = Object.keys(clubSet).sort((a, b) => a.localeCompare(b));
+    if(mercadoUi.club && !clubSet[mercadoUi.club]) mercadoUi.club = '';
+    const sel = mercadoUi.club;
+    let html = `<div class="panel"><h2>Mercado de pases</h2>
+      <p class="hint">Antes de cada temporada nueva, cada club puede fichar hasta ${MERCADO_MAX_COMPRAS} jugadores y vender hasta ${MERCADO_MAX_VENTAS}.</p>`;
+    if(clubNames.length){
+      html += `<label class="hint" style="display:block;margin-top:8px;">Club:
+        <select data-mercado-club style="margin-left:6px;">
+          <option value="">Todos los clubes</option>
+          ${clubNames.map(n => `<option value="${escapeHtml(n)}" ${n === sel ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('')}
+        </select></label>`;
+    }
+    html += `</div>`;
+    if(!log.length){
+      return html + `<div class="panel"><p class="hint" style="margin:0;">Todavía no hubo mercado de pases. Se abre al terminar cada temporada, antes de que empiece la siguiente.</p></div>`;
+    }
+    const byName = (a, b) => a.from.localeCompare(b.from) || a.n.localeCompare(b.n);
+    log.forEach((e, i) => {
+      let inner;
+      if(sel){
+        const compras = e.list.filter(t => t.to === sel).sort(byName);
+        const ventas = e.list.filter(t => t.from === sel).sort(byName);
+        inner = `<h4 style="margin:12px 0 0;">Fichajes (${compras.length})</h4>` +
+          (compras.length ? mercadoTableHtml(compras) : `<p class="hint">No fichó a nadie.</p>`) +
+          `<h4 style="margin:16px 0 0;">Ventas (${ventas.length})</h4>` +
+          (ventas.length ? mercadoTableHtml(ventas) : `<p class="hint">No vendió a nadie.</p>`);
+      } else {
+        inner = e.list.length ? mercadoTableHtml(e.list.slice().sort(byName)) : `<p class="hint">No hubo pases.</p>`;
+      }
+      const count = sel ? e.list.filter(t => t.to === sel || t.from === sel).length : e.list.length;
+      html += `<div class="panel"><details ${i === 0 ? 'open' : ''}><summary style="cursor:pointer;font-weight:600;">Mercado de pases &mdash; temporada ${e.year} (${count} ${count === 1 ? 'pase' : 'pases'})</summary>${inner}</details></div>`;
+    });
+    return html;
   }
 
   function careerApplyEloUpdate(m){
@@ -5296,9 +5632,11 @@
       if(c.seasonLog[r.id].length > 3) c.seasonLog[r.id].shift();
     });
     careerArchiveTournament();
+    try{ careerRunRetirements(c.year); }catch(e){}
     careerApplyPromotionsRelegations();
     c.year += 1;
     c.tournament = 'apertura';
+    try{ careerRunTransfers(c.year); }catch(e){}
     careerGenerateBmetro();
     careerGenerateFederal();
     careerGeneratePrimeraC();
@@ -5676,7 +6014,8 @@
       <div class="cs-navgroup-label">General</div>
       ${item('estadisticas','&#128200;','Estadísticas')}
       ${item('equipos-list','&#9917;','Equipos')}
-      ${item('jugadores','&#128100;','Jugadores', {disabled:true})}
+      ${item('jugadores','&#128100;','Jugadores')}
+      ${item('mercado','&#128260;','Mercado')}
       ${item('campeones','&#127942;','Historia')}
       ${item('escudos','&#128737;','Escudos')}
       ${item('configuracion','&#9881;','Configuración')}
@@ -6107,6 +6446,14 @@
   }
 
   function renderCareraTemporada(){
+    const html = renderCareraTemporadaBase();
+    const c = state.career;
+    if(c.seasonDraws) return html;
+    let extra = '';
+    try{ extra = careerScorersForView(c); }catch(e){}
+    return html + extra;
+  }
+  function renderCareraTemporadaBase(){
     const c = state.career;
     if(c.seasonDraws) return renderCareraSorteos();
     if(!c.view) c.view = 'inicio';
@@ -6127,7 +6474,8 @@
     if(c.view === 'competiciones') return renderCareraCompeticiones();
     if(c.view === 'estadisticas') return renderCareraEstadisticas();
     if(c.view === 'equipos-list') return renderCareraEquiposGaleria();
-    if(c.view === 'jugadores') return renderCareraStub('&#128100;', 'Jugadores', 'El Modo Carrera todavía no simula planteles individuales, así que esta sección no tiene contenido por ahora.');
+    if(c.view === 'jugadores') return renderCareraJugadores();
+    if(c.view === 'mercado') return renderCareraMercado();
     if(c.view === 'configuracion') return renderCareraStub('&#9881;', 'Configuración', 'Próximamente vas a poder ajustar acá los parámetros del motor de simulación.');
     return renderCareraCalendario();
   }
