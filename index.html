@@ -3845,18 +3845,29 @@
 
   // ---- Ascensos y descensos encadenados entre las cuatro categorías ----
   // El que baja ocupa el lugar exacto (y la zona) del que sube, así ninguna categoría se descuadra.
-  // Al equipo que asciende se le resta 100 de ELO (llega "crudo" a la categoría de arriba, no con
-  // el rating completo que se ganó abajo — si no, es demasiado fácil volver a subir o salir campeón
-  // apenas llega). Al que desciende no se le toca nada.
-  function careerSwapDivisions(arriba, abajo, bajanIds, subenIds){
+  // El equipo que asciende mantiene su ELO, salvo que tenga menos que el más bajo de la categoría a la
+  // que sube: en ese caso pasa a tener exactamente el ELO del más bajo de esa categoría.
+  // Al que desciende no se le toca nada.
+  function careerEloFloor(list){
+    let m = Infinity;
+    (list || []).forEach(t => { if(t && typeof t.elo === 'number' && t.elo < m) m = t.elo; });
+    return m;
+  }
+  function careerPromotedElo(elo, floor){
+    return (floor === Infinity || floor === undefined) ? elo : Math.max(elo, floor);
+  }
+  // `excluir` (opcional): ids que se van de la categoría de arriba y no cuentan para calcular el piso.
+  function careerSwapDivisions(arriba, abajo, bajanIds, subenIds, excluir){
     const cant = Math.min(bajanIds.length, subenIds.length);
+    const salen = new Set([].concat(bajanIds, excluir || []));
+    const piso = careerEloFloor(arriba.filter(t => !salen.has(t.id)));
     for(let i=0;i<cant;i++){
       const dIdx = arriba.findIndex(t=>t.id===bajanIds[i]);
       const uIdx = abajo.findIndex(t=>t.id===subenIds[i]);
       if(dIdx < 0 || uIdx < 0) continue;
       const bajando = arriba[dIdx], subiendo = abajo[uIdx];
       const zArriba = bajando.zone, zAbajo = subiendo.zone;
-      arriba.splice(dIdx, 1, Object.assign({}, subiendo, { zone: zArriba, elo: subiendo.elo - 100 }));
+      arriba.splice(dIdx, 1, Object.assign({}, subiendo, { zone: zArriba, elo: careerPromotedElo(subiendo.elo, piso) }));
       abajo.splice(uIdx, 1, Object.assign({}, bajando, { zone: zAbajo }));
     }
   }
@@ -3906,8 +3917,8 @@
     const bajanNacional = (n.relegated || []).slice(0,4);
     const subenDeB = (b.promoted || []).slice(0,2);
     const subenDeF = (f.promoted || []).slice(0,2);
-    if(subenDeB.length) careerSwapDivisions(n.teams, b.teams, bajanNacional.slice(0, subenDeB.length), subenDeB);
-    if(subenDeF.length) careerSwapDivisions(n.teams, f.teams, bajanNacional.slice(subenDeB.length, subenDeB.length + subenDeF.length), subenDeF);
+    if(subenDeB.length) careerSwapDivisions(n.teams, b.teams, bajanNacional.slice(0, subenDeB.length), subenDeB, bajanNacional);
+    if(subenDeF.length) careerSwapDivisions(n.teams, f.teams, bajanNacional.slice(subenDeB.length, subenDeB.length + subenDeF.length), subenDeF, bajanNacional);
     if(subenDeB.length || subenDeF.length) mov.subenANacional = subenDeB.concat(subenDeF);
     if(bajanNacional.length) mov.bajanDeNacional = bajanNacional.slice();
 
@@ -3916,7 +3927,7 @@
     const subenDeC = (pc.promoted || []).slice(0,2);
     const bajanDeB = (b.relegated || []).slice(0,2);
     if(subenDeC.length){
-      careerSwapDivisions(b.teams, pc.teams, bajanDeB.slice(0, subenDeC.length), subenDeC);
+      careerSwapDivisions(b.teams, pc.teams, bajanDeB.slice(0, subenDeC.length), subenDeC, bajanDeB);
       mov.subenALaB = subenDeC.slice();
     }
     if(bajanDeB.length) mov.bajanDeB = bajanDeB.slice();
@@ -3928,7 +3939,8 @@
       const aIdx = pr.teams.findIndex(t=>t.id===pr.aperturaChampion);
       if(dIdx >= 0 && aIdx >= 0){
         const zonaC = pc.teams[dIdx].zone, zonaP = pr.teams[aIdx].zone;
-        pc.teams.splice(dIdx, 1, Object.assign({}, pr.teams[aIdx], { zone: zonaC, elo: pr.teams[aIdx].elo - 100 }));
+        const pisoC = careerEloFloor(pc.teams.filter(t => t.id !== pc.desafiliado));
+        pc.teams.splice(dIdx, 1, Object.assign({}, pr.teams[aIdx], { zone: zonaC, elo: careerPromotedElo(pr.teams[aIdx].elo, pisoC) }));
         // el desafiliado se va del sistema: el Promocional suma un club nuevo en su lugar
         pr.teams.splice(aIdx, 1);
         const usadosPr = careerUsedNames();
@@ -3944,9 +3956,8 @@
       mov.promocion = pr.clausuraChampion;
     }
 
-    // Lo único que todavía no tiene torneo propio es el Regional Amateur
-    if((f.relegated||[]).length) mov.bajanDeFederal = f.relegated.slice(0,4);
-    careerReplaceWithPool(f, (f.relegated || []).slice(0,4), db.regional, 'ft');
+    // El Federal A no tiene categoría inferior: no hay descensos ni se suman equipos nuevos.
+    // Su plantel solo cambia por el intercambio con la Primera Nacional (arriba).
 
     n.promoted = []; n.relegated = [];
     b.promoted = []; b.relegated = []; b.champion = null;
@@ -4138,7 +4149,7 @@
 
   // ==================== TERCERA DIVISIÓN B — TORNEO FEDERAL A ====================
   // 37 equipos. Fase regular en 4 zonas, un camino principal de 5 fases por el primer
-  // ascenso y una Reválida de 6 fases por el segundo, con 4 descensos al Regional Amateur.
+  // ascenso y una Reválida de 6 fases por el segundo. No hay descensos.
 
   const FEDERAL_STAGE_LABELS = {
     'f2': 'Segunda Fase',
@@ -4271,18 +4282,11 @@
     return true;
   }
 
+  // El Federal A no tiene categoría inferior en el juego: no hay descensos.
   function careerFederalResolveDescensos(){
     const f = careerFederal();
-    if(f.relegated && f.relegated.length) return false;
-    if(!careerFederalStageDone('rev1')) return false;
     f.relegated = [];
-    // En cada zona de la Reválida se arma una tabla de promedios y bajan los dos peores.
-    f.rev1Groups.forEach(ids => {
-      const filas = ids.map(id => careerFederalPromedio(id))
-        .sort((x,y) => y.avg - x.avg || careerTeamById(y.id).elo - careerTeamById(x.id).elo);
-      filas.slice(-2).forEach(r => f.relegated.push(r.id));
-    });
-    return true;
+    return false;
   }
 
   function careerFederalAutoAdvance(){
@@ -4528,7 +4532,7 @@
 
     let html = `<div class="panel">
       <h2>Torneo Federal A ${c.year}</h2>
-      <p class="hint">Tercera división de los clubes del interior, afiliados indirectamente a la AFA. 37 equipos: una zona de 10 y tres de 9, todos contra todos a dos ruedas. Los 18 mejores siguen por el camino principal hasta la final por el primer ascenso; los otros 19 van a la Reválida, que reparte el segundo ascenso y define los cuatro descensos al Regional Amateur.</p>
+      <p class="hint">Tercera división de los clubes del interior, afiliados indirectamente a la AFA. 37 equipos: una zona de 10 y tres de 9, todos contra todos a dos ruedas. Los 18 mejores siguen por el camino principal hasta la final por el primer ascenso; los otros 19 van a la Reválida, que reparte el segundo ascenso. El Federal A no tiene descensos: los equipos son siempre los mismos, salvo los que suben o bajan con la Primera Nacional.</p>
     </div>`;
 
     html += renderDivisionFixture('career-federal', careerFederalRegular(), 'federal-round');
@@ -4555,9 +4559,6 @@
       if(ms.some(m=>!m.played)){
         html += `<div class="btn-row"><button class="btn small" data-action="career-simulate-round" data-scope="federal-stage" data-stage="${stage}">Simular ${titulo.toLowerCase()} completa</button></div>`;
       }
-      if(stage === 'rev1' && f.relegated && f.relegated.length){
-        html += `<p class="hint">Descienden al Regional Amateur (tabla de promedios): <strong style="color:var(--ink);">${f.relegated.map(careerNombre).join(', ')}</strong></p>`;
-      }
       html += `</div>`;
     });
 
@@ -4581,7 +4582,6 @@
       let resumen = '';
       if(f.champion) resumen += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Ganador de la final por el primer ascenso ${c.year}: <strong>${careerNombre(f.champion)}</strong></div>`;
       if(f.promoted && f.promoted.length) resumen += `<p class="hint">Ascienden a la Primera Nacional: <strong style="color:var(--ink);">${f.promoted.map(careerNombre).join(', ')}</strong>${f.promoted.length<2?' (falta el ganador de la Reválida)':''}</p>`;
-      if(f.relegated && f.relegated.length) resumen += `<p class="hint">Descienden al Regional Amateur: <strong style="color:var(--ink);">${f.relegated.map(careerNombre).join(', ')}</strong></p>`;
       html += `<div class="panel"><h2>Temporada ${c.year}</h2>${resumen}</div>`;
     }
     return html;
@@ -8560,12 +8560,13 @@
       // (la Primera B de Chile hasta que se cargue la Segunda División), se quedan.
       const outIds = new Set([].concat(info.down ? (lg.relegatedIds||[]) : [], lg.promotedIds||[]));
       const roster = lg.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+      const piso = careerEloFloor(roster);
       if(info.down){
         const downLg = wl[info.down];
-        // Mismo criterio que en careerSwapDivisions: el que asciende llega con 100 de ELO menos.
+        // Mismo criterio que en careerSwapDivisions: el que asciende mantiene su ELO, salvo que tenga menos que el más bajo de la categoría de arriba (ahí iguala a ese).
         (downLg.promotedIds||[]).forEach(id => {
           const t = downLg.teams.find(x => x.id === id);
-          if(t) roster.push({ id:t.id, name:t.name, elo:t.elo - 100 });
+          if(t) roster.push({ id:t.id, name:t.name, elo:careerPromotedElo(t.elo, piso) });
         });
       }
       if(info.up){
@@ -10757,9 +10758,10 @@
       if(allDone){
         const outIds = new Set(primeraPrev.relegatedIds || []);
         newRoster = primeraPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        const piso = careerEloFloor(newRoster);
         (segundaPrev.promotedIds || []).forEach(id => {
           const t = segundaPrev.teams.find(x => x.id === id);
-          if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo - 100 });
+          if(t) newRoster.push({ id:t.id, name:t.name, elo:careerPromotedElo(t.elo, piso) });
         });
       }
       careerWorldLeagueBuildSeasonUruguayPrimera(defPrimera, primeraPrev, newRoster);
@@ -10769,13 +10771,14 @@
       if(allDone){
         const outIds = new Set([].concat(segundaPrev.promotedIds || [], segundaPrev.relegatedIds || []));
         newRoster = segundaPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        const piso = careerEloFloor(newRoster);
         (primeraPrev.relegatedIds || []).forEach(id => {
           const t = primeraPrev.teams.find(x => x.id === id);
           if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo });
         });
         (terceraPrev.promotedIds || []).forEach(id => {
           const t = terceraPrev.teams.find(x => x.id === id);
-          if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo - 100 });
+          if(t) newRoster.push({ id:t.id, name:t.name, elo:careerPromotedElo(t.elo, piso) });
         });
       }
       careerWorldLeagueBuildSeasonUruguaySegunda(defSegunda, segundaPrev, newRoster);
@@ -10785,13 +10788,14 @@
       if(allDone){
         const outIds = new Set([].concat(terceraPrev.promotedIds || [], terceraPrev.relegatedIds || []));
         newRoster = terceraPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        const piso = careerEloFloor(newRoster);
         (segundaPrev.relegatedIds || []).forEach(id => {
           const t = segundaPrev.teams.find(x => x.id === id);
           if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo });
         });
         (cuartaPrev.promotedIds || []).forEach(id => {
           const t = cuartaPrev.teams.find(x => x.id === id);
-          if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo - 100 });
+          if(t) newRoster.push({ id:t.id, name:t.name, elo:careerPromotedElo(t.elo, piso) });
         });
       }
       careerWorldLeagueBuildSeasonUruguayTercera(defTercera, terceraPrev, newRoster);
@@ -12135,9 +12139,10 @@
       if(leaguesDone){
         const outIds = new Set(primeraPrev.relegatedIds || []);
         newRoster = primeraPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        const piso = careerEloFloor(newRoster);
         (segundaPrev.promotedIds || []).forEach(id => {
           const t = segundaPrev.teams.find(x => x.id === id);
-          if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo - 100 });
+          if(t) newRoster.push({ id:t.id, name:t.name, elo:careerPromotedElo(t.elo, piso) });
         });
       }
       careerWorldLeagueBuildSeasonColombiaPrimera(defP, primeraPrev, newRoster);
@@ -12874,9 +12879,10 @@
       let newRoster = null;
       if(leaguesDone){
         newRoster = primeraPrev.teams.filter(t => t.id !== primeraPrev.relegatedId).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        const piso = careerEloFloor(newRoster);
         const promId = (segundaPrev.promotedIds || [])[0];
         const t = promId && segundaPrev.teams.find(x => x.id === promId);
-        if(t) newRoster.push({ id:t.id, name:t.name, elo:t.elo - 100 });
+        if(t) newRoster.push({ id:t.id, name:t.name, elo:careerPromotedElo(t.elo, piso) });
       }
       careerWorldLeagueBuildSeasonVenezuelaPrimera(defP, primeraPrev, newRoster);
     }
@@ -13264,9 +13270,10 @@
       if(allDone){
         const outIds = new Set(primeraPrev.relegatedIds || []);
         forcedRoster = primeraPrev.teams.filter(t => !outIds.has(t.id)).map(t => ({ id:t.id, name:t.name, elo:t.elo }));
+        const piso = careerEloFloor(forcedRoster);
         (segundaPrev.promotedIds || []).forEach(id => {
           const t = segundaPrev.teams.find(x => x.id === id);
-          if(t) forcedRoster.push({ id:t.id, name:t.name, elo: t.elo - 100 });
+          if(t) forcedRoster.push({ id:t.id, name:t.name, elo: careerPromotedElo(t.elo, piso) });
         });
       }
       careerWorldLeagueBuildSeasonPeruPrimera(defPrimera, primeraPrev, forcedRoster);
