@@ -375,7 +375,7 @@
 
   /* ---------- Finales con animación especial ---------- */
   .fs-overlay{ position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; overflow:auto;
-    background:radial-gradient(ellipse at 50% 25%, #1d3527 0%, #0a140e 60%, #050a07 100%); color:var(--ink); animation:fsFade .5s ease both; }
+    background:radial-gradient(ellipse at 50% 25%, #1d3527 0%, #0a140e 60%, #050a07 100%); color:var(--ink); }
   .fs-beams{ position:absolute; inset:-35%; pointer-events:none; opacity:.4; animation:fsSpin 20s linear infinite;
     background:conic-gradient(from 0deg at 50% 45%,
       transparent 0deg, rgba(var(--fs-accent-rgb),.45) 8deg, transparent 22deg,
@@ -1971,6 +1971,7 @@ window.FIREBASE_CONFIG = {
     if(state.mode === 'carrera'){
       document.body.classList.add('carrera-mode');
       const c = state.career;
+      try{ careerDedupeMatchIds(); }catch(e){}
       const stepHtml = renderCarreraStep();
       const footer = `<footer style="text-align:center;color:var(--ink-dim);font-size:12px;padding:20px 0 30px;">Modo Carrera &middot; se guarda en este dispositivo y, si iniciás sesión, también en tu cuenta.</footer>`;
       let shellHtml;
@@ -4598,7 +4599,6 @@ window.FIREBASE_CONFIG = {
     c.matches = [];
     c.knockout = [];
     c.knockoutBuilt = false;
-    c.matchCounter = 0;
     c.playSeq = 0;
     c.fixtureNav = {};
     c.champion = null;
@@ -6530,6 +6530,26 @@ window.FIREBASE_CONFIG = {
     if(total > 0 && cur > total) cur = total;
     state.career.fixtureNav[ctx] = cur;
     return cur;
+  }
+
+  // Los ids de partido deben ser únicos entre todas las competencias: si dos partidos comparten id,
+  // el botón "Simular" del calendario encuentra el partido equivocado (ya jugado) y no hace nada.
+  function careerDedupeMatchIds(){
+    const c = state.career;
+    if(!c || !c.matches) return;
+    const seen = new Set();
+    let max = c.matchCounter || 0;
+    const lists = careerMatchLists();
+    lists.forEach(l => (l || []).forEach(m => {
+      const n = m && typeof m.id === 'string' && m.id.indexOf('cm') === 0 ? parseInt(m.id.slice(2), 10) : NaN;
+      if(!isNaN(n) && n >= max) max = n + 1;
+    }));
+    lists.forEach(l => (l || []).forEach(m => {
+      if(!m) return;
+      if(m.id === undefined || m.id === null || seen.has(m.id)) m.id = 'cm' + (max++);
+      seen.add(m.id);
+    }));
+    if(max > (c.matchCounter || 0)) c.matchCounter = max;
   }
 
   function careerFindMatch(id){
