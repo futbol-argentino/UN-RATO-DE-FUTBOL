@@ -502,12 +502,12 @@
   .lu-head{ display:flex; align-items:center; gap:8px; font-weight:700; font-size:13.5px; margin-bottom:6px; }
   .lu-head small{ color:var(--ink-dim); font-weight:400; font-size:11.5px; margin-left:auto; }
   .lu-col h5{ margin:10px 0 4px; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-dim); font-weight:600; }
-  .lu-row{ display:flex; align-items:center; gap:8px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.05); font-size:12.5px; line-height:1.35; }
+  .lu-row{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 8px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.05); font-size:12.5px; line-height:1.35; }
   .lu-row.lu-unused{ opacity:.55; }
   .lu-pos{ width:32px; flex:none; text-align:center; font-size:10px; font-weight:700; letter-spacing:.03em; }
   .lu-ARQ{ color:#e8c25a; } .lu-DEF{ color:#5aa9ff; } .lu-MED{ color:#6fd39a; } .lu-DEL{ color:#ff9f4a; }
-  .lu-name{ flex:1; min-width:0; }
-  .lu-tag{ font-size:11.5px; white-space:nowrap; color:var(--ink-dim); }
+  .lu-name{ flex:1 1 110px; min-width:0; }
+  .lu-tag{ font-size:11.5px; color:var(--ink-dim); }
   .lu-off{ color:#ff5d5d; font-weight:700; font-size:11.5px; white-space:nowrap; }
   .lu-on{ color:#3ddc84; font-weight:700; font-size:11.5px; white-space:nowrap; }
   .lu-by{ color:var(--ink-dim); font-size:11px; font-weight:400; }
@@ -1156,8 +1156,8 @@ window.FIREBASE_CONFIG = {
         const goals = careerGenGoals(m);
         let gi = 0, sh = 0, sa = 0;
         const pc = playersCache(), evs = [];
-        (m.cards || []).forEach(x => { if(x.t !== 'y') evs.push({ min: Math.max(1, Math.min(90, x.m)), side: x.s, id: x.p, k: x.t }); });
-        (m.hurt || []).forEach(x => evs.push({ min: Math.max(1, Math.min(90, x.m)), side: x.s, id: x.p, k: 'hurt', n: x.n }));
+        (m.cards || []).forEach(x => { if(x.t !== 'y') evs.push({ min: Math.max(1, Math.min(90, x.m)), side: x.s, id: x.p, k: x.t, b: x.b }); });
+        (m.hurt || []).forEach(x => evs.push({ min: Math.max(1, Math.min(90, x.m)), side: x.s, id: x.p, k: 'hurt', n: x.n, w: x.w }));
         evs.sort((x, y) => x.min - y.min);
         let ei = 0;
         for(let min = 1; min <= 90; min++){
@@ -1175,8 +1175,9 @@ window.FIREBASE_CONFIG = {
           }
           while(ei < evs.length && evs[ei].min <= min){
             const e = evs[ei++], tm = e.side === 'h' ? home : away, pl = pc && pc.byId[e.id], nm = pl ? pl.n : 'un jugador';
-            const txt = e.k === 'hurt' ? '🩹 Se lesiona ' + nm + ' (' + tm.name + ')' + (e.n >= 7 ? ' · lesión seria' : '')
-              : e.k === 'yr' ? '🟥 Doble amarilla: expulsado ' + nm + ' (' + tm.name + ')' : '🟥 ¡Expulsado ' + nm + ' (' + tm.name + ')!';
+            const susTxt = e.b ? ' · ' + e.b + (e.b === 1 ? ' partido' : ' partidos') + ' de suspensión' : '';
+            const txt = e.k === 'hurt' ? '🩹 Se lesiona ' + nm + ' (' + tm.name + ')' + (e.w ? ': ' + e.w : '') + ' · baja de ' + e.n + (e.n === 1 ? ' partido' : ' partidos')
+              : e.k === 'yr' ? '🟥 Doble amarilla: expulsado ' + nm + ' (' + tm.name + ')' + susTxt : '🟥 ¡Expulsado ' + nm + ' (' + tm.name + ')!' + susTxt;
             setEvent(txt);
             const fl = document.createElement('div'); fl.textContent = e.min + "' " + txt; q('.fs-feed').appendChild(fl);
             refreshLu();
@@ -4990,6 +4991,7 @@ window.FIREBASE_CONFIG = {
   }
   function playerRollCards(lu, byId, bucket, side){
     const out = [];
+    const sanction = (st, n, why) => { st.ban += n; st.bt = st.ban; st.br = why; };
     lu.forEach(r => {
       const p = byId[r[0]], span = r[2] - r[1];
       if(!p || span <= 0) return;
@@ -4997,20 +4999,20 @@ window.FIREBASE_CONFIG = {
       const minute = () => r[1] + 1 + Math.floor(Math.random() * span);
       const full = r[2] === 90;
       if(full && Math.random() < CARD_P_RED){
-        const t = minute(); r[2] = t;
-        out.push({ s: side, p: p.id, m: t, t: 'r' });
-        st.ban += Math.random() < CARD_P_RED_LONG ? 2 : 1;
+        const t = minute(), n = Math.random() < CARD_P_RED_LONG ? 2 : 1; r[2] = t;
+        out.push({ s: side, p: p.id, m: t, t: 'r', b: n });
+        sanction(st, n, 'roja directa');
         return;
       }
       if(Math.random() < (CARD_P_YELLOW[p.p] || 0.12) * Math.min(1, span / 60)){
-        const t1 = minute();
-        out.push({ s: side, p: p.id, m: t1, t: 'y' });
+        const t1 = minute(), c1 = { s: side, p: p.id, m: t1, t: 'y' };
+        out.push(c1);
         st.y = (st.y || 0) + 1;
-        if(st.y % CARD_YELLOWS_BAN === 0) st.ban += 1;
+        if(st.y % CARD_YELLOWS_BAN === 0){ c1.b = 1; sanction(st, 1, 'acumulación de amarillas'); }
         if(full && t1 < 90 && Math.random() < CARD_P_SECOND){
           const t2 = t1 + 1 + Math.floor(Math.random() * (90 - t1)); r[2] = t2;
-          out.push({ s: side, p: p.id, m: t2, t: 'yr' });
-          st.ban += 1;
+          out.push({ s: side, p: p.id, m: t2, t: 'yr', b: 1 });
+          sanction(st, 1, 'doble amarilla');
         }
       }
     });
@@ -5029,6 +5031,16 @@ window.FIREBASE_CONFIG = {
     if(r < 0.98) return 7 + Math.floor(Math.random() * 9);
     return 16 + Math.floor(Math.random() * 20);
   }
+  const INJ_NAMES = {
+    leve: ['Contractura muscular', 'Golpe en el tobillo', 'Sobrecarga en el isquiotibial', 'Golpe en la rodilla', 'Molestias en el aductor', 'Fatiga muscular', 'Esguince leve de tobillo', 'Contusión en el muslo', 'Molestias en el gemelo'],
+    moderada: ['Desgarro en el isquiotibial', 'Esguince de tobillo', 'Desgarro en el gemelo', 'Elongación en el cuádriceps', 'Distensión en el aductor', 'Pubalgia', 'Tendinitis rotuliana', 'Fractura de nariz', 'Desgarro en el aductor', 'Esguince de rodilla'],
+    grave: ['Desgarro grave en el isquiotibial', 'Esguince de ligamentos de la rodilla', 'Fractura de clavícula', 'Fractura de peroné', 'Fractura de costilla', 'Lesión de menisco', 'Desgarro en el cuádriceps', 'Fisura de metatarsiano', 'Luxación de hombro'],
+    muygrave: ['Rotura de ligamentos cruzados', 'Rotura del ligamento cruzado anterior', 'Fractura de tibia y peroné', 'Rotura del tendón de Aquiles', 'Fractura de tobillo', 'Rotura de menisco y ligamentos', 'Fractura de fémur']
+  };
+  function playerInjuryName(n){
+    const l = INJ_NAMES[n <= 2 ? 'leve' : n <= 6 ? 'moderada' : n <= 15 ? 'grave' : 'muygrave'];
+    return l[Math.floor(Math.random() * l.length)];
+  }
   function playerInjuryLabel(t){ return t <= 2 ? 'Leve' : t <= 6 ? 'Moderada' : t <= 15 ? 'Grave' : 'Muy grave'; }
   function playerRollInjuries(lu, byId, side, reds){
     const c = state.career, out = [];
@@ -5041,8 +5053,8 @@ window.FIREBASE_CONFIG = {
       const t = subbed ? r[2] : r[1] + 1 + Math.floor(Math.random() * span);
       const n = playerInjuryGames();
       if(!subbed) r[2] = t;
-      c.inj[p.id] = { n, t: n, y: c.year };
-      out.push({ s: side, p: p.id, m: t, n });
+      c.inj[p.id] = { n, t: n, y: c.year, w: playerInjuryName(n) };
+      out.push({ s: side, p: p.id, m: t, n, w: c.inj[p.id].w });
     });
     return out;
   }
@@ -5066,8 +5078,8 @@ window.FIREBASE_CONFIG = {
     if(bk){
       const c = state.career;
       ['h', 'a'].forEach(sd => {
-        (pre.sus[sd] || []).forEach(id => { if(bk[id] && bk[id].ban > 0) bk[id].ban--; });
-        (pre.inj[sd] || []).forEach(id => { const i = c.inj && c.inj[id]; if(i){ i.n--; if(i.n <= 0) delete c.inj[id]; } });
+        (pre.sus[sd] || []).forEach(id => { if(bk[id] && bk[id].ban > 0){ (m.absInfo = m.absInfo || {})[id] = { n: bk[id].ban, t: bk[id].bt || bk[id].ban, w: bk[id].br || 'Suspensión' }; bk[id].ban--; } });
+        (pre.inj[sd] || []).forEach(id => { const i = c.inj && c.inj[id]; if(i){ (m.absInfo = m.absInfo || {})[id] = { n: i.n, t: i.t, w: i.w || 'Lesión' }; i.n--; if(i.n <= 0) delete c.inj[id]; } });
       });
       if(pre.sus.h || pre.sus.a) m.sus = pre.sus;
       if(pre.inj.h || pre.inj.a) m.inj = pre.inj;
@@ -5142,6 +5154,14 @@ window.FIREBASE_CONFIG = {
     const h = careerTeamById(m.home), a = careerTeamById(m.away);
     return !!(h && a && ((cache.byTeam[playerNormKey(h.name)] || []).length > 1 || (cache.byTeam[playerNormKey(a.name)] || []).length > 1));
   }
+  // Datos de una baja: si el partido ya se jugó están guardados (m.absInfo); si no, se leen del estado actual.
+  function careerAbsInfo(m, id, kind){
+    if(m.absInfo && m.absInfo[id]) return m.absInfo[id];
+    const c = state.career;
+    if(kind === 'i'){ const i = c.inj && c.inj[id]; return i ? { n: i.n, t: i.t, w: i.w || 'Lesión' } : null; }
+    const b = m.comp === 'amistoso' ? null : careerDiscBucket(m)[id];
+    return b && b.ban > 0 ? { n: b.ban, t: b.bt || b.ban, w: b.br || 'Suspensión' } : null;
+  }
   function careerLineupPanelHtml(m, upto){
     const cache = playersCache();
     if(!cache) return '';
@@ -5157,8 +5177,8 @@ window.FIREBASE_CONFIG = {
       const lu = (m.lu && m.lu[side]) || [], byRow = {}, subOf = {};
       lu.forEach(r => { byRow[r[0]] = r; if(r[3]) subOf[r[3]] = r; });
       const cards = (m.cards || []).filter(x => x.s === side && x.m <= done), hurt = (m.hurt || []).filter(x => x.s === side && x.m <= done);
-      const tags = id => cards.filter(x => x.p === id).map(x => `<span class="lu-tag">${x.t === 'y' ? '🟨' : '🟥'} ${x.m}'</span>`).join('')
-        + hurt.filter(x => x.p === id).map(x => `<span class="lu-tag">🩹 ${x.m}'</span>`).join('');
+      const tags = id => cards.filter(x => x.p === id).map(x => `<span class="lu-tag">${x.t === 'y' ? '🟨' : '🟥'} ${x.m}'${x.b ? ' · ' + x.b + (x.b === 1 ? ' partido' : ' partidos') + ' de suspensión' : ''}</span>`).join('')
+        + hurt.filter(x => x.p === id).map(x => `<span class="lu-tag">🩹 ${x.m}'${x.w ? ' · ' + escapeHtml(x.w) : ''} · baja de ${x.n} ${x.n === 1 ? 'partido' : 'partidos'}</span>`).join('');
       const row = (id, extra, cls) => {
         const p = cache.byId[id];
         return p ? `<div class="lu-row ${cls || ''}"><span class="lu-pos lu-${p.p}">${p.p}</span><span class="lu-name">${escapeHtml(p.n)}${extra && extra.by ? ` <span class="lu-by">por ${escapeHtml(extra.by)}</span>` : ''}</span>${tags(id)}${extra ? extra.html : ''}</div>` : '';
@@ -5173,7 +5193,13 @@ window.FIREBASE_CONFIG = {
         return row(id, null, 'lu-unused');
       }).join('');
       const susIds = (m.sus && m.sus[side]) || (pre.sus && pre.sus[side]) || [], injIds = (m.inj && m.inj[side]) || (pre.inj && pre.inj[side]) || [];
-      const out = susIds.map(id => row(id, { html: '<span class="lu-tag">🟥 suspendido</span>' })).join('') + injIds.map(id => row(id, { html: '<span class="lu-tag">🩹 lesionado</span>' })).join('');
+      const abTxt = (id, kind) => {
+        const i = careerAbsInfo(m, id, kind);
+        if(!i) return kind === 'i' ? '🩹 Lesionado' : '🟥 Suspendido';
+        const games = i.t + (i.t === 1 ? ' partido' : ' partidos'), at = i.t > 1 ? ' (fecha ' + (i.t - i.n + 1) + ' de ' + i.t + ')' : '';
+        return kind === 'i' ? '🩹 ' + escapeHtml(i.w) + ' · baja de ' + games + at : '🟥 Suspendido ' + games + ' · ' + escapeHtml(i.w) + at;
+      };
+      const out = susIds.map(id => row(id, { html: '<span class="lu-tag">' + abTxt(id, 's') + '</span>' })).join('') + injIds.map(id => row(id, { html: '<span class="lu-tag">' + abTxt(id, 'i') + '</span>' })).join('');
       return `<div class="lu-col">${head}<h5>Titulares</h5>${starters}<h5>Suplentes</h5>${bench || '<p class="lu-empty">Sin suplentes.</p>'}${out ? `<h5>Bajas</h5>${out}` : ''}</div>`;
     };
     return `<div class="lu-wrap"><div class="lu-grid">${col('h', home)}${col('a', away)}</div></div>`;
@@ -5683,8 +5709,8 @@ window.FIREBASE_CONFIG = {
     const html = `<div class="panel"><h2>Lesiones</h2><p class="hint">En cada partido oficial puede lesionarse alguno de los que juegan (m&aacute;s si sale reemplazado). La duraci&oacute;n se mide en partidos del equipo: leve 1-2, moderada 3-6, grave 7-15, muy grave 16 o m&aacute;s. El lesionado no entra en la alineaci&oacute;n mientras dure la baja. Lesionados ahora: ${list.length}.</p></div>`;
     if(!list.length) return html + `<div class="panel"><p class="hint" style="margin:0;">No hay jugadores lesionados.</p></div>`;
     const LIMIT = 60;
-    const body = list.slice(0, LIMIT).map(x => `<tr><td>${escapeHtml(x.p.n)}</td><td>${AWARD_POS_LABEL[x.p.p] || x.p.p}</td><td>${escapeHtml(x.p.t)}</td><td>${playerInjuryLabel(x.i.t)}</td><td class="num">${x.i.n}</td><td class="num">${x.i.t}</td></tr>`).join('');
-    return html + `<div class="panel"><div class="table-scroll"><table><thead><tr><th>Jugador</th><th>Puesto</th><th>Equipo</th><th>Gravedad</th><th>Le faltan</th><th>Baja total</th></tr></thead><tbody>${body}</tbody></table></div>${list.length > LIMIT ? `<p class="hint" style="margin:8px 0 0;">Se muestran los ${LIMIT} con baja m&aacute;s larga de ${list.length}.</p>` : ''}</div>`;
+    const body = list.slice(0, LIMIT).map(x => `<tr><td>${escapeHtml(x.p.n)}</td><td>${AWARD_POS_LABEL[x.p.p] || x.p.p}</td><td>${escapeHtml(x.p.t)}</td><td>${escapeHtml(x.i.w || 'Lesión')}</td><td>${playerInjuryLabel(x.i.t)}</td><td class="num">${x.i.n}</td><td class="num">${x.i.t}</td></tr>`).join('');
+    return html + `<div class="panel"><div class="table-scroll"><table><thead><tr><th>Jugador</th><th>Puesto</th><th>Equipo</th><th>Lesi&oacute;n</th><th>Gravedad</th><th>Le faltan</th><th>Baja total</th></tr></thead><tbody>${body}</tbody></table></div>${list.length > LIMIT ? `<p class="hint" style="margin:8px 0 0;">Se muestran los ${LIMIT} con baja m&aacute;s larga de ${list.length}.</p>` : ''}</div>`;
   }
   const fairUi = { year: null };
   function renderCareraFairPlay(){
@@ -8036,7 +8062,7 @@ window.FIREBASE_CONFIG = {
       if(c.seasonLog[r.id].length > 3) c.seasonLog[r.id].shift();
     });
     careerArchiveTournament();
-    (c.history || []).forEach(h => { if(h && h.year === c.year) [h.matches, h.knockout].forEach(l => (l || []).forEach(mm => { if(mm){ delete mm.lu; delete mm.cards; delete mm.sus; delete mm.hurt; delete mm.inj; delete mm.pre; } })); });
+    (c.history || []).forEach(h => { if(h && h.year === c.year) [h.matches, h.knockout].forEach(l => (l || []).forEach(mm => { if(mm){ delete mm.lu; delete mm.cards; delete mm.sus; delete mm.hurt; delete mm.inj; delete mm.pre; delete mm.absInfo; } })); });
     c.disc = {};
     try{ careerRunRetirements(c.year); }catch(e){}
     careerApplyPromotionsRelegations();
