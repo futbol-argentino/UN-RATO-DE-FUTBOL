@@ -2902,6 +2902,7 @@ window.FIREBASE_CONFIG = {
       if(e.target.hasAttribute('data-crest-bulk')){ crestHandleBulk(e.target); return; }
       if(e.target.hasAttribute('data-crest-import')){ crestImport(e.target); return; }
       if(e.target.hasAttribute('data-crest-group')){ crestUi.group = e.target.value; render(); return; }
+      if(e.target.hasAttribute('data-fair-year')){ fairUi.year = Number(e.target.value); render(); return; }
       if(e.target.hasAttribute('data-mercado-club')){ mercadoUi.club = e.target.value; render(); return; }
     }
     if(e.target.hasAttribute && e.target.hasAttribute('data-career-elo')){
@@ -3050,12 +3051,14 @@ window.FIREBASE_CONFIG = {
       state.career.view = view;
       if(btn.getAttribute('data-tab')) state.career.intlTab = btn.getAttribute('data-tab');
       if(view === 'equipos-list') state.career.selectedTeamId = null;
-      if(view === 'jugadores'){ playersUi.tab = 'divisiones'; playersUi.div = ''; playersUi.team = ''; }
+      if(view === 'jugadores'){ playersUi.tab = 'divisiones'; playersUi.div = ''; playersUi.team = ''; playersUi.player = ''; }
       render();
       return;
     }
+    else if(action === 'career-pl-player'){ playersUi.player = btn.getAttribute('data-id') || ''; render(); return; }
     else if(action === 'career-pl-nav'){
       if(btn.hasAttribute('data-tab')){ const tb = btn.getAttribute('data-tab'); if(tb) playersUi.tab = tb; }
+      playersUi.player = '';
       playersUi.div = btn.getAttribute('data-div') || '';
       playersUi.team = btn.getAttribute('data-team') || '';
       render(); return;
@@ -4856,8 +4859,132 @@ window.FIREBASE_CONFIG = {
     return pool[pool.length - 1];
   }
   // Reparte los goles ya definidos del partido entre los jugadores de cada equipo (solo si tiene plantel cargado).
+  // Alineación de cada equipo: 4-3-3 (1 ARQ, 4 DEF, 3 MED, 3 DEL) y de 2 a 5 cambios. Se guarda compacta en
+  // m.lu = {h:[[id, minuto de entrada, minuto de salida], ...], a:[...]}: titulares entran en 0 y los que no
+  // salen terminan en 90. Solo se anotan los que jugaron. Los titulares salen de un puntaje fijo por jugador + algo de rotación.
+  const LINEUP_SLOTS = { ARQ:1, DEF:4, MED:3, DEL:3 };
+  function playerBuildLineup(squad){
+    if(!squad || squad.length < 2) return null;
+    const sc = {};
+    squad.forEach(p => { sc[p.id] = awardHash(p.id + 't') + Math.random() * 0.35; });
+    const byScore = (x, y) => sc[y.id] - sc[x.id];
+    const starters = [], used = {}, off = {};
+    Object.keys(LINEUP_SLOTS).forEach(pos => {
+      squad.filter(p => p.p === pos).sort(byScore).slice(0, LINEUP_SLOTS[pos]).forEach(p => { starters.push(p); used[p.id] = true; });
+    });
+    if(starters.length < 11) squad.filter(p => !used[p.id] && p.p !== 'ARQ').sort(byScore).slice(0, 11 - starters.length).forEach(p => { starters.push(p); used[p.id] = true; });
+    const bench = squad.filter(p => !used[p.id]).sort(byScore);
+    const rows = starters.map(p => [p.id, 0, 90]);
+    const outfield = starters.filter(p => p.p !== 'ARQ');
+    const nSubs = Math.min(2 + Math.floor(Math.random() * 4), bench.filter(p => p.p !== 'ARQ').length, outfield.length);
+    const mins = [];
+    while(mins.length < nSubs){ const t = 46 + Math.floor(Math.random() * 40); if(mins.indexOf(t) < 0) mins.push(t); }
+    mins.sort((x, y) => x - y).forEach(t => {
+      const cand = outfield.filter(p => !off[p.id]);
+      if(!cand.length) return;
+      const out = cand[Math.floor(Math.random() * cand.length)];
+      const inn = bench.find(p => !used[p.id] && p.p === out.p) || bench.find(p => !used[p.id] && p.p !== 'ARQ');
+      if(!inn) return;
+      used[inn.id] = true; off[out.id] = true;
+      rows.find(r => r[0] === out.id)[2] = t;
+      rows.push([inn.id, t, 90]);
+    });
+    return rows;
+  }
+  // Jugadores que están en la cancha en el minuto de un gol.
+  function playerOnField(lu, byId, minute){
+    return lu.filter(r => r[1] < minute && minute <= r[2]).map(r => byId[r[0]]).filter(Boolean);
+  }
+  // ---------- Tarjetas y suspensiones ----------
+  // Cada jugador que juega puede ver amarilla (según puesto), doble amarilla o roja directa. m.cards = [{s, p, m, t}] con
+  // t: 'y' amarilla | 'yr' segunda amarilla (expulsión) | 'r' roja directa. Solo se expulsa a quien llega al final en cancha.
+  // Sanciones (por competencia, en c.disc[comp][id] = {y: amarillas, ban: partidos de suspensión pendientes}): roja = 1 fecha
+  // (30% de chance de 2), y cada 5 amarillas = 1 fecha. Los suspendidos no entran en la alineación (m.sus). Amistosos: sin tarjetas.
+  const CARD_P_YELLOW = { ARQ:0.04, DEF:0.20, MED:0.17, DEL:0.11 };
+  const CARD_P_RED = 0.005, CARD_P_SECOND = 0.03, CARD_P_RED_LONG = 0.3, CARD_YELLOWS_BAN = 5, CARD_MIN_SQUAD = 14;
+  function careerDiscBucket(m){
+    const c = state.career, k = m.comp || c.tournament || 'liga';
+    if(!c.disc) c.disc = {};
+    return c.disc[k] || (c.disc[k] = {});
+  }
+  function playerServeBans(squad, bucket, sus, side){
+    if(!squad) return squad;
+    const ban = squad.filter(p => bucket[p.id] && bucket[p.id].ban > 0);
+    if(!ban.length || squad.length - ban.length < CARD_MIN_SQUAD) return squad;
+    ban.forEach(p => { bucket[p.id].ban--; });
+    sus[side] = ban.map(p => p.id);
+    return squad.filter(p => ban.indexOf(p) < 0);
+  }
+  function playerRollCards(lu, byId, bucket, side){
+    const out = [];
+    lu.forEach(r => {
+      const p = byId[r[0]], span = r[2] - r[1];
+      if(!p || span <= 0) return;
+      const st = bucket[p.id] || (bucket[p.id] = { y:0, ban:0 });
+      const minute = () => r[1] + 1 + Math.floor(Math.random() * span);
+      const full = r[2] === 90;
+      if(full && Math.random() < CARD_P_RED){
+        const t = minute(); r[2] = t;
+        out.push({ s: side, p: p.id, m: t, t: 'r' });
+        st.ban += Math.random() < CARD_P_RED_LONG ? 2 : 1;
+        return;
+      }
+      if(Math.random() < (CARD_P_YELLOW[p.p] || 0.12) * Math.min(1, span / 60)){
+        const t1 = minute();
+        out.push({ s: side, p: p.id, m: t1, t: 'y' });
+        st.y = (st.y || 0) + 1;
+        if(st.y % CARD_YELLOWS_BAN === 0) st.ban += 1;
+        if(full && t1 < 90 && Math.random() < CARD_P_SECOND){
+          const t2 = t1 + 1 + Math.floor(Math.random() * (90 - t1)); r[2] = t2;
+          out.push({ s: side, p: p.id, m: t2, t: 'yr' });
+          st.ban += 1;
+        }
+      }
+    });
+    return out;
+  }
+  // ---------- Lesiones ----------
+  // c.inj[id] = {n: partidos que le faltan, t: duración total, y: año en que se lesionó}. En cada partido oficial cada jugador que
+  // juega puede lesionarse (mucho más si salió reemplazado: cambio forzado). Duración en partidos del equipo: leve 1-2 (60%),
+  // moderada 3-6 (28%), grave 7-15 (10%), muy grave 16-35 (2%). El lesionado no entra en la alineación mientras le queden
+  // partidos (m.inj = ids ausentes); las lesiones nuevas del partido quedan en m.hurt = [{s, p, m, n}]. Amistosos: sin lesiones.
+  const INJ_P_FULL = 0.004, INJ_P_SUBBED = 0.03;
+  function playerInjuryGames(){
+    const r = Math.random();
+    if(r < 0.60) return 1 + Math.floor(Math.random() * 2);
+    if(r < 0.88) return 3 + Math.floor(Math.random() * 4);
+    if(r < 0.98) return 7 + Math.floor(Math.random() * 9);
+    return 16 + Math.floor(Math.random() * 20);
+  }
+  function playerInjuryLabel(t){ return t <= 2 ? 'Leve' : t <= 6 ? 'Moderada' : t <= 15 ? 'Grave' : 'Muy grave'; }
+  function playerServeInjuries(squad, abs, side){
+    const c = state.career;
+    if(!squad || !c.inj) return squad;
+    const out = squad.filter(p => c.inj[p.id] && c.inj[p.id].n > 0);
+    if(!out.length || squad.length - out.length < CARD_MIN_SQUAD) return squad;
+    out.forEach(p => { const i = c.inj[p.id]; i.n--; if(i.n <= 0) delete c.inj[p.id]; });
+    abs[side] = out.map(p => p.id);
+    return squad.filter(p => out.indexOf(p) < 0);
+  }
+  function playerRollInjuries(lu, byId, side, reds){
+    const c = state.career, out = [];
+    if(!c.inj) c.inj = {};
+    lu.forEach(r => {
+      const p = byId[r[0]], span = r[2] - r[1];
+      if(!p || span <= 0 || reds[p.id] || c.inj[p.id]) return;
+      const subbed = r[2] < 90;
+      if(Math.random() >= (subbed ? INJ_P_SUBBED : INJ_P_FULL) * Math.min(1, span / 45)) return;
+      const t = subbed ? r[2] : r[1] + 1 + Math.floor(Math.random() * span);
+      const n = playerInjuryGames();
+      if(!subbed) r[2] = t;
+      c.inj[p.id] = { n, t: n, y: c.year };
+      out.push({ s: side, p: p.id, m: t, n });
+    });
+    return out;
+  }
+  // Reparte los goles ya definidos del partido entre los jugadores que estaban en la cancha (solo si el equipo tiene plantel cargado).
   function careerAssignScorers(m){
-    if(!m || m.bye || m.goals !== undefined) return;
+    if(!m || m.bye || m.goals !== undefined || m.lu !== undefined) return;
     if(typeof m.homeScore !== 'number' || typeof m.awayScore !== 'number') return;
     careerEnsurePlayers();
     const cache = playersCache();
@@ -4865,24 +4992,41 @@ window.FIREBASE_CONFIG = {
     const home = careerTeamById(m.home), away = careerTeamById(m.away);
     if(!home || !away) return;
     const sqH = cache.byTeam[playerNormKey(home.name)], sqA = cache.byTeam[playerNormKey(away.name)];
+    const bk = m.comp === 'amistoso' ? null : careerDiscBucket(m), sus = {}, abs = {};
+    const avH = bk ? playerServeInjuries(playerServeBans(sqH, bk, sus, 'h'), abs, 'h') : sqH, avA = bk ? playerServeInjuries(playerServeBans(sqA, bk, sus, 'a'), abs, 'a') : sqA;
+    const luH = playerBuildLineup(avH), luA = playerBuildLineup(avA);
+    if(luH || luA){ m.lu = {}; if(luH) m.lu.h = luH; if(luA) m.lu.a = luA; }
+    if(bk){
+      const cards = [].concat(luH ? playerRollCards(luH, cache.byId, bk, 'h') : [], luA ? playerRollCards(luA, cache.byId, bk, 'a') : []).sort((x, y) => x.m - y.m);
+      if(cards.length) m.cards = cards;
+      if(sus.h || sus.a) m.sus = sus;
+      const reds = {}; cards.forEach(cd => { if(cd.t !== 'y') reds[cd.p] = true; });
+      const hurt = [].concat(luH ? playerRollInjuries(luH, cache.byId, 'h', reds) : [], luA ? playerRollInjuries(luA, cache.byId, 'a', reds) : []).sort((x, y) => x.m - y.m);
+      if(hurt.length) m.hurt = hurt;
+      if(abs.h || abs.a) m.inj = abs;
+    }
     const goals = [];
-    [['h', m.homeScore, sqH, sqA], ['a', m.awayScore, sqA, sqH]].forEach(([side, n, squad, oppSquad]) => {
+    [['h', m.homeScore, avH, avA, luH, luA], ['a', m.awayScore, avA, avH, luA, luH]].forEach(([side, n, squad, oppSquad, luOwn, luOpp]) => {
       if(!squad || !squad.length) return;
       for(let i = 0; i < n; i++){
+        const min = 1 + Math.floor(Math.random() * 90);
+        let own = luOwn ? playerOnField(luOwn, cache.byId, min) : squad;
+        if(!own.length) own = squad;
+        const opp = (luOpp && oppSquad) ? playerOnField(luOpp, cache.byId, min) : oppSquad;
         const r = Math.random();
         let type = r < GOAL_P_OWN ? 'ec' : r < GOAL_P_OWN + GOAL_P_PEN ? 'pen' : r < GOAL_P_OWN + GOAL_P_PEN + GOAL_P_FK ? 'tl' : null;
         let p = null;
         if(type === 'ec'){
-          p = (oppSquad && oppSquad.length) ? playerPickByWeights(oppSquad, GOAL_W_OWN) : null;
+          p = (opp && opp.length) ? playerPickByWeights(opp, GOAL_W_OWN) : null;
           if(!p) type = null;            // sin plantel rival cargado no se puede atribuir el gol en contra
         }
-        if(type === 'tl'){ p = playerPickByWeights(squad, GOAL_W_FK); if(!p) type = null; }
-        if(!p) p = playerPickScorer(squad);
+        if(type === 'tl'){ p = playerPickByWeights(own, GOAL_W_FK); if(!p) type = null; }
+        if(!p) p = playerPickScorer(own);
         if(!p) break;
-        const g = { s: side, p: p.id, m: 1 + Math.floor(Math.random() * 90) };
+        const g = { s: side, p: p.id, m: min };
         if(type) g.t = type;
         else if(Math.random() < GOAL_P_ASSIST){
-          const a = playerPickByWeights(squad, GOAL_W_ASSIST, p.id);
+          const a = playerPickByWeights(own, GOAL_W_ASSIST, p.id);
           if(a) g.a = a.id;
         }
         goals.push(g);
@@ -4916,12 +5060,32 @@ window.FIREBASE_CONFIG = {
       return escapeHtml(p ? p.n : '?') + ' ' + evs[id].map(g => g.m + "'" + careerGoalNote(g, cache)).join(', ');
     }).join(' &middot; ');
   }
+  function careerLineupSide(m, side){
+    const cache = playersCache(), lu = m.lu && m.lu[side];
+    if(!cache || !lu) return '';
+    const nm = r => { const p = cache.byId[r[0]]; return escapeHtml(p ? p.n : '?'); };
+    const st = lu.filter(r => r[1] === 0).map(r => nm(r) + (r[2] < 90 ? ` (sale ${r[2]}')` : '')).join(', ');
+    const su = lu.filter(r => r[1] > 0).map(r => nm(r) + ` ${r[1]}'`).join(', ');
+    const cs = (m.cards || []).filter(x => x.s === side).map(x => (x.t === 'y' ? '🟨' : '🟥') + ' ' + nm([x.p]) + ` ${x.m}'` + (x.t === 'yr' ? ' (2ª amarilla)' : '')).join(' · ');
+    const hu = (m.hurt || []).filter(x => x.s === side).map(x => '🩹 ' + nm([x.p]) + ` ${x.m}' (${x.n} ${x.n === 1 ? 'partido' : 'partidos'})`).join(' · ');
+    const ab = (m.inj && m.inj[side]) ? m.inj[side].map(id => nm([id])).join(', ') : '';
+    const sp = (m.sus && m.sus[side]) ? m.sus[side].map(id => nm([id])).join(', ') : '';
+    return `<div><strong>Titulares:</strong> ${st}</div>` + (su ? `<div><strong>Ingresaron:</strong> ${su}</div>` : '')
+      + (cs ? `<div><strong>Tarjetas:</strong> ${cs}</div>` : '') + (sp ? `<div><strong>Suspendidos:</strong> ${sp}</div>` : '')
+      + (hu ? `<div><strong>Lesiones:</strong> ${hu}</div>` : '') + (ab ? `<div><strong>Lesionados (baja):</strong> ${ab}</div>` : '');
+  }
   function careerScorersHtml(m){
-    if(!m.played || !m.goals || !m.goals.length) return '';
-    const h = careerScorersSide(m, 'h'), a = careerScorersSide(m, 'a');
-    return `<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:24px;font-size:11.5px;color:var(--ink-dim);line-height:1.5;">
+    if(!m.played) return '';
+    let out = '';
+    if(m.goals && m.goals.length){
+      const h = careerScorersSide(m, 'h'), a = careerScorersSide(m, 'a');
+      out += `<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:24px;font-size:11.5px;color:var(--ink-dim);line-height:1.5;">
       <div style="text-align:right;">${h ? '&#9917; ' + h : ''}</div><div style="text-align:left;">${a ? '&#9917; ' + a : ''}</div>
     </div>`;
+    }
+    const lh = careerLineupSide(m, 'h'), la = careerLineupSide(m, 'a');
+    if(lh || la) out += `<details style="grid-column:1/-1;font-size:11.5px;color:var(--ink-dim);line-height:1.5;"><summary style="cursor:pointer;">Alineaciones</summary><div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:6px;"><div>${lh}</div><div>${la}</div></div></details>`;
+    return out;
   }
 
   // Tabla de goleadores de un torneo: suma los goles guardados en cada partido (m.goals).
@@ -5091,14 +5255,19 @@ window.FIREBASE_CONFIG = {
       });
       (m.goals || []).forEach(g => {
         if(g.t !== 'ec' && cache.byId[g.p]){
-          const r = pl[g.p] || (pl[g.p] = { goals:0, gw:0, assists:0, aw:0 });
+          const r = pl[g.p] || (pl[g.p] = { goals:0, gw:0, assists:0, aw:0, min:0 });
           r.goals++; r.gw += w;
         }
         if(g.a && cache.byId[g.a]){
-          const r = pl[g.a] || (pl[g.a] = { goals:0, gw:0, assists:0, aw:0 });
+          const r = pl[g.a] || (pl[g.a] = { goals:0, gw:0, assists:0, aw:0, min:0 });
           r.assists++; r.aw += w;
         }
       });
+      ['h', 'a'].forEach(sd => ((m.lu && m.lu[sd]) || []).forEach(x => {
+        if(!cache.byId[x[0]]) return;
+        const r = pl[x[0]] || (pl[x[0]] = { goals:0, gw:0, assists:0, aw:0, min:0 });
+        r.min += x[2] - x[1];
+      }));
     });
     const titlePts = {}, titleNames = {};
     (c.titles || []).forEach(t => {
@@ -5108,13 +5277,13 @@ window.FIREBASE_CONFIG = {
       titlePts[t.teamId] = (titlePts[t.teamId] || 0) + pts;
       (titleNames[t.teamId] = titleNames[t.teamId] || []).push(COMPETITION_LABELS[t.competition] || t.competition);
     });
-    // Titulares de cada equipo: por puesto, primero los que más goles hicieron y después un desempate fijo por id.
+    // Titulares de cada equipo: por puesto, primero los que más minutos jugaron, después los goles y por último un desempate fijo por id (temporadas sin alineaciones guardadas: goles + desempate).
     const starters = {};
     Object.keys(keyToId).forEach(key => {
       const squad = cache.byTeam[key] || [];
       Object.keys(AWARD_SLOTS).forEach(pos => {
         squad.filter(p => p.p === pos)
-          .sort((a, b) => ((pl[b.id] ? pl[b.id].goals : 0) - (pl[a.id] ? pl[a.id].goals : 0)) || (awardHash(a.id) - awardHash(b.id)))
+          .sort((a, b) => ((pl[b.id] ? pl[b.id].min : 0) - (pl[a.id] ? pl[a.id].min : 0)) || ((pl[b.id] ? pl[b.id].goals : 0) - (pl[a.id] ? pl[a.id].goals : 0)) || (awardHash(a.id) - awardHash(b.id)))
           .slice(0, AWARD_SLOTS[pos]).forEach(p => { starters[p.id] = true; });
       });
     });
@@ -5123,7 +5292,7 @@ window.FIREBASE_CONFIG = {
     Object.keys(keyToId).forEach(key => {
       const tid = keyToId[key], st = teamStat[tid], team = careerTeamById(tid);
       (cache.byTeam[key] || []).forEach(p => {
-        const g = pl[p.id] || { goals:0, gw:0, assists:0, aw:0 };
+        const g = pl[p.id] || { goals:0, gw:0, assists:0, aw:0, min:0 };
         const share = starters[p.id] ? 1 : 0.25;
         const goalPts = g.gw * (AWARD_GOAL_POS[p.p] || 1) + g.aw * AWARD_ASSIST_PTS;
         const titPts = (titlePts[tid] || 0) * AWARD_TITLE_SHARE * share;
@@ -5290,7 +5459,7 @@ window.FIREBASE_CONFIG = {
 
 
   // ---------- Sección Jugadores: divisiones > equipos > plantel por posición ----------
-  const playersUi = { tab: 'divisiones', div: '', team: '' };
+  const playersUi = { tab: 'divisiones', div: '', team: '', player: '' };
   const PLAYER_POS_GROUPS = [
     { code: 'ARQ', label: 'Arqueros' }, { code: 'DEF', label: 'Defensores' },
     { code: 'MED', label: 'Mediocampistas' }, { code: 'DEL', label: 'Delanteros' }
@@ -5305,11 +5474,19 @@ window.FIREBASE_CONFIG = {
     const cache = playersCache();
     if(!cache) return { map: {}, partial: false };
     const live = year === c.year, map = {};
-    const row = (id, p) => map[id] || (map[id] = [0, 0, live ? p.t : null]);
-    careerAwardsMatches(year).forEach(m => (m.goals || []).forEach(g => {
-      if(g.t !== 'ec'){ const p = cache.byId[g.p]; if(p) row(g.p, p)[0]++; }
-      if(g.a){ const p = cache.byId[g.a]; if(p) row(g.a, p)[1]++; }
-    }));
+    const row = (id, p) => map[id] || (map[id] = [0, 0, live ? p.t : null, 0, 0, 0, 0, 0, 0, 0]);   // goles, asist., equipo, PJ, minutos, titular, amarillas, rojas, lesiones, partidos perdidos por lesión
+    careerAwardsMatches(year).forEach(m => {
+      (m.goals || []).forEach(g => {
+        if(g.t !== 'ec'){ const p = cache.byId[g.p]; if(p) row(g.p, p)[0]++; }
+        if(g.a){ const p = cache.byId[g.a]; if(p) row(g.a, p)[1]++; }
+      });
+      ['h', 'a'].forEach(sd => ((m.lu && m.lu[sd]) || []).forEach(r => {
+        const p = cache.byId[r[0]]; if(!p) return;
+        const x = row(r[0], p); x[3]++; x[4] += r[2] - r[1]; if(r[1] === 0) x[5]++;
+      }));
+      (m.hurt || []).forEach(h => { const p = cache.byId[h.p]; if(p){ const x = row(h.p, p); x[8]++; x[9] += h.n; } });
+      (m.cards || []).forEach(cd => { const p = cache.byId[cd.p]; if(p) row(cd.p, p)[cd.t === 'y' ? 6 : 7]++; });
+    });
     // Un año anterior sin registro congelado solo tiene los partidos de Primera que quedaron archivados.
     return { map, partial: !live };
   }
@@ -5320,6 +5497,106 @@ window.FIREBASE_CONFIG = {
     if(r.partial) return;
     if(!c.playerStats) c.playerStats = {};
     c.playerStats[year] = r.map;
+    if(!c.fairPlay) c.fairPlay = {};
+    c.fairPlay[year] = careerFairPlay(year);
+  }
+  // Fair play por equipo y año: {idEquipo: [amarillas, rojas, PJ con alineación, nombre]}. El año en curso se calcula en vivo.
+  function careerFairPlay(year){
+    const c = state.career;
+    if(c.fairPlay && c.fairPlay[year]) return c.fairPlay[year];
+    const rows = {};
+    careerAwardsMatches(year).forEach(m => {
+      if(!m.lu) return;
+      [['h', m.home], ['a', m.away]].forEach(([sd, id]) => {
+        if(!m.lu[sd]) return;
+        const t = careerTeamById(id);
+        const r = rows[id] || (rows[id] = [0, 0, 0, t ? t.name : String(id)]);
+        r[2]++;
+        (m.cards || []).forEach(cd => { if(cd.s === sd){ if(cd.t === 'y') r[0]++; else r[1]++; } });
+      });
+    });
+    return rows;
+  }
+  // ---------- Ficha individual del jugador ----------
+  // Junta lo que ya se guarda: pases (c.transferLog), estadísticas por año (careerPlayerYearStats), premios cerrados (c.awards) y retiro (p.ry).
+  function careerPlayerTransfers(id){
+    const out = [];
+    (state.career.transferLog || []).forEach(e => (e.list || []).forEach(t => { if(t.id === id) out.push({ year: e.year, from: t.from, to: t.to, fee: t.fee }); }));
+    return out.sort((a, b) => a.year - b.year);
+  }
+  function playerCardHtml(p){
+    const c = state.career, by = playerBirthYear(p.b);
+    const age = p.r ? (p.ra != null ? p.ra : null) : (by === null ? null : c.year - by);
+    const inj = c.inj && c.inj[p.id] && c.inj[p.id].n > 0 ? c.inj[p.id] : null;
+    const tr = careerPlayerTransfers(p.id);
+    const clubs = tr.length ? [{ club: tr[0].from, from: null }].concat(tr.map(t => ({ club: t.to, from: t.year }))) : [{ club: p.t, from: null }];
+    clubs.forEach((k, i) => { k.to = i + 1 < clubs.length ? clubs[i + 1].from - 1 : (p.r ? p.ry : null); });
+    const rows = [], tot = { g:0, a:0, pj:0, min:0, ya:0, ro:0, les:0 };
+    let anyPartial = false;
+    careerPlayerStatYears().forEach(y => {
+      const st = careerPlayerYearStats(y), r = st.map[p.id];
+      if(!r) return;
+      const o = { y, partial: st.partial, t: r[2], g: r[0], a: r[1], pj: r[3] || 0, min: r[4] || 0, ya: r[6] || 0, ro: r[7] || 0, les: r[8] || 0 };
+      Object.keys(tot).forEach(k => { tot[k] += o[k]; });
+      if(o.partial) anyPartial = true;
+      rows.push(o);
+    });
+    const best = k => rows.reduce((b, r) => (r[k] > 0 && (!b || r[k] > b[k])) ? r : b, null);
+    const bg = best('g'), ba = best('a'), bp = best('pj');
+    const fee = tr.filter(t => t.fee > 0).sort((x, y) => y.fee - x.fee)[0];
+    const at = r => `${r.y}${r.t ? ', ' + escapeHtml(r.t) : ''}`;
+    const rec = [];
+    if(bg) rec.push(['Más goles en una temporada', `${bg.g} (${at(bg)})`]);
+    if(ba) rec.push(['Más asistencias en una temporada', `${ba.a} (${at(ba)})`]);
+    if(bp) rec.push(['Más partidos en una temporada', `${bp.pj} (${at(bp)})`]);
+    if(fee) rec.push(['Pase más caro', `${mercadoFmtFee(fee.fee)} (${fee.year}, ${escapeHtml(fee.from)} &rarr; ${escapeHtml(fee.to)})`]);
+    const aw = [];
+    Object.keys(c.awards || {}).sort().forEach(y => {
+      const a = c.awards[y] || {};
+      if(a.best && a.best[0] && a.best[0].id === p.id) aw.push([y, '&#127942; Bal&oacute;n de Oro Sudamericano']);
+      if(a.scorers && a.scorers[0] && a.scorers[0].id === p.id) aw.push([y, '&#9917; Goleador del a&ntilde;o']);
+      if(a.xi && Object.keys(a.xi).some(k => (a.xi[k] || []).some(r => r.id === p.id))) aw.push([y, '&#127775; Equipo Ideal']);
+    });
+    const th = h => `<th>${h}</th>`;
+    const tbl = (head, body) => `<div class="table-scroll"><table><thead><tr>${head.map(th).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+    const status = p.r ? `Retirado${p.ry ? ' en ' + p.ry : ''}` : (inj ? `&#129657; Lesionado: le ${inj.n === 1 ? 'falta 1 partido' : 'faltan ' + inj.n + ' partidos'}` : 'En actividad');
+    let html = `<div class="btn-row"><button class="btn small" data-action="career-pl-player" data-id="">&larr; Volver al plantel</button></div>`;
+    html += `<div class="panel"><h2>${escapeHtml(p.n)}</h2><p class="hint" style="margin:0 0 8px;">${AWARD_POS_LABEL[p.p] || p.p} &middot; ${age === null ? 'edad desconocida' : age + ' años'} &middot; ${status}</p>${awardTeamCell(p.t, 24)}</div>`;
+    html += `<div class="panel"><h3>Totales y r&eacute;cords</h3>` + tbl(['Concepto', 'Valor'],
+      [['Goles', tot.g], ['Asistencias', tot.a], ['Partidos jugados', tot.pj], ['Minutos', tot.min], ['Amarillas', tot.ya], ['Rojas', tot.ro], ['Lesiones', tot.les]].concat(rec)
+        .map(r => `<tr><td>${r[0]}</td><td class="num" style="text-align:left;">${r[1]}</td></tr>`).join('')) + `</div>`;
+    html += `<div class="panel"><h3>Historial de clubes</h3>` + tbl(['Club', 'Desde', 'Hasta'], clubs.map(k =>
+      `<tr><td>${escapeHtml(k.club)}</td><td>${k.from === null ? 'Inicio de la carrera' : k.from}</td><td>${k.to === null ? (p.r ? '&mdash;' : 'Actualidad') : k.to}</td></tr>`).join('')) + `</div>`;
+    html += `<div class="panel"><h3>Pases</h3>` + (tr.length ? tbl(['A&ntilde;o', 'Origen', 'Destino', 'Precio'], tr.map(t =>
+      `<tr><td class="num">${t.year}</td><td>${escapeHtml(t.from)}</td><td>${escapeHtml(t.to)}</td><td class="num" style="white-space:nowrap;">${t.fee === undefined || t.fee === null ? '&mdash;' : mercadoFmtFee(t.fee)}</td></tr>`).join('')) : `<p class="hint" style="margin:0;">Todav&iacute;a no cambi&oacute; de club.</p>`) + `</div>`;
+    html += `<div class="panel"><h3>Estad&iacute;sticas por a&ntilde;o</h3>` + (rows.length ? tbl(['A&ntilde;o', 'Equipo', 'PJ', 'Min.', 'Goles', 'Asist.', 'Am.', 'Roj.', 'Les.'], rows.map(r =>
+      `<tr><td class="num">${r.y}${r.partial ? '*' : ''}</td><td>${r.t ? escapeHtml(r.t) : '&mdash;'}</td><td class="num">${r.pj}</td><td class="num">${r.min}</td><td class="num">${r.g}</td><td class="num">${r.a}</td><td class="num">${r.ya}</td><td class="num">${r.ro}</td><td class="num">${r.les}</td></tr>`).join('')) + (anyPartial ? `<p class="hint" style="margin:8px 0 0;">* A&ntilde;os anteriores a que se guardaran las estad&iacute;sticas: solo se conocen los partidos de Primera Divisi&oacute;n.</p>` : '') : `<p class="hint" style="margin:0;">Todav&iacute;a no tiene estad&iacute;sticas registradas.</p>`) + `</div>`;
+    html += `<div class="panel"><h3>Premios</h3>` + (aw.length ? tbl(['A&ntilde;o', 'Premio'], aw.map(a => `<tr><td class="num">${a[0]}</td><td>${a[1]}</td></tr>`).join('')) : `<p class="hint" style="margin:0;">Todav&iacute;a no ganó premios individuales.</p>`) + `</div>`;
+    return html;
+  }
+  function renderCareraLesiones(){
+    const c = state.career, cache = playersCache();
+    const list = Object.keys(c.inj || {}).map(id => ({ p: cache && cache.byId[id], i: c.inj[id] })).filter(x => x.p && !x.p.r && x.i.n > 0)
+      .sort((a, b) => b.i.n - a.i.n || a.p.n.localeCompare(b.p.n));
+    const html = `<div class="panel"><h2>Lesiones</h2><p class="hint">En cada partido oficial puede lesionarse alguno de los que juegan (m&aacute;s si sale reemplazado). La duraci&oacute;n se mide en partidos del equipo: leve 1-2, moderada 3-6, grave 7-15, muy grave 16 o m&aacute;s. El lesionado no entra en la alineaci&oacute;n mientras dure la baja. Lesionados ahora: ${list.length}.</p></div>`;
+    if(!list.length) return html + `<div class="panel"><p class="hint" style="margin:0;">No hay jugadores lesionados.</p></div>`;
+    const LIMIT = 60;
+    const body = list.slice(0, LIMIT).map(x => `<tr><td>${escapeHtml(x.p.n)}</td><td>${AWARD_POS_LABEL[x.p.p] || x.p.p}</td><td>${escapeHtml(x.p.t)}</td><td>${playerInjuryLabel(x.i.t)}</td><td class="num">${x.i.n}</td><td class="num">${x.i.t}</td></tr>`).join('');
+    return html + `<div class="panel"><div class="table-scroll"><table><thead><tr><th>Jugador</th><th>Puesto</th><th>Equipo</th><th>Gravedad</th><th>Le faltan</th><th>Baja total</th></tr></thead><tbody>${body}</tbody></table></div>${list.length > LIMIT ? `<p class="hint" style="margin:8px 0 0;">Se muestran los ${LIMIT} con baja m&aacute;s larga de ${list.length}.</p>` : ''}</div>`;
+  }
+  const fairUi = { year: null };
+  function renderCareraFairPlay(){
+    const c = state.career, years = careerPlayerStatYears();
+    if(fairUi.year == null || years.indexOf(fairUi.year) < 0) fairUi.year = c.year;
+    const y = fairUi.year, data = careerFairPlay(y);
+    const rows = Object.keys(data).map(id => { const r = data[id]; return { n: r[3], y: r[0], r: r[1], pj: r[2], pts: r[0] + 3 * r[1] }; })
+      .sort((a, b) => a.pts - b.pts || a.r - b.r || b.pj - a.pj || a.n.localeCompare(b.n));
+    const sel = `<select data-fair-year style="margin-left:6px;">${years.map(v => `<option value="${v}" ${v === y ? 'selected' : ''}>${v}</option>`).join('')}</select>`;
+    let html = `<div class="panel"><h2>Fair play</h2><p class="hint">Amarilla = 1 punto, roja = 3 (la doble amarilla cuenta como roja); gana el equipo con menos puntos. Cuentan los partidos oficiales con alineación guardada. Un jugador se pierde 1 fecha por roja (a veces 2) y 1 por cada 5 amarillas en la misma competencia. Temporada: ${sel}</p></div>`;
+    if(!rows.length) return html + `<div class="panel"><p class="hint" style="margin:0;">No hay tarjetas registradas en ${y}.</p></div>`;
+    const LIMIT = 40;
+    const body = rows.slice(0, LIMIT).map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.n)}</td><td class="num">${r.pj}</td><td class="num">${r.y}</td><td class="num">${r.r}</td><td class="num"><strong>${r.pts}</strong></td></tr>`).join('');
+    return html + `<div class="panel"><div class="table-scroll"><table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>Am.</th><th>Roj.</th><th>Pts.</th></tr></thead><tbody>${body}</tbody></table></div>${rows.length > LIMIT ? `<p class="hint" style="margin:8px 0 0;">Se muestran los ${LIMIT} más limpios de ${rows.length}.</p>` : ''}</div>`;
   }
   function careerPlayerStatYears(){
     const c = state.career, ys = {};
@@ -5364,14 +5641,14 @@ window.FIREBASE_CONFIG = {
       if(!list.length) return;
       const rows = list.map(p => {
         const by = playerBirthYear(p.b);
-        let tg = 0, ta = 0;
-        years.forEach(y => { const r = byYear[y].map[p.id]; if(r){ tg += r[0]; ta += r[1]; if(byYear[y].partial && (r[0] || r[1])) anyPartial = true; } });
+        let tg = 0, ta = 0, tpj = 0;
+        years.forEach(y => { const r = byYear[y].map[p.id]; if(r){ tg += r[0]; ta += r[1]; tpj += r[3] || 0; if(byYear[y].partial && (r[0] || r[1])) anyPartial = true; } });
         const cur = byYear[c.year].map[p.id] || [0, 0];
-        return `<tr><td>${playersNameCell(p, years, byYear)}</td><td class="num">${by === null ? '&mdash;' : (c.year - by)}</td>
-          ${playersStatCell(cur[0])}${playersStatCell(cur[1])}${playersStatCell(tg)}${playersStatCell(ta)}</tr>`;
+        return `<tr><td>${playersNameCell(p, years, byYear)}${c.inj && c.inj[p.id] && c.inj[p.id].n > 0 ? ` <span title="Lesionado: le faltan ${c.inj[p.id].n} partidos" style="font-size:11.5px;color:var(--ink-dim);">&#129657; ${c.inj[p.id].n}</span>` : ''}</td><td class="num">${by === null ? '&mdash;' : (c.year - by)}</td>
+          ${playersStatCell(cur[3] || 0)}${playersStatCell(cur[4] || 0)}${playersStatCell(cur[6] || 0)}${playersStatCell(cur[7] || 0)}${playersStatCell(cur[8] || 0)}${playersStatCell(cur[0])}${playersStatCell(cur[1])}${playersStatCell(tg)}${playersStatCell(ta)}${playersStatCell(tpj)}<td><button class="btn small" data-action="career-pl-player" data-id="${escapeHtml(p.id)}">Ficha</button></td></tr>`;
       }).join('');
       html += `<div class="panel"><h3>${g.label} (${list.length})</h3>
-        <div class="table-scroll"><table><thead><tr><th>Jugador</th><th>Edad</th><th>Goles ${c.year}</th><th>Asist. ${c.year}</th><th>Goles total</th><th>Asist. total</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+        <div class="table-scroll"><table><thead><tr><th>Jugador</th><th>Edad</th><th>PJ ${c.year}</th><th>Min. ${c.year}</th><th>Am. ${c.year}</th><th>Roj. ${c.year}</th><th>Les. ${c.year}</th><th>Goles ${c.year}</th><th>Asist. ${c.year}</th><th>Goles total</th><th>Asist. total</th><th>PJ total</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
     });
     html += `<p class="hint" style="margin:4px 0 0;">Tocá el nombre de un jugador con goles o asistencias para ver el detalle a&ntilde;o por a&ntilde;o. Cuentan los partidos oficiales de todas las competiciones (sin amistosos); los goles en contra no suman.${anyPartial ? ' * A&ntilde;os anteriores a que se guardaran las estad&iacute;sticas: solo se conocen los partidos de Primera Divisi&oacute;n.' : ''}</p>`;
     return html;
@@ -5385,9 +5662,17 @@ window.FIREBASE_CONFIG = {
     const cache = playersCache();
     const groups = careerAllRosterTeams();
     const tabBtn = (tab, label) => `<button class="btn small ${playersUi.tab === tab ? 'primary' : ''}" data-action="career-pl-nav" data-tab="${tab}" data-div="" data-team="">${label}</button>`;
-    let html = `<div class="btn-row" style="margin-bottom:12px;">${tabBtn('divisiones', 'Divisiones')}${tabBtn('retiros', 'Retiros')}</div>`;
+    let html = `<div class="btn-row" style="margin-bottom:12px;">${tabBtn('divisiones', 'Divisiones')}${tabBtn('retiros', 'Retiros')}${tabBtn('fairplay', 'Fair play')}${tabBtn('lesiones', 'Lesiones')}</div>`;
     if(playersUi.tab === 'retiros') return html + renderCareraRetiros();
+    if(playersUi.tab === 'fairplay') return html + renderCareraFairPlay();
+    if(playersUi.tab === 'lesiones') return html + renderCareraLesiones();
 
+    // Ficha de un jugador
+    if(playersUi.player){
+      const pl = cache && cache.byId[playersUi.player];
+      if(pl) return html + playerCardHtml(pl);
+      playersUi.player = '';
+    }
     // Nivel 3: plantel de un equipo
     if(playersUi.team){
       const t = careerTeamById(playersUi.team);
@@ -7649,6 +7934,8 @@ window.FIREBASE_CONFIG = {
       if(c.seasonLog[r.id].length > 3) c.seasonLog[r.id].shift();
     });
     careerArchiveTournament();
+    (c.history || []).forEach(h => { if(h && h.year === c.year) [h.matches, h.knockout].forEach(l => (l || []).forEach(mm => { if(mm){ delete mm.lu; delete mm.cards; delete mm.sus; delete mm.hurt; delete mm.inj; } })); });
+    c.disc = {};
     try{ careerRunRetirements(c.year); }catch(e){}
     careerApplyPromotionsRelegations();
     c.year += 1;
