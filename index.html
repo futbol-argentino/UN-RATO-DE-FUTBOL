@@ -497,6 +497,22 @@
     .fs-overlay, .fs-overlay *{ animation-duration:.01s !important; animation-delay:0s !important; animation-iteration-count:1 !important; }
     .fs-beams{ animation:none; }
   }
+  .lu-wrap{ grid-column:1/-1; margin:10px 0 2px; padding:12px 14px; border:1px solid rgba(255,255,255,.08); border-radius:10px; background:rgba(255,255,255,.02); text-align:left; }
+  .lu-grid{ display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+  .lu-head{ display:flex; align-items:center; gap:8px; font-weight:700; font-size:13.5px; margin-bottom:6px; }
+  .lu-head small{ color:var(--ink-dim); font-weight:400; font-size:11.5px; margin-left:auto; }
+  .lu-col h5{ margin:10px 0 4px; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-dim); font-weight:600; }
+  .lu-row{ display:flex; align-items:center; gap:8px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.05); font-size:12.5px; line-height:1.35; }
+  .lu-row.lu-unused{ opacity:.55; }
+  .lu-pos{ width:32px; flex:none; text-align:center; font-size:10px; font-weight:700; letter-spacing:.03em; }
+  .lu-ARQ{ color:#e8c25a; } .lu-DEF{ color:#5aa9ff; } .lu-MED{ color:#6fd39a; } .lu-DEL{ color:#ff9f4a; }
+  .lu-name{ flex:1; min-width:0; }
+  .lu-tag{ font-size:11.5px; white-space:nowrap; color:var(--ink-dim); }
+  .lu-off{ color:#ff5d5d; font-weight:700; font-size:11.5px; white-space:nowrap; }
+  .lu-on{ color:#3ddc84; font-weight:700; font-size:11.5px; white-space:nowrap; }
+  .lu-by{ color:var(--ink-dim); font-size:11px; font-weight:400; }
+  .lu-empty{ color:var(--ink-dim); font-size:12px; margin:4px 0; }
+  @media (max-width:760px){ .lu-grid{ grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -1008,13 +1024,14 @@ window.FIREBASE_CONFIG = {
         <div class="fs-clock num">&nbsp;</div>
         <div class="fs-event">&nbsp;</div>
         <div class="fs-feed" style="font-size:13px;color:var(--ink-dim);line-height:1.7;margin:6px 0;"></div>
+        <div class="fs-lineups" hidden></div>
         <div class="fs-pens" hidden>
           <div class="fs-pen-row"><span class="fs-pen-name">${escapeHtml(home.name)}</span><span class="fs-dots" data-side="h"></span></div>
           <div class="fs-pen-row"><span class="fs-pen-name">${escapeHtml(away.name)}</span><span class="fs-dots" data-side="a"></span></div>
           <div class="fs-pen-total num">0 - 0</div>
         </div>
         <div class="fs-champ" hidden></div>
-        <div class="fs-actions"><button class="btn ghost small fs-skip" type="button">Saltar animación</button></div>
+        <div class="fs-actions"><button class="btn ghost small fs-lu" type="button">&#128203; Alineaciones</button> <button class="btn ghost small fs-skip" type="button">Saltar animación</button></div>
       </div>`;
     document.body.appendChild(root);
     const q = sel => root.querySelector(sel);
@@ -1039,6 +1056,10 @@ window.FIREBASE_CONFIG = {
     }
     document.addEventListener('keydown', onKey, true);
     q('.fs-skip').addEventListener('click', () => { skipped = true; if(wakeFn) wakeFn(); });
+    let curMin = 0;
+    const luBox = q('.fs-lineups'), luBtn = q('.fs-lu');
+    const refreshLu = () => { if(!luBox.hidden) luBox.innerHTML = careerLineupPanelHtml(m, curMin); };
+    if(luBtn) luBtn.addEventListener('click', () => { luBox.hidden = !luBox.hidden; refreshLu(); });
 
     function setScore(h, a, bump){
       const sh = q('.fs-sh'), sa = q('.fs-sa');
@@ -1088,6 +1109,7 @@ window.FIREBASE_CONFIG = {
       setScore(m.homeScore, m.awayScore);
       if(shoot) renderPens(shoot.kicks.length);
       q('.fs-feed').hidden = true;
+      luBox.hidden = true;
       const penTxt = shoot ? ' · penales ' + m.penScore[0] + '-' + m.penScore[1] : '';
       let mine = '';
       if(isMine){
@@ -1133,8 +1155,14 @@ window.FIREBASE_CONFIG = {
         await wait(1100);
         const goals = careerGenGoals(m);
         let gi = 0, sh = 0, sa = 0;
+        const pc = playersCache(), evs = [];
+        (m.cards || []).forEach(x => { if(x.t !== 'y') evs.push({ min: Math.max(1, Math.min(90, x.m)), side: x.s, id: x.p, k: x.t }); });
+        (m.hurt || []).forEach(x => evs.push({ min: Math.max(1, Math.min(90, x.m)), side: x.s, id: x.p, k: 'hurt', n: x.n }));
+        evs.sort((x, y) => x.min - y.min);
+        let ei = 0;
         for(let min = 1; min <= 90; min++){
           q('.fs-clock').textContent = min + "'";
+          curMin = min; refreshLu();
           while(gi < goals.length && goals[gi].min === min){
             const g = goals[gi++];
             if(g.side === 'h') sh++; else sa++;
@@ -1143,6 +1171,16 @@ window.FIREBASE_CONFIG = {
             setEvent(g.name && g.type === 'ec' ? '¡Gol en contra de ' + g.name + '! Suma ' + tm.name : '¡GOOOL de ' + careerGoalDesc(g, tm) + '!', true);
             addFeed(g);
             await wait(1700);
+            setEvent('');
+          }
+          while(ei < evs.length && evs[ei].min <= min){
+            const e = evs[ei++], tm = e.side === 'h' ? home : away, pl = pc && pc.byId[e.id], nm = pl ? pl.n : 'un jugador';
+            const txt = e.k === 'hurt' ? '🩹 Se lesiona ' + nm + ' (' + tm.name + ')' + (e.n >= 7 ? ' · lesión seria' : '')
+              : e.k === 'yr' ? '🟥 Doble amarilla: expulsado ' + nm + ' (' + tm.name + ')' : '🟥 ¡Expulsado ' + nm + ' (' + tm.name + ')!';
+            setEvent(txt);
+            const fl = document.createElement('div'); fl.textContent = e.min + "' " + txt; q('.fs-feed').appendChild(fl);
+            refreshLu();
+            await wait(1500);
             setEvent('');
           }
           if(min === 1) setEvent('');
@@ -3055,6 +3093,7 @@ window.FIREBASE_CONFIG = {
       render();
       return;
     }
+    else if(action === 'career-lineup-toggle'){ const lid = btn.getAttribute('data-id'); lineupUi.open[lid] = !lineupUi.open[lid]; render(); return; }
     else if(action === 'career-pl-player'){ playersUi.player = btn.getAttribute('data-id') || ''; render(); return; }
     else if(action === 'career-pl-nav'){
       if(btn.hasAttribute('data-tab')){ const tb = btn.getAttribute('data-tab'); if(tb) playersUi.tab = tb; }
@@ -4863,31 +4902,73 @@ window.FIREBASE_CONFIG = {
   // m.lu = {h:[[id, minuto de entrada, minuto de salida], ...], a:[...]}: titulares entran en 0 y los que no
   // salen terminan en 90. Solo se anotan los que jugaron. Los titulares salen de un puntaje fijo por jugador + algo de rotación.
   const LINEUP_SLOTS = { ARQ:1, DEF:4, MED:3, DEL:3 };
-  function playerBuildLineup(squad){
-    if(!squad || squad.length < 2) return null;
-    const sc = {};
-    squad.forEach(p => { sc[p.id] = awardHash(p.id + 't') + Math.random() * 0.35; });
-    const byScore = (x, y) => sc[y.id] - sc[x.id];
-    const starters = [], used = {}, off = {};
-    Object.keys(LINEUP_SLOTS).forEach(pos => {
-      squad.filter(p => p.p === pos).sort(byScore).slice(0, LINEUP_SLOTS[pos]).forEach(p => { starters.push(p); used[p.id] = true; });
+  // Antes de jugar: cada partido puede armar su alineación (m.pre) para verla desde el Calendario o el minuto a minuto.
+  // m.pre = {sig, h:{st:[11 ids], bn:[hasta 7 ids]}, a:{...}, sus:{h,a}, inj:{h,a}}. Es estable mientras no cambien las bajas
+  // (suspendidos/lesionados) de los dos equipos; si cambian, se rearma. Al jugarse se descuentan las bajas recién ahí.
+  const LINEUP_BENCH = 7;
+  function playerAbsences(squad, m){
+    const c = state.career, sus = [], inj = [];
+    if(!squad || m.comp === 'amistoso') return { sus, inj };
+    const bk = careerDiscBucket(m);
+    squad.forEach(p => {
+      if(c.inj && c.inj[p.id] && c.inj[p.id].n > 0) inj.push(p.id);
+      else if(bk[p.id] && bk[p.id].ban > 0) sus.push(p.id);
     });
-    if(starters.length < 11) squad.filter(p => !used[p.id] && p.p !== 'ARQ').sort(byScore).slice(0, 11 - starters.length).forEach(p => { starters.push(p); used[p.id] = true; });
-    const bench = squad.filter(p => !used[p.id]).sort(byScore);
-    const rows = starters.map(p => [p.id, 0, 90]);
-    const outfield = starters.filter(p => p.p !== 'ARQ');
-    const nSubs = Math.min(2 + Math.floor(Math.random() * 4), bench.filter(p => p.p !== 'ARQ').length, outfield.length);
-    const mins = [];
+    if(squad.length - sus.length - inj.length < CARD_MIN_SQUAD) return { sus: [], inj: [] };
+    return { sus, inj };
+  }
+  function playerPickMatchSquad(squad, absent){
+    const av = squad.filter(p => absent.indexOf(p.id) < 0), sc = {}, used = {}, st = [];
+    av.forEach(p => { sc[p.id] = awardHash(p.id + 't') + Math.random() * 0.35; });
+    const byScore = (x, y) => sc[y.id] - sc[x.id];
+    Object.keys(LINEUP_SLOTS).forEach(pos => {
+      av.filter(p => p.p === pos).sort(byScore).slice(0, LINEUP_SLOTS[pos]).forEach(p => { st.push(p); used[p.id] = true; });
+    });
+    if(st.length < 11) av.filter(p => !used[p.id] && p.p !== 'ARQ').sort(byScore).slice(0, 11 - st.length).forEach(p => { st.push(p); used[p.id] = true; });
+    const rest = av.filter(p => !used[p.id]).sort(byScore), gk = rest.find(p => p.p === 'ARQ');
+    const bn = (gk ? [gk] : []).concat(rest.filter(p => p !== gk)).slice(0, LINEUP_BENCH);
+    return { st: st.map(p => p.id), bn: bn.map(p => p.id) };
+  }
+  function careerPrepareMatch(m){
+    if(!m || m.bye) return null;
+    careerEnsurePlayers();
+    const cache = playersCache();
+    if(!cache) return null;
+    const home = careerTeamById(m.home), away = careerTeamById(m.away);
+    if(!home || !away) return null;
+    const sq = { h: cache.byTeam[playerNormKey(home.name)], a: cache.byTeam[playerNormKey(away.name)] };
+    const ab = { h: playerAbsences(sq.h, m), a: playerAbsences(sq.a, m) };
+    const sig = ['h', 'a'].map(sd => ab[sd].sus.join(',') + ';' + ab[sd].inj.join(',')).join('|');
+    if(m.pre && m.pre.sig === sig) return m.pre;
+    const pre = { sig, sus: {}, inj: {} };
+    ['h', 'a'].forEach(sd => {
+      if(!sq[sd] || sq[sd].length < 2) return;
+      pre[sd] = playerPickMatchSquad(sq[sd], ab[sd].sus.concat(ab[sd].inj));
+      if(ab[sd].sus.length) pre.sus[sd] = ab[sd].sus;
+      if(ab[sd].inj.length) pre.inj[sd] = ab[sd].inj;
+    });
+    if(!pre.h && !pre.a) return null;
+    m.pre = pre;
+    return pre;
+  }
+  // Cambios: de 2 a 5, del banco, en el mismo puesto cuando se puede. Filas: [id, entra, sale] y, en los suplentes que entran, un 4º dato: a quién reemplazan.
+  function playerBuildLineup(ps, byId){
+    if(!ps) return null;
+    const rows = ps.st.map(id => [id, 0, 90]);
+    const outfield = ps.st.filter(id => byId[id] && byId[id].p !== 'ARQ');
+    const bench = ps.bn.filter(id => byId[id]), benchOut = bench.filter(id => byId[id].p !== 'ARQ');
+    const nSubs = Math.min(2 + Math.floor(Math.random() * 4), benchOut.length, outfield.length);
+    const mins = [], off = {}, used = {};
     while(mins.length < nSubs){ const t = 46 + Math.floor(Math.random() * 40); if(mins.indexOf(t) < 0) mins.push(t); }
     mins.sort((x, y) => x - y).forEach(t => {
-      const cand = outfield.filter(p => !off[p.id]);
+      const cand = outfield.filter(id => !off[id]);
       if(!cand.length) return;
       const out = cand[Math.floor(Math.random() * cand.length)];
-      const inn = bench.find(p => !used[p.id] && p.p === out.p) || bench.find(p => !used[p.id] && p.p !== 'ARQ');
+      const inn = bench.find(id => !used[id] && byId[id].p === byId[out].p) || benchOut.find(id => !used[id]);
       if(!inn) return;
-      used[inn.id] = true; off[out.id] = true;
-      rows.find(r => r[0] === out.id)[2] = t;
-      rows.push([inn.id, t, 90]);
+      used[inn] = true; off[out] = true;
+      rows.find(r => r[0] === out)[2] = t;
+      rows.push([inn, t, 90, out]);
     });
     return rows;
   }
@@ -4906,14 +4987,6 @@ window.FIREBASE_CONFIG = {
     const c = state.career, k = m.comp || c.tournament || 'liga';
     if(!c.disc) c.disc = {};
     return c.disc[k] || (c.disc[k] = {});
-  }
-  function playerServeBans(squad, bucket, sus, side){
-    if(!squad) return squad;
-    const ban = squad.filter(p => bucket[p.id] && bucket[p.id].ban > 0);
-    if(!ban.length || squad.length - ban.length < CARD_MIN_SQUAD) return squad;
-    ban.forEach(p => { bucket[p.id].ban--; });
-    sus[side] = ban.map(p => p.id);
-    return squad.filter(p => ban.indexOf(p) < 0);
   }
   function playerRollCards(lu, byId, bucket, side){
     const out = [];
@@ -4957,15 +5030,6 @@ window.FIREBASE_CONFIG = {
     return 16 + Math.floor(Math.random() * 20);
   }
   function playerInjuryLabel(t){ return t <= 2 ? 'Leve' : t <= 6 ? 'Moderada' : t <= 15 ? 'Grave' : 'Muy grave'; }
-  function playerServeInjuries(squad, abs, side){
-    const c = state.career;
-    if(!squad || !c.inj) return squad;
-    const out = squad.filter(p => c.inj[p.id] && c.inj[p.id].n > 0);
-    if(!out.length || squad.length - out.length < CARD_MIN_SQUAD) return squad;
-    out.forEach(p => { const i = c.inj[p.id]; i.n--; if(i.n <= 0) delete c.inj[p.id]; });
-    abs[side] = out.map(p => p.id);
-    return squad.filter(p => out.indexOf(p) < 0);
-  }
   function playerRollInjuries(lu, byId, side, reds){
     const c = state.career, out = [];
     if(!c.inj) c.inj = {};
@@ -4992,19 +5056,28 @@ window.FIREBASE_CONFIG = {
     const home = careerTeamById(m.home), away = careerTeamById(m.away);
     if(!home || !away) return;
     const sqH = cache.byTeam[playerNormKey(home.name)], sqA = cache.byTeam[playerNormKey(away.name)];
-    const bk = m.comp === 'amistoso' ? null : careerDiscBucket(m), sus = {}, abs = {};
-    const avH = bk ? playerServeInjuries(playerServeBans(sqH, bk, sus, 'h'), abs, 'h') : sqH, avA = bk ? playerServeInjuries(playerServeBans(sqA, bk, sus, 'a'), abs, 'a') : sqA;
-    const luH = playerBuildLineup(avH), luA = playerBuildLineup(avA);
+    const pre = careerPrepareMatch(m);
+    if(!pre) return;
+    const bk = m.comp === 'amistoso' ? null : careerDiscBucket(m);
+    const absent = sd => (pre.sus[sd] || []).concat(pre.inj[sd] || []);
+    const avH = sqH && sqH.filter(p => absent('h').indexOf(p.id) < 0), avA = sqA && sqA.filter(p => absent('a').indexOf(p.id) < 0);
+    const luH = playerBuildLineup(pre.h, cache.byId), luA = playerBuildLineup(pre.a, cache.byId);
     if(luH || luA){ m.lu = {}; if(luH) m.lu.h = luH; if(luA) m.lu.a = luA; }
     if(bk){
+      const c = state.career;
+      ['h', 'a'].forEach(sd => {
+        (pre.sus[sd] || []).forEach(id => { if(bk[id] && bk[id].ban > 0) bk[id].ban--; });
+        (pre.inj[sd] || []).forEach(id => { const i = c.inj && c.inj[id]; if(i){ i.n--; if(i.n <= 0) delete c.inj[id]; } });
+      });
+      if(pre.sus.h || pre.sus.a) m.sus = pre.sus;
+      if(pre.inj.h || pre.inj.a) m.inj = pre.inj;
       const cards = [].concat(luH ? playerRollCards(luH, cache.byId, bk, 'h') : [], luA ? playerRollCards(luA, cache.byId, bk, 'a') : []).sort((x, y) => x.m - y.m);
       if(cards.length) m.cards = cards;
-      if(sus.h || sus.a) m.sus = sus;
       const reds = {}; cards.forEach(cd => { if(cd.t !== 'y') reds[cd.p] = true; });
       const hurt = [].concat(luH ? playerRollInjuries(luH, cache.byId, 'h', reds) : [], luA ? playerRollInjuries(luA, cache.byId, 'a', reds) : []).sort((x, y) => x.m - y.m);
       if(hurt.length) m.hurt = hurt;
-      if(abs.h || abs.a) m.inj = abs;
     }
+    pre.sus = {}; pre.inj = {};
     const goals = [];
     [['h', m.homeScore, avH, avA, luH, luA], ['a', m.awayScore, avA, avH, luA, luH]].forEach(([side, n, squad, oppSquad, luOwn, luOpp]) => {
       if(!squad || !squad.length) return;
@@ -5060,31 +5133,60 @@ window.FIREBASE_CONFIG = {
       return escapeHtml(p ? p.n : '?') + ' ' + evs[id].map(g => g.m + "'" + careerGoalNote(g, cache)).join(', ');
     }).join(' &middot; ');
   }
-  function careerLineupSide(m, side){
-    const cache = playersCache(), lu = m.lu && m.lu[side];
-    if(!cache || !lu) return '';
-    const nm = r => { const p = cache.byId[r[0]]; return escapeHtml(p ? p.n : '?'); };
-    const st = lu.filter(r => r[1] === 0).map(r => nm(r) + (r[2] < 90 ? ` (sale ${r[2]}')` : '')).join(', ');
-    const su = lu.filter(r => r[1] > 0).map(r => nm(r) + ` ${r[1]}'`).join(', ');
-    const cs = (m.cards || []).filter(x => x.s === side).map(x => (x.t === 'y' ? '🟨' : '🟥') + ' ' + nm([x.p]) + ` ${x.m}'` + (x.t === 'yr' ? ' (2ª amarilla)' : '')).join(' · ');
-    const hu = (m.hurt || []).filter(x => x.s === side).map(x => '🩹 ' + nm([x.p]) + ` ${x.m}' (${x.n} ${x.n === 1 ? 'partido' : 'partidos'})`).join(' · ');
-    const ab = (m.inj && m.inj[side]) ? m.inj[side].map(id => nm([id])).join(', ') : '';
-    const sp = (m.sus && m.sus[side]) ? m.sus[side].map(id => nm([id])).join(', ') : '';
-    return `<div><strong>Titulares:</strong> ${st}</div>` + (su ? `<div><strong>Ingresaron:</strong> ${su}</div>` : '')
-      + (cs ? `<div><strong>Tarjetas:</strong> ${cs}</div>` : '') + (sp ? `<div><strong>Suspendidos:</strong> ${sp}</div>` : '')
-      + (hu ? `<div><strong>Lesiones:</strong> ${hu}</div>` : '') + (ab ? `<div><strong>Lesionados (baja):</strong> ${ab}</div>` : '');
+  // Panel de alineaciones: dos columnas (local / visitante) con titulares por puesto, suplentes, bajas, y los cambios con
+  // flecha roja (sale) y verde (entra). `upto` = minuto hasta el que se muestran los hechos (minuto a minuto); sin él, todo el partido.
+  const lineupUi = { open: {} };
+  function careerHasSquads(m){
+    const c = state.career, cache = c && c.players ? playersCache() : null;
+    if(!cache || m.bye) return false;
+    const h = careerTeamById(m.home), a = careerTeamById(m.away);
+    return !!(h && a && ((cache.byTeam[playerNormKey(h.name)] || []).length > 1 || (cache.byTeam[playerNormKey(a.name)] || []).length > 1));
+  }
+  function careerLineupPanelHtml(m, upto){
+    const cache = playersCache();
+    if(!cache) return '';
+    const home = careerTeamById(m.home), away = careerTeamById(m.away);
+    if(!home || !away) return '';
+    if(m.played && !m.lu && !m.pre) return `<div class="lu-wrap"><p class="lu-empty" style="margin:0;">Este partido se jugó antes de que se guardaran las alineaciones.</p></div>`;
+    const pre = m.pre || careerPrepareMatch(m), done = upto === undefined ? 90 : upto;
+    if(!pre) return '';
+    const col = (side, team) => {
+      const head = `<div class="lu-head">${teamBadgeHtml(team, 22)}<span>${escapeHtml(team.name)}</span><small>4-3-3</small></div>`;
+      const ps = pre[side];
+      if(!ps) return `<div class="lu-col">${head}<p class="lu-empty">Sin plantel cargado.</p></div>`;
+      const lu = (m.lu && m.lu[side]) || [], byRow = {}, subOf = {};
+      lu.forEach(r => { byRow[r[0]] = r; if(r[3]) subOf[r[3]] = r; });
+      const cards = (m.cards || []).filter(x => x.s === side && x.m <= done), hurt = (m.hurt || []).filter(x => x.s === side && x.m <= done);
+      const tags = id => cards.filter(x => x.p === id).map(x => `<span class="lu-tag">${x.t === 'y' ? '🟨' : '🟥'} ${x.m}'</span>`).join('')
+        + hurt.filter(x => x.p === id).map(x => `<span class="lu-tag">🩹 ${x.m}'</span>`).join('');
+      const row = (id, extra, cls) => {
+        const p = cache.byId[id];
+        return p ? `<div class="lu-row ${cls || ''}"><span class="lu-pos lu-${p.p}">${p.p}</span><span class="lu-name">${escapeHtml(p.n)}${extra && extra.by ? ` <span class="lu-by">por ${escapeHtml(extra.by)}</span>` : ''}</span>${tags(id)}${extra ? extra.html : ''}</div>` : '';
+      };
+      const starters = ps.st.map(id => {
+        const sb = subOf[id];
+        return row(id, sb && sb[1] <= done ? { html: `<span class="lu-off">&#9660; ${sb[1]}'</span>` } : null);
+      }).join('');
+      const bench = ps.bn.map(id => {
+        const r = byRow[id];
+        if(r && r[1] <= done){ const o = cache.byId[r[3]]; return row(id, { html: `<span class="lu-on">&#9650; ${r[1]}'</span>`, by: o ? o.n : '' }); }
+        return row(id, null, 'lu-unused');
+      }).join('');
+      const susIds = (m.sus && m.sus[side]) || (pre.sus && pre.sus[side]) || [], injIds = (m.inj && m.inj[side]) || (pre.inj && pre.inj[side]) || [];
+      const out = susIds.map(id => row(id, { html: '<span class="lu-tag">🟥 suspendido</span>' })).join('') + injIds.map(id => row(id, { html: '<span class="lu-tag">🩹 lesionado</span>' })).join('');
+      return `<div class="lu-col">${head}<h5>Titulares</h5>${starters}<h5>Suplentes</h5>${bench || '<p class="lu-empty">Sin suplentes.</p>'}${out ? `<h5>Bajas</h5>${out}` : ''}</div>`;
+    };
+    return `<div class="lu-wrap"><div class="lu-grid">${col('h', home)}${col('a', away)}</div></div>`;
   }
   function careerScorersHtml(m){
-    if(!m.played) return '';
     let out = '';
-    if(m.goals && m.goals.length){
+    if(m.played && m.goals && m.goals.length){
       const h = careerScorersSide(m, 'h'), a = careerScorersSide(m, 'a');
       out += `<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:24px;font-size:11.5px;color:var(--ink-dim);line-height:1.5;">
       <div style="text-align:right;">${h ? '&#9917; ' + h : ''}</div><div style="text-align:left;">${a ? '&#9917; ' + a : ''}</div>
     </div>`;
     }
-    const lh = careerLineupSide(m, 'h'), la = careerLineupSide(m, 'a');
-    if(lh || la) out += `<details style="grid-column:1/-1;font-size:11.5px;color:var(--ink-dim);line-height:1.5;"><summary style="cursor:pointer;">Alineaciones</summary><div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:6px;"><div>${lh}</div><div>${la}</div></div></details>`;
+    if(lineupUi.open[m.id]) out += careerLineupPanelHtml(m);
     return out;
   }
 
@@ -7934,7 +8036,7 @@ window.FIREBASE_CONFIG = {
       if(c.seasonLog[r.id].length > 3) c.seasonLog[r.id].shift();
     });
     careerArchiveTournament();
-    (c.history || []).forEach(h => { if(h && h.year === c.year) [h.matches, h.knockout].forEach(l => (l || []).forEach(mm => { if(mm){ delete mm.lu; delete mm.cards; delete mm.sus; delete mm.hurt; delete mm.inj; } })); });
+    (c.history || []).forEach(h => { if(h && h.year === c.year) [h.matches, h.knockout].forEach(l => (l || []).forEach(mm => { if(mm){ delete mm.lu; delete mm.cards; delete mm.sus; delete mm.hurt; delete mm.inj; delete mm.pre; } })); });
     c.disc = {};
     try{ careerRunRetirements(c.year); }catch(e){}
     careerApplyPromotionsRelegations();
@@ -8121,6 +8223,7 @@ window.FIREBASE_CONFIG = {
       ${careerScorersHtml(m)}
       ${opts.serieGlobal ? careerSerieGlobalHtml(m) : ''}
       <div class="match-actions" style="grid-column:1/-1;justify-content:flex-end;">
+        ${careerHasSquads(m) ? `<button class="btn small" data-action="career-lineup-toggle" data-id="${m.id}">&#128203; Alineaciones ${lineupUi.open[m.id] ? '&#9652;' : '&#9662;'}</button>` : ''}
         ${!m.played ? `<button class="btn small" data-action="career-simulate-match" data-id="${m.id}">Simular</button>
         <button class="btn small" data-action="career-watch-match" data-id="${m.id}">&#9917; Minuto a minuto</button>
         <button class="btn small primary" data-action="career-confirm-match" data-id="${m.id}">Confirmar resultado</button>` : ''}
