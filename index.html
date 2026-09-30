@@ -5295,6 +5295,55 @@ window.FIREBASE_CONFIG = {
     { code: 'ARQ', label: 'Arqueros' }, { code: 'DEF', label: 'Defensores' },
     { code: 'MED', label: 'Mediocampistas' }, { code: 'DEL', label: 'Delanteros' }
   ];
+  // ---------- Estadísticas de goles y asistencias por jugador y por año ----------
+  // El año en curso se calcula en vivo con los partidos oficiales (sin amistosos). Al cerrar cada temporada se
+  // congela en c.playerStats[año] = { idJugador: [goles, asistencias, equipo] }, porque los partidos de las
+  // categorías de ascenso y las copas no se archivan. Los goles en contra no cuentan como gol del jugador.
+  function careerPlayerYearStats(year){
+    const c = state.career;
+    if(c.playerStats && c.playerStats[year]) return { map: c.playerStats[year], partial: false };
+    const cache = playersCache();
+    if(!cache) return { map: {}, partial: false };
+    const live = year === c.year, map = {};
+    const row = (id, p) => map[id] || (map[id] = [0, 0, live ? p.t : null]);
+    careerAwardsMatches(year).forEach(m => (m.goals || []).forEach(g => {
+      if(g.t !== 'ec'){ const p = cache.byId[g.p]; if(p) row(g.p, p)[0]++; }
+      if(g.a){ const p = cache.byId[g.a]; if(p) row(g.a, p)[1]++; }
+    }));
+    // Un año anterior sin registro congelado solo tiene los partidos de Primera que quedaron archivados.
+    return { map, partial: !live };
+  }
+  function careerPlayerStatsSnapshot(year){
+    const c = state.career;
+    if(!c) return;
+    const r = careerPlayerYearStats(year);
+    if(r.partial) return;
+    if(!c.playerStats) c.playerStats = {};
+    c.playerStats[year] = r.map;
+  }
+  function careerPlayerStatYears(){
+    const c = state.career, ys = {};
+    ys[c.year] = true;
+    Object.keys(c.playerStats || {}).forEach(y => { ys[y] = true; });
+    (c.history || []).forEach(h => { if(h && h.year) ys[h.year] = true; });
+    return Object.keys(ys).map(Number).sort((a, b) => b - a);
+  }
+  function playersStatCell(v){
+    return `<td class="num"${v ? '' : ' style="color:var(--ink-dim);"'}>${v}</td>`;
+  }
+  // Nombre del jugador; si tiene goles o asistencias en algún año, se despliega el detalle año por año.
+  function playersNameCell(p, years, byYear){
+    const rows = [];
+    years.forEach(y => {
+      const r = byYear[y].map[p.id];
+      if(r && (r[0] || r[1])) rows.push({ y, g: r[0], a: r[1], t: r[2], partial: byYear[y].partial });
+    });
+    if(!rows.length) return escapeHtml(p.n);
+    const body = rows.map(r => `<tr><td class="num">${r.y}${r.partial ? '*' : ''}</td><td>${r.t ? escapeHtml(r.t) : '&mdash;'}</td>
+      <td class="num">${r.g}</td><td class="num">${r.a}</td></tr>`).join('');
+    return `<details><summary style="cursor:pointer;">${escapeHtml(p.n)}</summary>
+      <div style="margin:6px 0 4px;"><table style="width:auto;min-width:280px;font-size:12.5px;"><thead><tr><th>A&ntilde;o</th><th>Equipo</th><th>Goles</th><th>Asist.</th></tr></thead><tbody>${body}</tbody></table></div></details>`;
+  }
   function playersSquadHtml(team){
     const c = state.career;
     const cache = playersCache();
@@ -5307,16 +5356,24 @@ window.FIREBASE_CONFIG = {
     if(!squad.length){
       return html + `<div class="cs-empty-hint">Este equipo no tiene jugadores cargados.</div>`;
     }
+    const years = careerPlayerStatYears(), byYear = {};
+    let anyPartial = false;
+    years.forEach(y => { byYear[y] = careerPlayerYearStats(y); });
     PLAYER_POS_GROUPS.forEach(g => {
       const list = squad.filter(p => p.p === g.code).sort((a, b) => a.n.localeCompare(b.n));
       if(!list.length) return;
       const rows = list.map(p => {
         const by = playerBirthYear(p.b);
-        return `<tr><td>${escapeHtml(p.n)}</td><td class="num">${by === null ? '&mdash;' : (c.year - by)}</td></tr>`;
+        let tg = 0, ta = 0;
+        years.forEach(y => { const r = byYear[y].map[p.id]; if(r){ tg += r[0]; ta += r[1]; if(byYear[y].partial && (r[0] || r[1])) anyPartial = true; } });
+        const cur = byYear[c.year].map[p.id] || [0, 0];
+        return `<tr><td>${playersNameCell(p, years, byYear)}</td><td class="num">${by === null ? '&mdash;' : (c.year - by)}</td>
+          ${playersStatCell(cur[0])}${playersStatCell(cur[1])}${playersStatCell(tg)}${playersStatCell(ta)}</tr>`;
       }).join('');
       html += `<div class="panel"><h3>${g.label} (${list.length})</h3>
-        <div class="table-scroll"><table><thead><tr><th>Jugador</th><th>Edad</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+        <div class="table-scroll"><table><thead><tr><th>Jugador</th><th>Edad</th><th>Goles ${c.year}</th><th>Asist. ${c.year}</th><th>Goles total</th><th>Asist. total</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
     });
+    html += `<p class="hint" style="margin:4px 0 0;">Tocá el nombre de un jugador con goles o asistencias para ver el detalle a&ntilde;o por a&ntilde;o. Cuentan los partidos oficiales de todas las competiciones (sin amistosos); los goles en contra no suman.${anyPartial ? ' * A&ntilde;os anteriores a que se guardaran las estad&iacute;sticas: solo se conocen los partidos de Primera Divisi&oacute;n.' : ''}</p>`;
     return html;
   }
   function renderCareraJugadores(){
@@ -7582,6 +7639,7 @@ window.FIREBASE_CONFIG = {
   function careerStartNextApertura(){
     const c = state.career;
     try{ careerAwardsSnapshot(c.year); }catch(e){}
+    try{ careerPlayerStatsSnapshot(c.year); }catch(e){}
     careerContPrepareNextEdition();
     const annual = careerAnnualTable();
     if(!c.seasonLog) c.seasonLog = {};
