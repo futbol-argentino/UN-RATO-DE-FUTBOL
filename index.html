@@ -719,32 +719,37 @@ window.FIREBASE_CONFIG = {
   function careerAllUnplayedDatedMatches(){
     return careerAllDatedMatches().filter(m => !m.played);
   }
+  // Número de fecha de los partidos de fase regular (los de llave/final no tienen: ya dicen la instancia).
+  function careerFechaSuffix(m){
+    if(!m || typeof m.round !== 'number' || m.round < 1) return '';
+    return ' · Fecha ' + m.round + (m.interzonal ? ' (interzonal)' : '');
+  }
   function careerCompLabel(m){
     const stageLabels = { octavos:'Octavos de Final', cuartos:'Cuartos de Final', semis:'Semifinales', final:'Final' };
     if(m.comp === 'apertura' || m.comp === 'clausura'){
       const base = m.comp === 'apertura' ? 'Copa de la Liga — Apertura' : 'Copa de la Liga — Clausura';
       if(m.stage) return base + ' · ' + (stageLabels[m.stage] || m.stage);
-      return base + (m.interzonal ? ' · Fecha interzonal' : '');
+      return base + careerFechaSuffix(m);
     }
     if(m.comp === 'nacional'){
       if(m.stage) return 'Primera Nacional · ' + (NAC_STAGE_LABELS[m.stage] || m.stage);
-      return 'Primera Nacional' + (m.interzonal ? ' · Fecha interzonal' : '');
+      return 'Primera Nacional' + careerFechaSuffix(m);
     }
     if(m.comp === 'bmetro'){
       if(m.stage) return 'Primera B Metropolitana · ' + (BMETRO_STAGE_LABELS[m.stage] || m.stage);
-      return 'Primera B Metropolitana';
+      return 'Primera B Metropolitana' + careerFechaSuffix(m);
     }
     if(m.comp === 'federal'){
-      if(m.stage) return 'Torneo Federal A · ' + (FEDERAL_STAGE_LABELS[m.stage] || m.stage);
-      return 'Torneo Federal A · Fase regular';
+      if(m.stage) return 'Torneo Federal A · ' + (FEDERAL_STAGE_LABELS[m.stage] || m.stage) + (m.group !== undefined && m.group !== null ? careerFechaSuffix(m) : '');
+      return 'Torneo Federal A · Fase regular' + careerFechaSuffix(m);
     }
     if(m.comp === 'primerac'){
       if(m.stage) return 'Primera C Metropolitana · ' + (PC_STAGE_LABELS[m.stage] || m.stage);
-      return 'Primera C Metropolitana' + (m.interzonal ? ' · Fecha interzonal' : '');
+      return 'Primera C Metropolitana' + careerFechaSuffix(m);
     }
     if(m.comp === 'promocional'){
       if(m.stage) return 'Promocional Amateur · ' + (PROMO_STAGE_LABELS[m.stage] || m.stage);
-      return 'Promocional Amateur · ' + (m.phase === 'clausura' ? 'Clausura' : 'Apertura');
+      return 'Promocional Amateur · ' + (m.phase === 'clausura' ? 'Clausura' : 'Apertura') + careerFechaSuffix(m);
     }
     if(m.comp === 'copa-argentina') return 'Copa Argentina' + (m.stage ? ' · ' + (COPA_ARG_LABELS[m.stage] || m.stage) : '');
     if(m.comp === 'libertadores' || m.comp === 'sudamericana'){
@@ -3024,6 +3029,11 @@ window.FIREBASE_CONFIG = {
       render();
       return;
     }
+    else if(action === 'career-awards-year'){
+      awardsUi.year = parseInt(btn.getAttribute('data-year'), 10);
+      render();
+      return;
+    }
     else if(action === 'career-set-view'){
       const view = btn.getAttribute('data-view');
       state.career.view = view;
@@ -4926,6 +4936,202 @@ window.FIREBASE_CONFIG = {
     return '';
   }
 
+  // ---------- Premios de fin de año (Balón de Oro sudamericano) ----------
+  // Usa lo que ya se guarda: los goleadores de cada partido (m.goals) y los planteles (c.players).
+  // Se calcula en vivo durante la temporada (parcial) y se congela al pasar al Apertura del año siguiente
+  // en c.awards[año]. No cuentan los amistosos de pretemporada ni las ligas del mundo (no tienen goleadores).
+  const AWARD_COMP_WEIGHT = {
+    apertura:1, clausura:1, 'copa-argentina':0.9, libertadores:1.6, sudamericana:1.25, recopa:0.6,
+    'trofeo-campeones':0.8, 'supercopa-argentina':0.8, 'supercopa-internacional':0.8,
+    nacional:0.5, bmetro:0.3, federal:0.3, primerac:0.2, promocional:0.2
+  };
+  const AWARD_TITLE_PTS = {
+    apertura:5, clausura:5, libertadores:9, sudamericana:5, 'copa-argentina':3.5, recopa:1.5,
+    'trofeo-campeones':1.5, 'supercopa-argentina':1, 'supercopa-internacional':1.5,
+    nacional:1.5, bmetro:1, federal:1, primerac:0.7, 'promocional-apertura':0.5, 'promocional-clausura':0.5
+  };
+  const AWARD_GOAL_POS = { DEL:1, MED:1.35, DEF:2, ARQ:3 };     // un gol de un defensor vale más que el de un 9
+  const AWARD_CS_POS   = { ARQ:0.55, DEF:0.4, MED:0.12, DEL:0 }; // por cada valla invicta del equipo (ponderada por torneo)
+  const AWARD_GF_POS   = { MED:0.05, DEF:0.02, DEL:0, ARQ:0 };   // por cada gol del equipo (ponderado)
+  const AWARD_TITLE_SHARE = 0.6;                                 // fracción de los puntos de títulos que se lleva cada titular
+  const AWARD_SLOTS = { ARQ:1, DEF:4, MED:3, DEL:3 };            // equipo ideal 4-3-3
+  const AWARD_POS_LABEL = { ARQ:'Arquero', DEF:'Defensor', MED:'Mediocampista', DEL:'Delantero' };
+  const awardsUi = { year:null };
+
+  function awardHash(s){
+    let h = 2166136261; s = String(s);
+    for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0) / 4294967296;
+  }
+  function careerAwardsMatches(year){
+    const c = state.career, out = [];
+    const add = list => (list || []).forEach(m => {
+      if(m && !m.bye && m.played && m.comp !== 'amistoso' && typeof m.homeScore === 'number' && typeof m.awayScore === 'number') out.push(m);
+    });
+    (c.history || []).forEach(h => { if(h.year === year){ add(h.matches); add(h.knockout); } });
+    if(year === c.year){
+      add(c.matches); add(c.knockout);
+      add((c.cupMatches || []).filter(m => m.year === year));
+      add(c.copaArgentina && c.copaArgentina.matches);
+      ['nacional','bmetro','federal','primerac','promocional'].forEach(k => add(c[k] && c[k].matches));
+      ['libertadores','sudamericana','recopa'].forEach(k => {
+        const b = c[k];
+        if(b && b.matches && (b.edition == null || b.edition === year)) add(b.matches);
+      });
+    }
+    return out;
+  }
+  function careerAwardsCompute(year){
+    const c = state.career;
+    careerEnsurePlayers();
+    const cache = playersCache();
+    if(!cache) return null;
+    const ms = careerAwardsMatches(year);
+    const teamStat = {}, keyToId = {}, pl = {};
+    ms.forEach(m => {
+      const w = AWARD_COMP_WEIGHT[m.comp] != null ? AWARD_COMP_WEIGHT[m.comp] : 0.4;
+      [[m.home, m.homeScore, m.awayScore], [m.away, m.awayScore, m.homeScore]].forEach(([id, gf, ga]) => {
+        const t = careerTeamById(id);
+        if(!t) return;
+        keyToId[playerNormKey(t.name)] = id;
+        const s = teamStat[id] || (teamStat[id] = { cs:0, gf:0 });
+        s.gf += gf * w;
+        if(ga === 0) s.cs += w;
+      });
+      (m.goals || []).forEach(g => {
+        if(!cache.byId[g.p]) return;
+        const r = pl[g.p] || (pl[g.p] = { goals:0, gw:0 });
+        r.goals++; r.gw += w;
+      });
+    });
+    const titlePts = {}, titleNames = {};
+    (c.titles || []).forEach(t => {
+      if(t.year !== year) return;
+      const pts = AWARD_TITLE_PTS[t.competition] || 0;
+      if(!pts) return;
+      titlePts[t.teamId] = (titlePts[t.teamId] || 0) + pts;
+      (titleNames[t.teamId] = titleNames[t.teamId] || []).push(COMPETITION_LABELS[t.competition] || t.competition);
+    });
+    // Titulares de cada equipo: por puesto, primero los que más goles hicieron y después un desempate fijo por id.
+    const starters = {};
+    Object.keys(keyToId).forEach(key => {
+      const squad = cache.byTeam[key] || [];
+      Object.keys(AWARD_SLOTS).forEach(pos => {
+        squad.filter(p => p.p === pos)
+          .sort((a, b) => ((pl[b.id] ? pl[b.id].goals : 0) - (pl[a.id] ? pl[a.id].goals : 0)) || (awardHash(a.id) - awardHash(b.id)))
+          .slice(0, AWARD_SLOTS[pos]).forEach(p => { starters[p.id] = true; });
+      });
+    });
+    const r1 = x => Math.round(x * 10) / 10;
+    const rows = [];
+    Object.keys(keyToId).forEach(key => {
+      const tid = keyToId[key], st = teamStat[tid], team = careerTeamById(tid);
+      (cache.byTeam[key] || []).forEach(p => {
+        const g = pl[p.id] || { goals:0, gw:0 };
+        const share = starters[p.id] ? 1 : 0.25;
+        const goalPts = g.gw * (AWARD_GOAL_POS[p.p] || 1);
+        const titPts = (titlePts[tid] || 0) * AWARD_TITLE_SHARE * share;
+        const defPts = (st.cs * (AWARD_CS_POS[p.p] || 0) + st.gf * (AWARD_GF_POS[p.p] || 0)) * share;
+        rows.push({ id:p.id, n:p.n, pos:p.p, tid, tn: team ? team.name : p.t, goals:g.goals,
+          goalPts:r1(goalPts), titPts:r1(titPts), defPts:r1(defPts), score:r1(goalPts + titPts + defPts), titles:titleNames[tid] || [] });
+      });
+    });
+    const bySc = (a, b) => b.score - a.score || b.goals - a.goals || a.n.localeCompare(b.n);
+    rows.sort(bySc);
+    const best = rows.filter(r => r.score > 0).slice(0, 10);
+    const xi = {};
+    Object.keys(AWARD_SLOTS).forEach(pos => { xi[pos] = rows.filter(r => r.pos === pos && r.score > 0).slice(0, AWARD_SLOTS[pos]); });
+    const scorers = Object.keys(pl).map(id => {
+      const p = cache.byId[id];
+      return { id, n:p.n, pos:p.p, tn:p.t, goals:pl[id].goals, gw:pl[id].gw };
+    }).sort((a, b) => b.goals - a.goals || b.gw - a.gw || a.n.localeCompare(b.n)).slice(0, 10)
+      .map(s => ({ id:s.id, n:s.n, pos:s.pos, tn:s.tn, goals:s.goals }));
+    return { hasData: ms.length > 0 && (best.length > 0 || scorers.length > 0), best, xi, scorers };
+  }
+  // Congela los premios del año. Se llama al cerrar la temporada, antes de retiros y pases.
+  function careerAwardsSnapshot(year){
+    const c = state.career;
+    if(!c) return;
+    const r = careerAwardsCompute(year);
+    if(!r || !r.hasData) return;
+    if(!c.awards) c.awards = {};
+    c.awards[year] = { year, best:r.best, xi:r.xi, scorers:r.scorers };
+  }
+  function awardTeamCell(name, size){
+    return `<div style="display:flex;align-items:center;gap:8px;">${teamBadgeHtml({ name }, size || 20)}<span>${escapeHtml(name)}</span></div>`;
+  }
+  function renderCareraPremios(){
+    const c = state.career;
+    const closed = c.awards || {};
+    const years = Object.keys(closed).map(Number);
+    if(years.indexOf(c.year) < 0) years.push(c.year);
+    years.sort((a, b) => b - a);
+    let y = awardsUi.year;
+    if(y == null || years.indexOf(y) < 0) y = c.year;
+    const live = (y === c.year && !closed[y]);
+    const tabs = years.map(yr => `<button class="btn small ${yr === y ? 'primary' : 'ghost'}" data-action="career-awards-year" data-year="${yr}">${yr}</button>`).join(' ');
+    let html = `<div class="panel"><h2>&#11088; Premios del año</h2>
+      <p class="hint">Balón de Oro Sudamericano, Equipo Ideal y Goleador. Se calculan con los goles y los planteles de tu carrera y se cierran al pasar al Apertura del año siguiente.</p>
+      <div class="btn-row" style="flex-wrap:wrap;gap:6px;">${tabs}</div></div>`;
+    const how = `<details class="panel" style="cursor:pointer;"><summary style="font-family:'Oswald',sans-serif;">&#8505; &iquest;C&oacute;mo se calcula?</summary>
+      <p class="hint" style="margin:10px 0 6px;">Cada jugador suma puntos por sus goles (Libertadores vale m&aacute;s que la Liga, y la Liga m&aacute;s que las categor&iacute;as de ascenso; un gol de mediocampista o defensor pesa m&aacute;s que el de un delantero), por los t&iacute;tulos que gan&oacute; su equipo en el a&ntilde;o (Libertadores, Liga, Copa Argentina, etc.) y, seg&uacute;n el puesto, por las vallas invictas y los goles de su equipo. Los suplentes reciben solo una parte de los puntos de equipo.</p>
+      <p class="hint" style="margin:0;">Equipo Ideal: el mejor de cada puesto en 4-3-3. Goleador: m&aacute;s goles sumando todas las competiciones oficiales. Los amistosos y las ligas del mundo no cuentan.</p></details>`;
+    if(!playersCache()){
+      return html + `<div class="panel"><p class="hint">Todav&iacute;a no hay planteles cargados en esta carrera (jugadores.csv), as&iacute; que no hay goleadores para premiar.</p></div>`;
+    }
+    const data = closed[y] || (live ? careerAwardsCompute(y) : null);
+    if(!data || !data.hasData){
+      return html + `<div class="panel"><p class="hint">${live ? 'Todav&iacute;a no hay goles de jugadores registrados este a&ntilde;o. Cuando se jueguen partidos van a aparecer los candidatos ac&aacute;.' : 'No hay datos guardados para este a&ntilde;o.'}</p></div>` + how + renderCareraPremiosPalmares(closed, y);
+    }
+    const tag = live ? ' &middot; parcial, se define al cierre de la temporada' : '';
+    const w = data.best[0];
+    if(w){
+      html += `<div class="panel" style="border:1px solid var(--gold);">
+        <div class="hint" style="margin:0 0 8px;text-transform:uppercase;letter-spacing:.08em;font-size:11px;">&#11088; Bal&oacute;n de Oro Sudamericano ${y}${tag}</div>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          ${teamBadgeHtml({ name:w.tn }, 46)}
+          <div><h2 style="margin:0;">${escapeHtml(w.n)}</h2>
+            <div class="hint" style="margin:2px 0 0;">${escapeHtml(w.tn)} &middot; ${AWARD_POS_LABEL[w.pos] || w.pos} &middot; ${w.goals} gol${w.goals === 1 ? '' : 'es'}${w.titles.length ? ' &middot; ' + escapeHtml(w.titles.join(', ')) : ''}</div></div>
+          <div class="num" style="margin-left:auto;font-size:30px;color:var(--gold-bright);">${w.score.toFixed(1)} <span style="font-size:12px;color:var(--ink-dim);">pts</span></div>
+        </div></div>`;
+      const body = data.best.map((r, i) => `<tr class="${i === 0 ? 'top3' : ''}"><td><span class="pos-pill">${i + 1}</span></td>
+        <td>${escapeHtml(r.n)} <span style="color:var(--ink-dim);font-size:11px;">${r.pos}</span></td><td>${awardTeamCell(r.tn)}</td>
+        <td class="num">${r.goals}</td><td style="color:var(--ink-dim);font-size:12px;">${r.titles.length ? escapeHtml(r.titles.join(', ')) : '&mdash;'}</td>
+        <td class="num" style="color:var(--gold);">${r.score.toFixed(1)}</td></tr>`).join('');
+      html += `<div class="panel"><h3>Candidatos al Bal&oacute;n de Oro</h3><div class="table-scroll"><table><thead><tr><th>#</th><th>Jugador</th><th>Equipo</th><th>Goles</th><th>T&iacute;tulos del equipo</th><th>Puntos</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+    }
+    const card = r => `<div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:130px;max-width:170px;text-align:center;">
+      <div style="font-size:13px;line-height:1.25;">${escapeHtml(r.n)}</div>
+      <div style="color:var(--ink-dim);font-size:11px;margin-top:2px;">${escapeHtml(r.tn)}</div>
+      <div class="num" style="color:var(--gold);font-size:12px;margin-top:2px;">${r.score.toFixed(1)} pts</div></div>`;
+    const line = pos => `<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">${(data.xi[pos] || []).map(card).join('')}</div>`;
+    html += `<div class="panel"><h3>&#127775; Equipo Ideal ${y} <span style="color:var(--ink-dim);font-size:12px;font-weight:400;">4-3-3</span></h3>
+      <div style="display:flex;flex-direction:column;gap:14px;padding:16px 8px;border-radius:12px;background:linear-gradient(180deg,rgba(52,211,153,0.08),rgba(52,211,153,0.02));border:1px solid var(--line);">
+        ${line('DEL')}${line('MED')}${line('DEF')}${line('ARQ')}</div></div>`;
+    if(data.scorers.length){
+      let prevG = null, prevP = 0;
+      const sb = data.scorers.map((s, i) => {
+        const pos = s.goals === prevG ? prevP : i + 1; prevG = s.goals; prevP = pos;
+        return `<tr class="${pos === 1 ? 'top3' : ''}"><td><span class="pos-pill">${pos}</span></td>
+          <td>${escapeHtml(s.n)} <span style="color:var(--ink-dim);font-size:11px;">${s.pos}</span></td><td>${awardTeamCell(s.tn)}</td>
+          <td class="num" style="color:var(--gold);">${s.goals}</td></tr>`;
+      }).join('');
+      html += `<div class="panel"><h3>&#9917; Goleador del a&ntilde;o ${y}${tag}</h3><div class="table-scroll"><table><thead><tr><th>#</th><th>Jugador</th><th>Equipo</th><th>Goles</th></tr></thead><tbody>${sb}</tbody></table></div></div>`;
+    }
+    return html + how + renderCareraPremiosPalmares(closed, y);
+  }
+  function renderCareraPremiosPalmares(closed, selected){
+    const ys = Object.keys(closed).map(Number).sort((a, b) => b - a);
+    if(!ys.length) return '';
+    const rows = ys.map(yr => {
+      const a = closed[yr], b = a.best && a.best[0], s = a.scorers && a.scorers[0];
+      return `<tr class="${yr === selected ? 'top3' : ''}"><td class="num">${yr}</td>
+        <td>${b ? escapeHtml(b.n) + ' <span style="color:var(--ink-dim);font-size:12px;">(' + escapeHtml(b.tn) + ')</span>' : '&mdash;'}</td>
+        <td>${s ? escapeHtml(s.n) + ' <span style="color:var(--ink-dim);font-size:12px;">(' + escapeHtml(s.tn) + ', ' + s.goals + ')</span>' : '&mdash;'}</td></tr>`;
+    }).join('');
+    return `<div class="panel"><h3>Palmar&eacute;s</h3><div class="table-scroll"><table><thead><tr><th>A&ntilde;o</th><th>Bal&oacute;n de Oro</th><th>Goleador</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  }
+
   // ---------- Retiros por edad ----------
   // Se corren al cerrar la temporada (al pasar al Apertura del año siguiente). La edad es
   // "año de la temporada - año de nacimiento". Desde los 35 hay chance de retirarse y sube de a
@@ -5080,7 +5286,7 @@ window.FIREBASE_CONFIG = {
       const key = playerNormKey(t.name);
       if(seen[key]) return;
       seen[key] = true;
-      out.push({ name: t.name, key, tier });
+      out.push({ name: t.name, key, tier, elo: (typeof t.elo === 'number' ? t.elo : null) });
     });
     add(c.teams, 1);
     add(c.nacional && c.nacional.teams, 2);
@@ -5098,6 +5304,64 @@ window.FIREBASE_CONFIG = {
     for(let i = 0; i < items.length; i++){ r -= ws[i]; if(r < 0 && ws[i] > 0) return items[i]; }
     return items[items.length - 1];
   }
+  // Precio de los pases (en dólares, como se mueve el fútbol argentino). Sale del nivel del club vendedor
+  // (Primera > Nacional > B Metro > ...), la edad, el puesto, el ELO del club respecto de su categoría y el
+  // rendimiento del año anterior (Premios). Los veteranos y buena parte del ascenso pasan libres.
+  const MERCADO_FEE_BASE = { 1: 550000, 2: 130000, 3: 55000, 4: 32000, 5: 18000, 6: 8000 };
+  const MERCADO_FEE_MAX  = { 1: 7000000, 2: 1000000, 3: 350000, 4: 200000, 5: 90000, 6: 40000 };
+  const MERCADO_FEE_MIN  = { 1: 120000, 2: 25000, 3: 8000, 4: 5000, 5: 3000, 6: 1500 };
+  const MERCADO_FEE_POS  = { DEL: 1.25, MED: 1.0, DEF: 0.9, ARQ: 0.7 };
+  function mercadoAgeFactor(age){
+    if(age === null) return 0.8;
+    if(age <= 19) return 1.25;
+    if(age <= 23) return 1.4;
+    if(age <= 27) return 1.1;
+    if(age <= 30) return 0.7;
+    if(age <= 33) return 0.35;
+    return 0.2;
+  }
+  function mercadoFreeChance(age, tier){
+    let f = 0.06;
+    if(age !== null){ if(age >= 35) f = 0.8; else if(age >= 33) f = 0.35; }
+    if(tier >= 5) f = Math.max(f, 0.5);
+    return f;
+  }
+  function mercadoFormFactor(player, prevAwards){
+    if(!prevAwards) return 1;
+    let f = 1;
+    const i = (prevAwards.best || []).findIndex(b => b.id === player.id);
+    if(i >= 0) f *= 1 + (10 - i) * 0.1;
+    const sc = (prevAwards.scorers || []).find(x => x.id === player.id);
+    if(sc) f *= Math.min(1.4, 1 + sc.goals * 0.02);
+    return f;
+  }
+  function mercadoRoundFee(v){
+    const step = v >= 1000000 ? 50000 : (v >= 100000 ? 10000 : (v >= 20000 ? 5000 : 1000));
+    return Math.max(step, Math.round(v / step) * step);
+  }
+  function mercadoFee(player, seller, buyer, year, tierAvg, prevAwards){
+    const by = playerBirthYear(player.b);
+    const age = by === null ? null : year - by;
+    if(Math.random() < mercadoFreeChance(age, seller.tier)) return 0;
+    const st = seller.tier;
+    let eloF = 1;
+    if(seller.elo !== null && tierAvg[st] != null) eloF = Math.min(1.8, Math.max(0.6, Math.pow(10, (seller.elo - tierAvg[st]) / 500)));
+    const tierF = buyer.tier < st ? 1.15 : (buyer.tier > st ? 0.75 : 1);   // el que sube paga más, el que baja, menos
+    const noise = Math.exp((Math.random() * 2 - 1) * 0.55);                 // 0,58x a 1,73x
+    let v = (MERCADO_FEE_BASE[st] || 8000) * mercadoAgeFactor(age) * (MERCADO_FEE_POS[player.p] || 1)
+          * eloF * tierF * mercadoFormFactor(player, prevAwards) * noise;
+    v = Math.min(MERCADO_FEE_MAX[st] || 40000, Math.max(MERCADO_FEE_MIN[st] || 1500, v));
+    return mercadoRoundFee(v);
+  }
+  function mercadoFmtFee(v){
+    if(v === null || v === undefined) return '&mdash;';
+    if(v === 0) return 'Libre';
+    const n = (x, d) => x.toLocaleString('es-AR', { maximumFractionDigits: d });
+    if(v >= 1000000) return 'USD ' + n(v / 1000000, 2) + ' M';
+    if(v >= 1000) return 'USD ' + n(v / 1000, 1) + ' mil';
+    return 'USD ' + n(v, 0);
+  }
+  function mercadoFmtTotal(v){ return v ? mercadoFmtFee(v) : 'USD 0'; }
   function careerRunTransfers(year){
     const c = state.career;
     careerEnsurePlayers();
@@ -5110,6 +5374,10 @@ window.FIREBASE_CONFIG = {
     const clubs = careerMercadoClubs().filter(cl => (cache.byTeam[cl.key] || []).length);
     const st = {};
     clubs.forEach(cl => { st[cl.key] = { club: cl, buys: 0, sells: 0, squad: cache.byTeam[cl.key].slice() }; });
+    const tierAvg = {}, tierCnt = {};
+    clubs.forEach(cl => { if(cl.elo !== null){ tierAvg[cl.tier] = (tierAvg[cl.tier] || 0) + cl.elo; tierCnt[cl.tier] = (tierCnt[cl.tier] || 0) + 1; } });
+    Object.keys(tierAvg).forEach(k => { tierAvg[k] /= tierCnt[k]; });
+    const prevAwards = (c.awards && c.awards[year - 1]) || null;
     const moved = {}, list = [];
     const target = Math.round(clubs.length * (1.2 + Math.random() * 0.8));
     for(let tries = 0; list.length < target && tries < target * 25; tries++){
@@ -5131,7 +5399,9 @@ window.FIREBASE_CONFIG = {
       seller.sells++; buyer.buys++;
       moved[player.id] = true;
       const by = playerBirthYear(player.b);
-      list.push({ id: player.id, n: player.n, p: player.p, age: by === null ? null : year - by, from: seller.club.name, to: buyer.club.name });
+      let fee = null;
+      try{ fee = mercadoFee(player, seller.club, buyer.club, year, tierAvg, prevAwards); }catch(e){}
+      list.push({ id: player.id, n: player.n, p: player.p, age: by === null ? null : year - by, from: seller.club.name, to: buyer.club.name, fee });
       player.t = buyer.club.name;
     }
     c.transferLog.push({ year, list });
@@ -5143,8 +5413,9 @@ window.FIREBASE_CONFIG = {
   function mercadoTableHtml(rows){
     const body = rows.map(r => `<tr>
       <td>${escapeHtml(r.n)}</td><td>${r.p}</td><td class="num">${r.age === null ? '&mdash;' : r.age}</td>
-      <td>${mercadoClubCell(r.from)}</td><td style="text-align:center;color:var(--gold);">&rarr;</td><td>${mercadoClubCell(r.to)}</td></tr>`).join('');
-    return `<div class="table-scroll" style="margin-top:8px;"><table><thead><tr><th>Jugador</th><th>Pos.</th><th>Edad</th><th>Club de origen</th><th></th><th>Club de destino</th></tr></thead><tbody>${body}</tbody></table></div>`;
+      <td>${mercadoClubCell(r.from)}</td><td style="text-align:center;color:var(--gold);">&rarr;</td><td>${mercadoClubCell(r.to)}</td>
+      <td class="num" style="white-space:nowrap;text-align:right;${r.fee ? 'color:var(--gold);' : 'color:var(--ink-dim);'}">${mercadoFmtFee(r.fee)}</td></tr>`).join('');
+    return `<div class="table-scroll" style="margin-top:8px;"><table><thead><tr><th>Jugador</th><th>Pos.</th><th>Edad</th><th>Club de origen</th><th></th><th>Club de destino</th><th style="text-align:right;">Precio</th></tr></thead><tbody>${body}</tbody></table></div>`;
   }
   function renderCareraMercado(){
     const c = state.career;
@@ -5159,7 +5430,7 @@ window.FIREBASE_CONFIG = {
     if(mercadoUi.club && !clubSet[mercadoUi.club]) mercadoUi.club = '';
     const sel = mercadoUi.club;
     let html = `<div class="panel"><h2>Mercado de pases</h2>
-      <p class="hint">Antes de cada temporada nueva, cada club puede fichar hasta ${MERCADO_MAX_COMPRAS} jugadores y vender hasta ${MERCADO_MAX_VENTAS}.</p>`;
+      <p class="hint">Antes de cada temporada nueva, cada club puede fichar hasta ${MERCADO_MAX_COMPRAS} jugadores y vender hasta ${MERCADO_MAX_VENTAS}. Los precios son en dólares y salen de la categoría del club, la edad y el puesto del jugador y su rendimiento del año anterior; los veteranos suelen irse libres.</p>`;
     if(clubNames.length){
       html += `<label class="hint" style="display:block;margin-top:8px;">Club:
         <select data-mercado-club style="margin-left:6px;">
@@ -5171,18 +5442,22 @@ window.FIREBASE_CONFIG = {
     if(!log.length){
       return html + `<div class="panel"><p class="hint" style="margin:0;">Todavía no hubo mercado de pases. Se abre al terminar cada temporada, antes de que empiece la siguiente.</p></div>`;
     }
-    const byName = (a, b) => a.from.localeCompare(b.from) || a.n.localeCompare(b.n);
+    const byName = (a, b) => ((b.fee || 0) - (a.fee || 0)) || a.from.localeCompare(b.from) || a.n.localeCompare(b.n);
+    const feeSum = arr => arr.reduce((t, x) => t + (x.fee || 0), 0);
     log.forEach((e, i) => {
       let inner;
       if(sel){
         const compras = e.list.filter(t => t.to === sel).sort(byName);
         const ventas = e.list.filter(t => t.from === sel).sort(byName);
-        inner = `<h4 style="margin:12px 0 0;">Fichajes (${compras.length})</h4>` +
+        inner = `<p class="hint" style="margin:10px 0 0;">Gastó <strong style="color:var(--ink);">${mercadoFmtTotal(feeSum(compras))}</strong> &middot; Recaudó <strong style="color:var(--ink);">${mercadoFmtTotal(feeSum(ventas))}</strong></p>` +
+          `<h4 style="margin:12px 0 0;">Fichajes (${compras.length})</h4>` +
           (compras.length ? mercadoTableHtml(compras) : `<p class="hint">No fichó a nadie.</p>`) +
           `<h4 style="margin:16px 0 0;">Ventas (${ventas.length})</h4>` +
           (ventas.length ? mercadoTableHtml(ventas) : `<p class="hint">No vendió a nadie.</p>`);
       } else {
-        inner = e.list.length ? mercadoTableHtml(e.list.slice().sort(byName)) : `<p class="hint">No hubo pases.</p>`;
+        const top = e.list.filter(t => t.fee).sort((a, b) => b.fee - a.fee)[0];
+        const resumen = top ? `<p class="hint" style="margin:10px 0 0;">Total movido: <strong style="color:var(--ink);">${mercadoFmtTotal(feeSum(e.list))}</strong> &middot; Pase más caro: <strong style="color:var(--ink);">${escapeHtml(top.n)}</strong> (${escapeHtml(top.from)} &rarr; ${escapeHtml(top.to)}, ${mercadoFmtFee(top.fee)})</p>` : '';
+        inner = e.list.length ? resumen + mercadoTableHtml(e.list.slice().sort(byName)) : `<p class="hint">No hubo pases.</p>`;
       }
       const count = sel ? e.list.filter(t => t.to === sel || t.from === sel).length : e.list.length;
       html += `<div class="panel"><details ${i === 0 ? 'open' : ''}><summary style="cursor:pointer;font-weight:600;">Mercado de pases &mdash; temporada ${e.year} (${count} ${count === 1 ? 'pase' : 'pases'})</summary>${inner}</details></div>`;
@@ -7165,6 +7440,7 @@ window.FIREBASE_CONFIG = {
   }
   function careerStartNextApertura(){
     const c = state.career;
+    try{ careerAwardsSnapshot(c.year); }catch(e){}
     careerContPrepareNextEdition();
     const annual = careerAnnualTable();
     if(!c.seasonLog) c.seasonLog = {};
@@ -7650,6 +7926,7 @@ window.FIREBASE_CONFIG = {
       ${item('jugadores','&#128100;','Jugadores')}
       ${item('mercado','&#128260;','Mercado')}
       ${item('campeones','&#127942;','Historia')}
+      ${item('premios','&#11088;','Premios')}
       ${item('escudos','&#128737;','Escudos')}
       ${item('configuracion','&#9881;','Configuración')}
     </aside>`;
@@ -8103,6 +8380,7 @@ window.FIREBASE_CONFIG = {
     if(c.view === 'escudos') return renderCareraEscudos();
     if(c.view === 'copas') return renderCareraCopasNacionales();
     if(c.view === 'campeones') return renderCareraHistorialCampeones();
+    if(c.view === 'premios') return renderCareraPremios();
     if(c.view === 'liga') return renderCareraLiga();
     if(c.view === 'competiciones') return renderCareraCompeticiones();
     if(c.view === 'estadisticas') return renderCareraEstadisticas();
