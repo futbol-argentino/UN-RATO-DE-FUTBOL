@@ -359,10 +359,39 @@
   .menu-row .info .meta{ color:var(--ink-dim); font-size:12px; margin-top:3px; }
   .menu-row .actions{ display:flex; gap:8px; align-items:center; }
   .topbar-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+
+  /* ---------- Cuenta y guardado en la nube ---------- */
+  .save-status{ font-size:12.5px; }
+  .save-status.saving, .save-status.warn{ color:var(--gold-bright); }
+  .save-status.cloud{ color:#8FCB8F; }
+  .save-status.error{ color:#E27B6E; }
+  .acct-chip{ font-size:12px; color:var(--ink-dim); max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .badge{ display:inline-block; font-size:11px; padding:1px 8px; border-radius:999px; border:1px solid var(--line); color:var(--ink-dim); margin-left:6px; font-weight:400; }
+  .badge.cloud{ color:#8FCB8F; border-color:#3f6a3f; }
+  .badge.warn{ color:var(--gold-bright); border-color:var(--gold); }
+  .auth-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:640px){ .auth-grid{ grid-template-columns:1fr; } }
+  .auth-msg{ color:#E27B6E; font-size:13px; margin:8px 0 0; }
 </style>
 </head>
 <body>
 <div id="app"></div>
+
+<script>
+// ▼▼▼ PEGÁ ACÁ LA CONFIGURACIÓN DE TU PROYECTO DE FIREBASE ▼▼▼
+// (Consola de Firebase → Configuración del proyecto → Tus apps → app web → "firebaseConfig")
+window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBdOgHi3pUTruu3QaoJSGU8-J9H_RHx82I",
+  authDomain: "torneoselo.firebaseapp.com",
+  projectId: "torneoselo",
+  storageBucket: "torneoselo.firebasestorage.app",
+  messagingSenderId: "383523809884",
+  appId: "1:383523809884:web:84d62e3818bad668b21499"
+};
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
 <script>
 (function(){
@@ -729,31 +758,456 @@
       titles: (c.titles || []).filter(x => x.teamId === c.myTeamId).length
     };
   }
+  // ---------- Guardado local: IndexedDB (mucho más espacio que localStorage) ----------
+  // Las carreras crecen cada temporada (historial, jugadores, ligas del mundo) y podían superar los ~5 MB
+  // de localStorage; el error se tragaba en silencio y la partida dejaba de guardarse. Ahora la carrera
+  // completa va a IndexedDB, y localStorage queda solo para la lista liviana de carreras.
+  const CAREER_IDB_NAME = 'carreraElo_db';
+  const CAREER_IDB_STORE = 'careers';
+  let careerIdbPromise = null;
+  function careerIdb(){
+    if(careerIdbPromise) return careerIdbPromise;
+    careerIdbPromise = new Promise((resolve, reject) => {
+      if(!window.indexedDB){ reject(new Error('IndexedDB no disponible')); return; }
+      let req;
+      try{ req = indexedDB.open(CAREER_IDB_NAME, 1); }catch(e){ reject(e); return; }
+      req.onupgradeneeded = () => { req.result.createObjectStore(CAREER_IDB_STORE); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error || new Error('No se pudo abrir IndexedDB'));
+      req.onblocked = () => reject(new Error('IndexedDB bloqueado'));
+    });
+    careerIdbPromise.catch(() => { careerIdbPromise = null; });
+    return careerIdbPromise;
+  }
+  function careerIdbRun(mode, fn){
+    return careerIdb().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(CAREER_IDB_STORE, mode);
+      const st = tx.objectStore(CAREER_IDB_STORE);
+      let result;
+      const r = fn(st);
+      if(r) r.onsuccess = () => { result = r.result; };
+      tx.oncomplete = () => resolve(result);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('Guardado cancelado'));
+    }));
+  }
+  async function careerLocalPutRaw(id, json){
+    try{
+      await careerIdbRun('readwrite', st => st.put(json, id));
+      try{ localStorage.removeItem(CAREER_DATA_PREFIX + id); }catch(e){}   // libera lugar del guardado viejo
+      return true;
+    }catch(e){
+      localStorage.setItem(CAREER_DATA_PREFIX + id, json);   // último recurso; si falla, el error sube
+      return true;
+    }
+  }
+  async function careerLocalGetRaw(id){
+    try{
+      const v = await careerIdbRun('readonly', st => st.get(id));
+      if(typeof v === 'string' && v) return v;
+    }catch(e){}
+    try{ return localStorage.getItem(CAREER_DATA_PREFIX + id); }catch(e){ return null; }   // guardados de la versión anterior
+  }
+  async function careerLocalDeleteRaw(id){
+    try{ await careerIdbRun('readwrite', st => st.delete(id)); }catch(e){}
+    try{ localStorage.removeItem(CAREER_DATA_PREFIX + id); }catch(e){}
+  }
+  function careerIndexUpsert(entry){
+    const idx = careerLoadIndex();
+    const i = idx.findIndex(x => x.id === entry.id);
+    if(i >= 0) idx[i] = Object.assign(idx[i], entry); else idx.push(entry);
+    careerSaveIndex(idx);
+  }
+
+  // ---------- Estado visible del guardado (barra superior) ----------
+  let careerSaveStatus = { kind: 'idle', text: '' };
+  function careerStatusText(){ return careerSaveStatus.text || 'Guardado en este dispositivo'; }
+  function careerStatusIcon(){
+    const k = careerSaveStatus.kind;
+    return k === 'cloud' ? '&#9729; ' : k === 'saving' ? '&#8987; ' : (k === 'error' || k === 'warn') ? '&#9888; ' : '&#128190; ';
+  }
+  function careerSetStatus(kind, text){
+    careerSaveStatus = { kind, text };
+    const el = document.getElementById('saveStatus');
+    if(el){ el.className = 'save-status ' + kind; el.innerHTML = careerStatusIcon() + escapeHtml(careerStatusText()); }
+  }
+  function careerTimeNow(){ return new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}); }
+  function careerFmtDate(ms){
+    if(!ms) return '';
+    const d = new Date(ms);
+    return d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+  }
+
+  // ---------- Guardado local con debounce ----------
+  let careerPersistTimer = null;
+  let careerPersistRef = null;
   function careerPersist(){
     const c = state.career;
     if(!c.id) return;
     try{
-      localStorage.setItem(CAREER_DATA_PREFIX + c.id, JSON.stringify(c));
       const idx = careerLoadIndex();
-      const entry = { id: c.id, name: c.name || '', updatedAt: Date.now(), summary: careerSummary() };
       const i = idx.findIndex(x => x.id === c.id);
+      const entry = { id: c.id, name: c.name || '', updatedAt: Date.now(), summary: careerSummary() };
+      if(i >= 0 && idx[i].cloudSavedAt) entry.cloudSavedAt = idx[i].cloudSavedAt;
       if(i >= 0) idx[i] = entry; else idx.push(entry);
       careerSaveIndex(idx);
     }catch(e){}
+    careerPersistRef = c;
+    clearTimeout(careerPersistTimer);
+    careerPersistTimer = setTimeout(careerFlushLocal, 700);
   }
-  function careerOpen(id){
+  async function careerFlushLocal(){
+    clearTimeout(careerPersistTimer); careerPersistTimer = null;
+    const c = careerPersistRef; careerPersistRef = null;
+    if(!c || !c.id) return null;
+    let json;
+    try{ json = JSON.stringify(c); }
+    catch(e){ careerSetStatus('error', 'No se pudo preparar el guardado: ' + (e && e.message || 'error')); return null; }
     try{
-      const raw = localStorage.getItem(CAREER_DATA_PREFIX + id);
+      await careerLocalPutRaw(c.id, json);
+      if(careerSaveStatus.kind === 'idle' || careerSaveStatus.kind === 'error') careerSetStatus('local', '');
+      return json;
+    }catch(e){
+      const sinLugar = e && (e.name === 'QuotaExceededError' || /quota/i.test(e.message || ''));
+      careerSetStatus('error', 'No se pudo guardar en este dispositivo' + (sinLugar ? ' (sin espacio)' : '') + '.' + (fbUser ? ' Tocá "Guardar ahora" para subirla a tu cuenta.' : ' Iniciá sesión para guardarla en tu cuenta.'));
+      return null;
+    }
+  }
+  document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden' && careerPersistRef) careerFlushLocal(); });
+  window.addEventListener('pagehide', () => { if(careerPersistRef) careerFlushLocal(); });
+
+  async function careerOpen(id){
+    try{
+      const raw = await careerLocalGetRaw(id);
       if(!raw) return false;
-      state.career = Object.assign(defaultCareer(), JSON.parse(raw));
-      state.career.id = id;
+      careerApplyRaw(id, raw);
       return true;
     }catch(e){ return false; }
   }
+  function careerApplyRaw(id, raw){
+    state.career = Object.assign(defaultCareer(), JSON.parse(raw));
+    state.career.id = id;
+  }
   function careerDeleteSave(id){
-    try{ localStorage.removeItem(CAREER_DATA_PREFIX + id); }catch(e){}
+    if(careerPersistRef && careerPersistRef.id === id){ careerPersistRef = null; clearTimeout(careerPersistTimer); }
+    careerLocalDeleteRaw(id);
     careerSaveIndex(careerLoadIndex().filter(x => x.id !== id));
   }
+
+  // ---------- Cuenta y guardado en la nube (Firebase Auth + Firestore) ----------
+  // Estructura en Firestore:
+  //   users/{uid}/careers/{careerId}            -> datos livianos (nombre, resumen, savedAt, cantidad de partes)
+  //   users/{uid}/careers/{careerId}/chunks/cN  -> la carrera comprimida (gzip + base64) partida en trozos,
+  //                                                porque Firestore admite máx. ~1 MB por documento.
+  // Todo se escribe en un único batch: o queda la versión nueva completa, o queda la anterior.
+  let fbAuth = null, fbDb = null, fbUser = null, fbInitError = null, fbAuthReady = false;
+  let careerCloudList = [];
+  let careerCloudState = 'idle';   // 'idle' | 'loading' | 'ok' | 'error'
+  let careerCloudErr = '';
+  let careerCloudBusy = false;
+  let careerCloudQueued = null;
+  let careerAutoKey = null;
+  const authUi = { msg: '', busy: false, email: '' };
+  const CLOUD_TIMEOUT_MS = 30000;
+
+  function careerFbErr(e){
+    const m = {
+      'auth/invalid-email': 'El email no es válido.',
+      'auth/missing-email': 'Escribí tu email.',
+      'auth/missing-password': 'Escribí tu contraseña.',
+      'auth/weak-password': 'La contraseña es muy débil (mínimo 6 caracteres).',
+      'auth/email-already-in-use': 'Ya existe una cuenta con ese email. Probá iniciar sesión.',
+      'auth/invalid-credential': 'Email o contraseña incorrectos.',
+      'auth/user-not-found': 'Email o contraseña incorrectos.',
+      'auth/wrong-password': 'Email o contraseña incorrectos.',
+      'auth/too-many-requests': 'Demasiados intentos. Esperá unos minutos y probá de nuevo.',
+      'auth/network-request-failed': 'Sin conexión con Firebase.',
+      'auth/popup-closed-by-user': 'Cerraste la ventana de Google antes de terminar.',
+      'auth/cancelled-popup-request': 'Se canceló el inicio de sesión con Google.',
+      'auth/popup-blocked': 'El navegador bloqueó la ventana de Google. Permití las ventanas emergentes para este sitio.',
+      'auth/unauthorized-domain': 'Este dominio no está autorizado en Firebase (Authentication → Configuración → Dominios autorizados).',
+      'auth/operation-not-allowed': 'Ese método de acceso no está habilitado en Firebase (Authentication → Sign-in method).',
+      'auth/operation-not-supported-in-this-environment': 'El acceso con Google necesita abrir la página desde http(s), no desde un archivo local.',
+      'permission-denied': 'Firestore rechazó el acceso: revisá las reglas de seguridad del proyecto.',
+      'unavailable': 'Sin conexión con Firebase.',
+      'timeout': 'Firebase no respondió a tiempo (¿sin conexión?).'
+    };
+    return m[e && e.code] || (e && e.message) || 'Error desconocido';
+  }
+  function careerWithTimeout(promise){
+    return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej({ code: 'timeout' }), CLOUD_TIMEOUT_MS))]);
+  }
+  function careerOnMenu(){ return state.mode === 'carrera' && state.career.step === 'menu'; }
+  function careerPaintAccount(){
+    const el = document.getElementById('acctChip');
+    if(el) el.innerHTML = fbUser ? '&#9729; ' + escapeHtml(fbUser.email || fbUser.displayName || 'Cuenta') : '';
+  }
+
+  function firebaseInit(){
+    const cfg = window.FIREBASE_CONFIG;
+    if(!cfg || !cfg.apiKey || String(cfg.apiKey).indexOf('PEGAR') === 0){ fbInitError = 'config'; return; }
+    if(!window.firebase){ fbInitError = 'sdk'; return; }
+    try{
+      firebase.initializeApp(cfg);
+      fbAuth = firebase.auth();
+      fbDb = firebase.firestore();
+      fbAuth.onAuthStateChanged(user => {
+        fbUser = user; fbAuthReady = true;
+        if(user){ careerCloudRefreshList(); }
+        else { careerCloudList = []; careerCloudState = 'idle'; }
+        careerPaintAccount();
+        if(careerOnMenu()) render();
+      });
+    }catch(e){ fbInitError = (e && e.message) || 'error'; }
+  }
+  function careerCloudCol(){ return fbDb.collection('users').doc(fbUser.uid).collection('careers'); }
+
+  async function careerCloudRefreshList(){
+    if(!fbUser) return;
+    careerCloudState = 'loading'; careerCloudErr = '';
+    if(careerOnMenu()) render();
+    try{
+      const snap = await careerWithTimeout(careerCloudCol().get({ source: 'server' }));
+      careerCloudList = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      careerCloudState = 'ok';
+    }catch(e){
+      careerCloudState = 'error'; careerCloudErr = careerFbErr(e);
+    }
+    if(careerOnMenu()) render();
+  }
+
+  // Compresión: gzip + base64 y partido en trozos que entran en un documento de Firestore.
+  async function careerPack(json){
+    let encoding = 'json', str = json;
+    if(typeof CompressionStream === 'function'){
+      try{
+        const stream = new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'));
+        const buf = new Uint8Array(await new Response(stream).arrayBuffer());
+        let bin = '';
+        for(let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+        str = btoa(bin); encoding = 'gzip-b64';
+      }catch(e){ encoding = 'json'; str = json; }
+    }
+    const size = encoding === 'json' ? 300000 : 700000;
+    const parts = [];
+    let pos = 0;
+    while(pos < str.length){
+      let end = Math.min(pos + size, str.length);
+      if(end < str.length){ const cc = str.charCodeAt(end - 1); if(cc >= 0xD800 && cc <= 0xDBFF) end--; }
+      parts.push(str.slice(pos, end)); pos = end;
+    }
+    if(!parts.length) parts.push('');
+    return { encoding, parts };
+  }
+  async function careerUnpack(encoding, parts){
+    const str = parts.join('');
+    if(encoding === 'gzip-b64'){
+      if(typeof DecompressionStream !== 'function') throw new Error('Este navegador no puede descomprimir la carrera guardada en la nube.');
+      const bin = atob(str);
+      const bytes = new Uint8Array(bin.length);
+      for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+      return await new Response(stream).text();
+    }
+    return str;
+  }
+
+  // payload: { id, json, name, summary }   opts: { manual, auto }
+  async function careerCloudPush(payload, opts){
+    opts = opts || {};
+    if(!fbUser || !fbDb) return { ok: false, reason: 'nologin' };
+    if(careerCloudBusy){ careerCloudQueued = { payload, opts }; return { ok: false, reason: 'busy' }; }
+    careerCloudBusy = true;
+    careerSetStatus('saving', 'Guardando en tu cuenta…');
+    let result = { ok: false, reason: 'error' };
+    try{
+      const metaRef = careerCloudCol().doc(payload.id);
+      const remoteSnap = await careerWithTimeout(metaRef.get({ source: 'server' }));
+      const remote = remoteSnap.exists ? remoteSnap.data() : null;
+      const local = careerLoadIndex().find(x => x.id === payload.id);
+      const known = local ? local.cloudSavedAt : undefined;
+      if(remote && remote.savedAt !== known){
+        if(opts.manual){
+          if(!confirm('En tu cuenta hay otra versión de esta carrera (guardada ' + careerFmtDate(remote.savedAt) + '), distinta de la última que sincronizó este dispositivo.\n\n¿Querés reemplazarla con la de este dispositivo?')){
+            careerSetStatus('warn', 'No se subió: la nube tiene otra versión.');
+            return { ok: false, reason: 'cancel' };
+          }
+        }else{
+          careerSetStatus('warn', 'La nube tiene otra versión de esta carrera. Tocá "Guardar ahora" para elegir cuál conservar.');
+          return { ok: false, reason: 'conflict' };
+        }
+      }
+      const packed = await careerPack(payload.json);
+      const total = packed.parts.reduce((a, x) => a + x.length, 0);
+      if(total > 9000000) throw new Error('La carrera es demasiado grande para la nube (' + Math.round(total / 1e6) + ' MB comprimida).');
+      const savedAt = Date.now();
+      const chunks = metaRef.collection('chunks');
+      const batch = fbDb.batch();
+      packed.parts.forEach((part, i) => batch.set(chunks.doc('c' + i), { i, data: part }));
+      const oldN = remote && remote.chunks || 0;
+      for(let i = packed.parts.length; i < oldN; i++) batch.delete(chunks.doc('c' + i));
+      const meta = {
+        name: payload.name || '', summary: payload.summary || {}, savedAt,
+        chunks: packed.parts.length, encoding: packed.encoding, size: payload.json.length, version: 1
+      };
+      batch.set(metaRef, Object.assign({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, meta));
+      await careerWithTimeout(batch.commit());
+      careerIndexUpsert({ id: payload.id, cloudSavedAt: savedAt });
+      const li = careerCloudList.findIndex(x => x.id === payload.id);
+      const row = Object.assign({ id: payload.id }, meta);
+      if(li >= 0) careerCloudList[li] = row; else careerCloudList.push(row);
+      careerSetStatus('cloud', 'Guardado en tu cuenta · ' + careerTimeNow());
+      result = { ok: true };
+    }catch(e){
+      const msg = careerFbErr(e);
+      careerSetStatus('error', 'No se pudo guardar en tu cuenta: ' + msg + ' (queda guardado en este dispositivo).');
+      if(opts.manual) alert('No se pudo guardar en tu cuenta.\n\n' + msg + '\n\nLa carrera sigue guardada en este dispositivo.');
+    }finally{
+      careerCloudBusy = false;
+      const q = careerCloudQueued; careerCloudQueued = null;
+      if(q) careerCloudPush(q.payload, q.opts);
+    }
+    if(careerOnMenu()) render();
+    return result;
+  }
+
+  async function careerCloudLoad(id){
+    const metaSnap = await careerWithTimeout(careerCloudCol().doc(id).get({ source: 'server' }));
+    if(!metaSnap.exists) throw new Error('Esa carrera ya no existe en tu cuenta.');
+    const meta = metaSnap.data();
+    const snap = await careerWithTimeout(careerCloudCol().doc(id).collection('chunks').get({ source: 'server' }));
+    const parts = [];
+    snap.forEach(d => { const v = d.data(); parts[v.i] = v.data; });
+    const wanted = parts.slice(0, meta.chunks);
+    if(wanted.length !== meta.chunks || wanted.some(x => typeof x !== 'string')) throw new Error('La copia en la nube está incompleta.');
+    const json = await careerUnpack(meta.encoding, wanted);
+    return { json, meta };
+  }
+  async function careerCloudDelete(id){
+    const ref = careerCloudCol().doc(id);
+    const snap = await careerWithTimeout(ref.collection('chunks').get({ source: 'server' }));
+    const batch = fbDb.batch();
+    snap.forEach(d => batch.delete(d.ref));
+    batch.delete(ref);
+    await careerWithTimeout(batch.commit());
+    careerCloudList = careerCloudList.filter(x => x.id !== id);
+  }
+  function careerDeleteEverywhere(id){
+    careerDeleteSave(id);
+    if(fbUser && careerCloudList.some(x => x.id === id)){
+      careerCloudDelete(id).then(() => { if(careerOnMenu()) render(); })
+        .catch(e => alert('Se borró de este dispositivo, pero no se pudo borrar de tu cuenta: ' + careerFbErr(e)));
+    }
+  }
+
+  // Abre una carrera eligiendo entre la copia de este dispositivo y la de la nube.
+  async function careerOpenSmart(id){
+    const local = careerLoadIndex().find(x => x.id === id);
+    const remote = fbUser ? careerCloudList.find(x => x.id === id) : null;
+    let useCloud = false;
+    if(remote){
+      if(!local) useCloud = true;
+      else if(remote.savedAt !== local.cloudSavedAt){
+        useCloud = confirm('Esta carrera tiene una versión en tu cuenta (guardada ' + careerFmtDate(remote.savedAt) + ') distinta de la de este dispositivo (' + careerFmtDate(local.updatedAt) + ').\n\nAceptar = abrir la de tu cuenta\nCancelar = abrir la de este dispositivo');
+      }
+    }
+    if(useCloud){
+      try{
+        const got = await careerCloudLoad(id);
+        careerApplyRaw(id, got.json);
+        await careerLocalPutRaw(id, got.json).catch(() => {});
+        careerIndexUpsert({ id, name: got.meta.name || '', updatedAt: Date.now(), summary: got.meta.summary || {}, cloudSavedAt: got.meta.savedAt });
+        careerSetStatus('cloud', 'Abierta desde tu cuenta · ' + careerTimeNow());
+        return true;
+      }catch(e){
+        alert('No se pudo abrir la versión de tu cuenta: ' + careerFbErr(e));
+        return local ? careerOpen(id) : false;
+      }
+    }
+    return careerOpen(id);
+  }
+
+  // Guardado manual: local ya mismo + nube si hay sesión.
+  async function careerSaveNow(){
+    const c = state.career;
+    if(!c.id) return;
+    careerPersistRef = c;
+    const json = await careerFlushLocal();
+    if(!fbUser){
+      if(json) careerSetStatus('local', fbInitError ? 'Guardado en este dispositivo.' : 'Guardado en este dispositivo. Iniciá sesión en "Mis carreras" para guardarlo también en tu cuenta.');
+      return;
+    }
+    const payload = { id: c.id, json: json || JSON.stringify(c), name: c.name || '', summary: careerSummary() };
+    await careerCloudPush(payload, { manual: true });
+  }
+  // Subir a la cuenta una carrera que solo existe en este dispositivo (desde "Mis carreras").
+  async function careerCloudUploadById(id){
+    const raw = await careerLocalGetRaw(id);
+    const entry = careerLoadIndex().find(x => x.id === id);
+    if(!raw || !entry){ alert('No se encontró la carrera en este dispositivo.'); return; }
+    await careerCloudPush({ id, json: raw, name: entry.name || '', summary: entry.summary || {} }, { manual: true });
+  }
+
+  // Autoguardado en la nube: al terminar la temporada y al arrancar la siguiente.
+  function careerAutosaveCheck(){
+    const c = state.career;
+    if(!fbUser || !c.id || c.step !== 'temporada' || c.tournament !== 'clausura') return;
+    let done = false;
+    try{ done = careerSeasonFinished(); }catch(e){ return; }
+    const key = c.id + ':' + c.year;
+    if(!done || c.cloudAutosaveYear === c.year || careerAutoKey === key) return;
+    careerAutoKey = key;
+    let json;
+    try{ json = JSON.stringify(c); }catch(e){ return; }
+    careerCloudPush({ id: c.id, json, name: c.name || '', summary: careerSummary() }, { auto: true }).then(r => {
+      if(r && r.ok) c.cloudAutosaveYear = c.year;
+    });
+  }
+  function careerAutosaveRollover(){
+    const c = state.career;
+    if(!fbUser || !c.id) return;
+    let json;
+    try{ json = JSON.stringify(c); }catch(e){ return; }
+    careerCloudPush({ id: c.id, json, name: c.name || '', summary: careerSummary() }, { auto: true });
+  }
+
+  // Acciones de cuenta
+  async function careerAuthEmail(mode){
+    if(!fbAuth || authUi.busy) return;
+    const email = ((document.getElementById('authEmail') || {}).value || '').trim();
+    const pass = (document.getElementById('authPass') || {}).value || '';
+    authUi.email = email;
+    if(!email || !pass){ authUi.msg = 'Escribí tu email y tu contraseña.'; render(); return; }
+    authUi.busy = true; authUi.msg = ''; render();
+    try{
+      if(mode === 'signup') await fbAuth.createUserWithEmailAndPassword(email, pass);
+      else await fbAuth.signInWithEmailAndPassword(email, pass);
+      authUi.email = '';
+    }catch(e){ authUi.msg = careerFbErr(e); }
+    authUi.busy = false; render();
+  }
+  async function careerAuthGoogle(){
+    if(!fbAuth || authUi.busy) return;
+    authUi.busy = true; authUi.msg = ''; render();
+    try{ await fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+    catch(e){ authUi.msg = careerFbErr(e); }
+    authUi.busy = false; render();
+  }
+  async function careerAuthReset(){
+    if(!fbAuth) return;
+    const email = ((document.getElementById('authEmail') || {}).value || '').trim();
+    authUi.email = email;
+    if(!email){ authUi.msg = 'Escribí tu email arriba y volvé a tocar "Olvidé mi contraseña".'; render(); return; }
+    try{ await fbAuth.sendPasswordResetEmail(email); authUi.msg = ''; alert('Te mandamos un email a ' + email + ' para restablecer la contraseña.'); }
+    catch(e){ authUi.msg = careerFbErr(e); }
+    render();
+  }
+  async function careerAuthSignOut(){
+    if(!fbAuth) return;
+    if(careerPersistRef) await careerFlushLocal();
+    try{ await fbAuth.signOut(); }catch(e){}
+  }
+
   // Si había una carrera del formato viejo (una sola), se convierte en la primera de la lista.
   function careerMigrateLegacy(){
     let raw = null;
@@ -1185,7 +1639,7 @@
       document.body.classList.add('carrera-mode');
       const c = state.career;
       const stepHtml = renderCarreraStep();
-      const footer = `<footer style="text-align:center;color:var(--ink-dim);font-size:12px;padding:20px 0 30px;">Modo Carrera &middot; se simula y se guarda en tu navegador.</footer>`;
+      const footer = `<footer style="text-align:center;color:var(--ink-dim);font-size:12px;padding:20px 0 30px;">Modo Carrera &middot; se guarda en este dispositivo y, si iniciás sesión, también en tu cuenta.</footer>`;
       let shellHtml;
       if(c.step === 'temporada'){
         shellHtml = `<div class="carrera-shell">
@@ -1204,6 +1658,7 @@
       els.app.innerHTML = shellHtml;
       bindEvents();
       careerPersist();
+      careerAutosaveCheck();
       return;
     }
     document.body.classList.remove('carrera-mode');
@@ -1966,9 +2421,15 @@
       state.career = defaultCareer();
       careerMigrateLegacy();
       render();
+      if(fbUser) careerCloudRefreshList();
       return;
     }
-    else if(action === 'career-goto-menu'){ state.career = defaultCareer(); render(); return; }
+    else if(action === 'career-goto-menu'){
+      if(careerPersistRef) careerFlushLocal();
+      state.career = defaultCareer(); render();
+      if(fbUser) careerCloudRefreshList();
+      return;
+    }
     else if(action === 'career-new'){
       const input = document.getElementById('careerName');
       const nombre = input && input.value.trim() ? input.value.trim() : '';
@@ -1981,21 +2442,31 @@
       return;
     }
     else if(action === 'career-open'){
-      if(careerOpen(btn.getAttribute('data-id'))){
-        state.career.step = state.career.myTeamId ? 'temporada' : 'elegir';
+      btn.disabled = true;
+      careerOpenSmart(btn.getAttribute('data-id')).then(ok => {
+        if(ok) state.career.step = state.career.myTeamId ? 'temporada' : 'elegir';
+        else alert('No se pudo abrir esta carrera.');
         render();
-      }
+      });
       return;
     }
     else if(action === 'career-delete'){
       const id = btn.getAttribute('data-id');
-      if(confirm('¿Borrar esta carrera para siempre?')){
-        careerDeleteSave(id);
+      const inCloud = !!fbUser && careerCloudList.some(x => x.id === id);
+      if(confirm(inCloud ? '¿Borrar esta carrera para siempre? Se borra de este dispositivo y de tu cuenta.' : '¿Borrar esta carrera para siempre?')){
+        careerDeleteEverywhere(id);
         if(state.career.id === id) state.career = defaultCareer();
         render();
       }
       return;
     }
+    else if(action === 'career-save-now'){ careerSaveNow(); return; }
+    else if(action === 'career-cloud-upload'){ btn.disabled = true; careerCloudUploadById(btn.getAttribute('data-id')); return; }
+    else if(action === 'auth-login'){ careerAuthEmail('login'); return; }
+    else if(action === 'auth-signup'){ careerAuthEmail('signup'); return; }
+    else if(action === 'auth-google'){ careerAuthGoogle(); return; }
+    else if(action === 'auth-reset'){ careerAuthReset(); return; }
+    else if(action === 'auth-signout'){ careerAuthSignOut(); return; }
     else if(action === 'go-torneos'){ state.mode = 'torneos'; render(); return; }
     else if(action === 'career-goto-inicio'){ state.career.step='menu'; render(); return; }
     else if(action === 'career-goto-equipos'){ state.career.step='equipos'; render(); return; }
@@ -2115,8 +2586,8 @@
       return;
     }
     else if(action === 'career-reset'){
-      if(confirm('Esto borra esta carrera (equipos, resultados, todo). ¿Continuar?')){
-        if(state.career.id) careerDeleteSave(state.career.id);
+      if(confirm('Esto borra esta carrera (equipos, resultados, todo), también de tu cuenta si la tenías guardada en la nube. ¿Continuar?')){
+        if(state.career.id) careerDeleteEverywhere(state.career.id);
         state.career = defaultCareer();
         render();
       }
@@ -5642,6 +6113,7 @@
     careerGeneratePrimeraC();
     careerGeneratePromocional();
     careerBeginSeasonDraws();
+    careerAutosaveRollover();
   }
 
   // ---------- Sorteos de arranque de temporada ----------
@@ -5818,29 +6290,95 @@
     CAREER_TEAM_DB.primera.zoneB.forEach(t=>push(t,1));
   }
 
+  function careerMenuEntries(){
+    const map = new Map();
+    careerLoadIndex().forEach(e => map.set(e.id, { id: e.id, name: e.name, summary: e.summary || {}, updatedAt: e.updatedAt || 0, local: true, cloud: false, cloudSavedAt: e.cloudSavedAt }));
+    if(fbUser){
+      careerCloudList.forEach(r => {
+        const cur = map.get(r.id);
+        if(cur){ cur.cloud = true; cur.remoteSavedAt = r.savedAt; }
+        else map.set(r.id, { id: r.id, name: r.name, summary: r.summary || {}, updatedAt: r.savedAt || 0, local: false, cloud: true, remoteSavedAt: r.savedAt });
+      });
+    }
+    return Array.from(map.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  function renderCareraAuthPanel(){
+    if(fbInitError === 'config'){
+      return `<div class="panel"><h2>Cuenta</h2><p class="hint" style="margin:0;">El guardado en la nube todavía no está configurado en esta página. Mientras tanto tus carreras se guardan solo en este dispositivo.</p></div>`;
+    }
+    if(fbInitError){
+      return `<div class="panel"><h2>Cuenta</h2><p class="hint" style="margin:0;">No se pudo conectar con Firebase${fbInitError === 'sdk' ? ' (no cargó el SDK: ¿sin conexión?)' : ''}. Tus carreras se guardan en este dispositivo.</p></div>`;
+    }
+    if(!fbAuthReady){
+      return `<div class="panel"><h2>Cuenta</h2><p class="hint" style="margin:0;">Comprobando sesión…</p></div>`;
+    }
+    if(fbUser){
+      return `<div class="panel">
+        <h2>Tu cuenta</h2>
+        <p class="hint">Sesión iniciada como <strong>${escapeHtml(fbUser.email || fbUser.displayName || 'tu cuenta')}</strong>. Tus carreras se guardan solas en tu cuenta cada vez que termina una temporada, y cuando tocás "Guardar ahora" dentro de una carrera.</p>
+        <div class="btn-row"><button class="btn ghost small" data-action="auth-signout">Cerrar sesión</button></div>
+      </div>`;
+    }
+    const dis = authUi.busy ? 'disabled' : '';
+    return `<div class="panel">
+      <h2>Iniciá sesión para guardar en la nube</h2>
+      <p class="hint">Con una cuenta tus carreras quedan guardadas en línea y las podés abrir desde cualquier dispositivo.</p>
+      <div class="auth-grid">
+        <div class="field"><label>Email</label><input type="email" id="authEmail" autocomplete="email" value="${escapeHtml(authUi.email)}" placeholder="tu@email.com"></div>
+        <div class="field"><label>Contraseña</label><input type="password" id="authPass" autocomplete="current-password" placeholder="Mínimo 6 caracteres"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" data-action="auth-login" ${dis}>Iniciar sesión</button>
+        <button class="btn" data-action="auth-signup" ${dis}>Crear cuenta</button>
+        <button class="btn" data-action="auth-google" ${dis}>Entrar con Google</button>
+        <button class="btn ghost small" data-action="auth-reset" ${dis}>Olvidé mi contraseña</button>
+      </div>
+      ${authUi.busy ? '<p class="hint" style="margin:8px 0 0;">Un momento…</p>' : ''}
+      ${authUi.msg ? `<p class="auth-msg">${escapeHtml(authUi.msg)}</p>` : ''}
+    </div>`;
+  }
+
   function renderCareraMenu(){
-    const idx = careerLoadIndex().sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+    const entries = careerMenuEntries();
     const torneoLabel = { apertura:'Apertura', clausura:'Clausura' };
-    const guardadas = idx.map(entry => {
+    const guardadas = entries.map(entry => {
       const sum = entry.summary || {};
-      const d = entry.updatedAt ? new Date(entry.updatedAt) : null;
-      const cuando = d ? d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}) : '';
+      const cuando = careerFmtDate(entry.updatedAt);
       const titulo = entry.name ? escapeHtml(entry.name) : escapeHtml(sum.teamName || 'Carrera');
+      let badge = '', subir = '';
+      if(fbUser){
+        if(entry.cloud && entry.local){
+          badge = entry.remoteSavedAt === entry.cloudSavedAt
+            ? '<span class="badge cloud">&#9729; En tu cuenta</span>'
+            : '<span class="badge warn">&#9888; La nube tiene otra versión</span>';
+        }else if(entry.cloud){
+          badge = '<span class="badge cloud">&#9729; Solo en tu cuenta</span>';
+        }else{
+          badge = '<span class="badge">Solo en este dispositivo</span>';
+          subir = `<button class="btn small" data-action="career-cloud-upload" data-id="${entry.id}">Subir a mi cuenta</button>`;
+        }
+      }
       return `<div class="menu-row">
         <div class="info">
-          <strong>${titulo}</strong>
+          <strong>${titulo}</strong>${badge}
           <div class="meta">${escapeHtml(sum.teamName || '—')} &middot; ${torneoLabel[sum.tournament] || ''} ${sum.year || ''}${sum.titles ? ' &middot; ' + sum.titles + ' título' + (sum.titles===1?'':'s') : ''} &middot; última vez ${cuando}</div>
         </div>
         <div class="actions">
           <button class="btn small primary" data-action="career-open" data-id="${entry.id}">Abrir</button>
+          ${subir}
           <button class="btn small ghost" data-action="career-delete" data-id="${entry.id}">Borrar</button>
         </div>
       </div>`;
     }).join('');
+    const nube = !fbUser ? '' :
+      careerCloudState === 'loading' ? '<p class="hint">Buscando tus carreras en la nube…</p>' :
+      careerCloudState === 'error' ? `<p class="auth-msg">No se pudo leer tu cuenta: ${escapeHtml(careerCloudErr)} <button class="btn ghost small" data-action="career-goto-menu">Reintentar</button></p>` : '';
 
-    return `<div class="panel">
+    return renderCareraAuthPanel() + `<div class="panel">
       <h2>Tus carreras</h2>
       <p class="hint">Podés tener todas las carreras que quieras guardadas al mismo tiempo, cada una con su equipo, su temporada y su historial.</p>
+      ${nube}
       ${guardadas || '<div class="empty">Todavía no tenés ninguna carrera guardada.</div>'}
     </div>
     <div class="panel">
@@ -5974,7 +6512,9 @@
       </div>
       <div class="cs-tb-right">
         ${inSeason && !c.seasonDraws ? `<span>&#128197; ${formatCareerDate(c.calendarDate)}</span>` : ''}
-        <span>&#128190; Guardado</span>
+        <span id="acctChip" class="acct-chip">${fbUser ? '&#9729; ' + escapeHtml(fbUser.email || fbUser.displayName || 'Cuenta') : ''}</span>
+        <span id="saveStatus" class="save-status ${careerSaveStatus.kind}">${careerStatusIcon()}${escapeHtml(careerStatusText())}</span>
+        ${c.id ? `<button class="btn small" data-action="career-save-now">Guardar ahora</button>` : ''}
         ${c.id ? `<button class="btn ghost small" data-action="career-goto-menu">Mis carreras</button>` : ''}
         <button class="btn ghost small" data-action="go-torneos">&larr; Generador de Torneos</button>
       </div>
@@ -17226,6 +17766,7 @@
       newTournament();
     }
   })();
+  firebaseInit();
   playersLoadCsv();
   render();
   // Los escudos guardados se leen de IndexedDB de forma asíncrona: cuando llegan se redibuja.
