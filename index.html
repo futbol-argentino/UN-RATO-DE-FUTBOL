@@ -372,6 +372,68 @@
   .auth-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:640px){ .auth-grid{ grid-template-columns:1fr; } }
   .auth-msg{ color:#E27B6E; font-size:13px; margin:8px 0 0; }
+
+  /* ---------- Finales con animación especial ---------- */
+  .fs-overlay{ position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; overflow:auto;
+    background:radial-gradient(ellipse at 50% 25%, #1d3527 0%, #0a140e 60%, #050a07 100%); color:var(--ink); animation:fsFade .5s ease both; }
+  .fs-beams{ position:absolute; inset:-35%; pointer-events:none; opacity:.4; animation:fsSpin 20s linear infinite;
+    background:conic-gradient(from 0deg at 50% 45%,
+      transparent 0deg, rgba(var(--fs-accent-rgb),.45) 8deg, transparent 22deg,
+      transparent 90deg, rgba(var(--fs-accent-rgb),.4) 98deg, transparent 112deg,
+      transparent 180deg, rgba(var(--fs-accent-rgb),.45) 188deg, transparent 202deg,
+      transparent 270deg, rgba(var(--fs-accent-rgb),.4) 278deg, transparent 292deg); }
+  .fs-confetti{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  .fs-confetti i{ position:absolute; top:-24px; border-radius:2px; opacity:.95; animation:fsFall linear forwards; }
+  .fs-stage{ position:relative; width:min(860px,100%); text-align:center; margin:auto; }
+  .fs-trophy{ font-size:72px; line-height:1.1; animation:fsTrophy 2.4s ease-in-out infinite; filter:drop-shadow(0 0 22px rgba(var(--fs-accent-rgb),.75)); }
+  .fs-kicker{ font-family:'Oswald',sans-serif; letter-spacing:.55em; font-size:14px; color:var(--fs-accent); margin-top:6px; animation:fsRise .7s .2s both; }
+  .fs-comp{ font-family:'Oswald',sans-serif; font-size:clamp(22px,4vw,34px); animation:fsRise .7s .4s both; }
+  .fs-board{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px; margin:26px 0 8px; transition:transform .5s ease; }
+  .fs-team{ display:flex; flex-direction:column; align-items:center; gap:10px; min-width:0; }
+  .fs-home{ animation:fsFromLeft .9s .9s both cubic-bezier(.2,.9,.3,1.15); }
+  .fs-away{ animation:fsFromRight .9s .9s both cubic-bezier(.2,.9,.3,1.15); }
+  .fs-tname{ font-family:'Oswald',sans-serif; font-size:clamp(15px,2.6vw,22px); overflow-wrap:anywhere; }
+  .fs-score{ font-size:clamp(48px,10vw,88px); line-height:1; display:flex; gap:12px; align-items:center; animation:fsRise .6s 1.5s both; }
+  .fs-score span{ display:inline-block; }
+  .fs-score .bump{ animation:fsBump .7s ease; color:var(--fs-accent); }
+  .fs-clock{ font-size:22px; color:var(--fs-accent); height:30px; }
+  .fs-event{ min-height:36px; font-family:'Oswald',sans-serif; font-size:clamp(18px,3vw,26px); letter-spacing:.04em; }
+  .fs-event.goal{ color:var(--fs-accent); animation:fsPop .5s ease; text-shadow:0 0 18px rgba(var(--fs-accent-rgb),.7); }
+  .fs-pens{ margin:10px auto 0; max-width:480px; display:grid; gap:8px; }
+  .fs-pens[hidden], .fs-champ[hidden]{ display:none; }
+  .fs-pen-row{ display:flex; align-items:center; gap:10px; }
+  .fs-pen-name{ font-size:13px; color:var(--ink-dim); width:150px; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:none; }
+  .fs-dots{ display:flex; gap:6px; flex-wrap:wrap; min-height:26px; }
+  .fs-dot{ width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; color:#fff; animation:fsPop .35s both; }
+  .fs-dot.ok{ background:#3f7a3f; }
+  .fs-dot.no{ background:#8c2f25; }
+  .fs-pen-total{ font-family:'Oswald',sans-serif; font-size:24px; margin-top:4px; }
+  .fs-champ{ margin-top:10px; animation:fsRise .6s both; }
+  .fs-champ-badge{ display:flex; justify-content:center; animation:fsDrop 1s cubic-bezier(.2,.9,.3,1.2) both; filter:drop-shadow(0 0 26px rgba(var(--fs-accent-rgb),.7)); }
+  .fs-champ-kicker{ font-family:'Oswald',sans-serif; letter-spacing:.35em; color:var(--fs-accent); font-size:clamp(20px,4vw,30px); margin-top:14px; animation:fsPop .7s .4s both; }
+  .fs-champ-name{ font-family:'Oswald',sans-serif; font-size:clamp(28px,6vw,52px); line-height:1.1; animation:fsRise .7s .6s both; }
+  .fs-champ-sub{ color:var(--ink-dim); margin-top:6px; animation:fsRise .7s .8s both; }
+  .fs-mine{ margin-top:14px; padding:8px 14px; border-radius:8px; display:inline-block; font-weight:600; animation:fsRise .7s 1s both; }
+  .fs-mine.win{ background:rgba(90,143,90,.25); color:#A7DDA7; border:1px solid #3f6a3f; }
+  .fs-mine.lose{ background:rgba(178,58,46,.18); color:#F0A79F; border:1px solid #8c2f25; }
+  .fs-stage.fs-done .fs-clock, .fs-stage.fs-done .fs-event, .fs-stage.fs-done .fs-pens, .fs-stage.fs-done .fs-trophy, .fs-stage.fs-done .fs-kicker{ display:none; }
+  .fs-stage.fs-done .fs-board{ transform:scale(.62); margin:-14px 0 -6px; }
+  .fs-actions{ margin-top:22px; display:flex; justify-content:center; }
+  @keyframes fsFade{ from{opacity:0} to{opacity:1} }
+  @keyframes fsSpin{ to{ transform:rotate(360deg) } }
+  @keyframes fsTrophy{ 0%,100%{ transform:translateY(0) scale(1) } 50%{ transform:translateY(-8px) scale(1.06) } }
+  @keyframes fsRise{ from{ opacity:0; transform:translateY(16px) } to{ opacity:1; transform:none } }
+  @keyframes fsFromLeft{ from{ opacity:0; transform:translateX(-140px) } to{ opacity:1; transform:none } }
+  @keyframes fsFromRight{ from{ opacity:0; transform:translateX(140px) } to{ opacity:1; transform:none } }
+  @keyframes fsBump{ 0%{ transform:scale(1) } 35%{ transform:scale(1.6) } 100%{ transform:scale(1) } }
+  @keyframes fsPop{ 0%{ opacity:0; transform:scale(.6) } 60%{ opacity:1; transform:scale(1.15) } 100%{ transform:scale(1) } }
+  @keyframes fsDrop{ from{ opacity:0; transform:translateY(-70px) scale(.5) } to{ opacity:1; transform:none } }
+  @keyframes fsFall{ from{ transform:translate(0,0) rotate(0deg) } to{ transform:translate(var(--sx,0),110vh) rotate(720deg) } }
+  @media (max-width:640px){ .fs-pen-name{ width:96px; } .fs-trophy{ font-size:56px; } }
+  @media (prefers-reduced-motion: reduce){
+    .fs-overlay, .fs-overlay *{ animation-duration:.01s !important; animation-delay:0s !important; animation-iteration-count:1 !important; }
+    .fs-beams{ animation:none; }
+  }
 </style>
 </head>
 <body>
@@ -381,12 +443,12 @@
 // ▼▼▼ PEGÁ ACÁ LA CONFIGURACIÓN DE TU PROYECTO DE FIREBASE ▼▼▼
 // (Consola de Firebase → Configuración del proyecto → Tus apps → app web → "firebaseConfig")
 window.FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBdOgHi3pUTruu3QaoJSGU8-J9H_RHx82I",
-  authDomain: "torneoselo.firebaseapp.com",
-  projectId: "torneoselo",
-  storageBucket: "torneoselo.firebasestorage.app",
-  messagingSenderId: "383523809884",
-  appId: "1:383523809884:web:84d62e3818bad668b21499"
+  apiKey: "PEGAR_AQUI",
+  authDomain: "PEGAR_AQUI",
+  projectId: "PEGAR_AQUI",
+  storageBucket: "PEGAR_AQUI",
+  messagingSenderId: "PEGAR_AQUI",
+  appId: "PEGAR_AQUI"
 };
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -636,14 +698,16 @@ window.FIREBASE_CONFIG = {
   }
   // Genera automáticamente la próxima ronda/etapa de cada llave cuando la anterior ya se jugó entera,
   // para que "Avanzar calendario" no dependa de ir tocando botones torneo por torneo.
-  function careerTryAutoAdvanceStages(){
+  function careerTryAutoAdvanceStages(startClausura){
     const c = state.career;
     careerContEnsureEdition();
     let progressed = true, guard = 0;
     while(progressed && guard < 25){
       progressed = false; guard++;
-      // Terminada la final del Apertura, el Clausura arranca solo (ya no hace falta ir a buscar el botón).
-      if(c.tournament === 'apertura' && c.champion && c.champion.tournament === 'apertura' && c.champion.year === c.year && !c.seasonDraws){
+      // Terminada la final del Apertura, el Clausura arranca cuando el usuario toca "Avanzar calendario"
+      // (antes arrancaba en el mismo instante en que se simulaba la final y el calendario saltaba de día
+      // sin dejar ver el resultado).
+      if(startClausura && careerAperturaFinalDone()){
         careerStartClausura(); progressed = true; continue;
       }
       const ligaMatches = c.matches.filter(m=>m.comp===c.tournament);
@@ -685,6 +749,270 @@ window.FIREBASE_CONFIG = {
       careerMaybeBuildSupercopaInternacional();
     }
   }
+
+  // ---------- Finales con animación especial ----------
+  // Se dispara cuando, al simular, se juega la final de la Copa de la Liga (Apertura/Clausura),
+  // de la Copa Argentina, de la Libertadores o de la Sudamericana. El resultado ya está decidido por
+  // la simulación; la animación solo lo cuenta con suspenso (minutos, goles, penales y campeón).
+  const CAREER_FINAL_COMPS = ['apertura','clausura','copa-argentina','libertadores','sudamericana'];
+  const CAREER_SIM_ACTIONS = ['career-simulate-day','career-simulate-match','career-simulate-round','career-simulate-copa','career-simulate-continental'];
+  let careerFinalBefore = null;
+  const careerFinalShown = new Set();
+  let careerFinalQueue = [];
+  let careerFinalActive = false;
+
+  function careerPlayedFinals(){
+    const c = state.career, out = [];
+    careerMatchLists().forEach(l => (l || []).forEach(m => {
+      if(m && m.played && !m.bye && m.stage === 'final' && !m.leg && CAREER_FINAL_COMPS.indexOf(m.comp) >= 0){
+        out.push({ key: c.id + ':' + c.year + ':' + m.comp + ':' + m.id, m });
+      }
+    }));
+    return out;
+  }
+  function careerPlayedFinalKeys(){
+    return new Set(careerPlayedFinals().map(x => x.key));
+  }
+  function careerFinalInfo(m){
+    const y = state.career.year;
+    if(m.comp === 'apertura') return { name: 'Copa de la Liga — Apertura ' + y, accent: '#E4C64E', rgb: '228,198,78' };
+    if(m.comp === 'clausura') return { name: 'Copa de la Liga — Clausura ' + y, accent: '#E4C64E', rgb: '228,198,78' };
+    if(m.comp === 'copa-argentina') return { name: 'Copa Argentina ' + y, accent: '#75AADB', rgb: '117,170,219' };
+    if(m.comp === 'libertadores') return { name: 'Copa Libertadores ' + y, accent: '#F0B23C', rgb: '240,178,60' };
+    if(m.comp === 'sudamericana') return { name: 'Copa Sudamericana ' + y, accent: '#4C9BE8', rgb: '76,155,232' };
+    return { name: 'Final', accent: '#E4C64E', rgb: '228,198,78' };
+  }
+  function careerGenGoals(m){
+    const sides = [];
+    for(let i = 0; i < (m.homeScore || 0); i++) sides.push('h');
+    for(let i = 0; i < (m.awayScore || 0); i++) sides.push('a');
+    if(sides.length > 60) sides.length = 60;
+    for(let i = sides.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); const t = sides[i]; sides[i] = sides[j]; sides[j] = t; }
+    const mins = [];
+    while(mins.length < sides.length){ const x = 2 + Math.floor(Math.random() * 88); if(mins.indexOf(x) < 0) mins.push(x); }
+    mins.sort((x, y) => x - y);
+    return sides.map((sd, i) => ({ side: sd, min: mins[i] }));
+  }
+  // Tanda de penales verosímil que termina con el ganador que ya decidió la simulación.
+  function careerGenShootout(winnerIsHome){
+    for(let attempt = 0; attempt < 400; attempt++){
+      const kicks = []; let h = 0, a = 0, hk = 0, ak = 0, round = 0, done = false;
+      while(!done && round < 12){
+        round++;
+        const sidesOrder = ['h','a'];
+        for(let s2 = 0; s2 < 2 && !done; s2++){
+          const side = sidesOrder[s2];
+          const ok = Math.random() < 0.76;
+          kicks.push({ side, ok });
+          if(side === 'h'){ hk++; if(ok) h++; } else { ak++; if(ok) a++; }
+          if(round <= 5){
+            const hLeft = 5 - hk, aLeft = 5 - ak;
+            if(h > a + aLeft || a > h + hLeft) done = true;
+          } else if(side === 'a' && h !== a){
+            done = true;
+          }
+        }
+      }
+      if(done && h !== a && ((h > a) === winnerIsHome)) return { kicks, h, a };
+    }
+    return { kicks: [{ side:'h', ok: winnerIsHome }, { side:'a', ok: !winnerIsHome }], h: winnerIsHome ? 1 : 0, a: winnerIsHome ? 0 : 1 };
+  }
+
+  function careerRunFinalShow(m, done){
+    const c = state.career;
+    const home = careerTeamById(m.home), away = careerTeamById(m.away);
+    if(!home || !away){ done(); return; }
+    const info = careerFinalInfo(m);
+    const winnerId = careerMatchWinner(m);
+    const winnerIsHome = winnerId === m.home;
+    const winner = winnerIsHome ? home : away;
+    const reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const isMine = !!c.myTeamId && (m.home === c.myTeamId || m.away === c.myTeamId);
+    const iWon = isMine && winnerId === c.myTeamId;
+    const shoot = m.wentToPenalties ? careerGenShootout(winnerIsHome) : null;
+    if(shoot && !m.penScore) m.penScore = [shoot.h, shoot.a];
+
+    const root = document.createElement('div');
+    root.className = 'fs-overlay';
+    root.style.setProperty('--fs-accent', info.accent);
+    root.style.setProperty('--fs-accent-rgb', info.rgb);
+    root.setAttribute('role', 'dialog');
+    root.setAttribute('aria-modal', 'true');
+    root.innerHTML = `
+      <div class="fs-beams"></div>
+      <div class="fs-confetti"></div>
+      <div class="fs-stage">
+        <div class="fs-trophy">&#127942;</div>
+        <div class="fs-kicker">GRAN FINAL</div>
+        <div class="fs-comp">${escapeHtml(info.name)}</div>
+        <div class="fs-board">
+          <div class="fs-team fs-home">${teamBadgeHtml(home, 84)}<div class="fs-tname">${escapeHtml(home.name)}</div></div>
+          <div class="fs-score num"><span class="fs-sh">0</span><span class="fs-dash">-</span><span class="fs-sa">0</span></div>
+          <div class="fs-team fs-away">${teamBadgeHtml(away, 84)}<div class="fs-tname">${escapeHtml(away.name)}</div></div>
+        </div>
+        <div class="fs-clock num">&nbsp;</div>
+        <div class="fs-event">&nbsp;</div>
+        <div class="fs-pens" hidden>
+          <div class="fs-pen-row"><span class="fs-pen-name">${escapeHtml(home.name)}</span><span class="fs-dots" data-side="h"></span></div>
+          <div class="fs-pen-row"><span class="fs-pen-name">${escapeHtml(away.name)}</span><span class="fs-dots" data-side="a"></span></div>
+          <div class="fs-pen-total num">0 - 0</div>
+        </div>
+        <div class="fs-champ" hidden></div>
+        <div class="fs-actions"><button class="btn ghost small fs-skip" type="button">Saltar animación</button></div>
+      </div>`;
+    document.body.appendChild(root);
+    const q = sel => root.querySelector(sel);
+
+    let skipped = false, finished = false, wakeFn = null;
+    const SKIP = {};
+    const wait = ms => new Promise(r => {
+      wakeFn = r;
+      setTimeout(r, skipped ? 0 : (reduce ? Math.min(ms, 120) : ms));
+    }).then(() => { if(skipped) throw SKIP; });
+
+    function close(){
+      document.removeEventListener('keydown', onKey, true);
+      if(root.parentNode) root.parentNode.removeChild(root);
+      done();
+    }
+    function onKey(e){
+      if(e.key === 'Escape' || e.key === 'Enter' || e.key === ' '){
+        e.preventDefault(); e.stopPropagation();
+        if(finished) close(); else { skipped = true; if(wakeFn) wakeFn(); }
+      }
+    }
+    document.addEventListener('keydown', onKey, true);
+    q('.fs-skip').addEventListener('click', () => { skipped = true; if(wakeFn) wakeFn(); });
+
+    function setScore(h, a, bump){
+      const sh = q('.fs-sh'), sa = q('.fs-sa');
+      sh.textContent = h; sa.textContent = a;
+      if(bump){ const el = bump === 'h' ? sh : sa; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+    }
+    function setEvent(text, goal){
+      const ev = q('.fs-event');
+      ev.textContent = text;
+      ev.className = 'fs-event' + (goal ? ' goal' : '');
+    }
+    function dotHtml(k){ return `<span class="fs-dot ${k.ok ? 'ok' : 'no'}">${k.ok ? '&#10003;' : '&#10007;'}</span>`; }
+    function renderPens(upTo){
+      let ph = 0, pa = 0, hh = '', aa = '';
+      shoot.kicks.slice(0, upTo).forEach(k => {
+        if(k.side === 'h'){ hh += dotHtml(k); if(k.ok) ph++; } else { aa += dotHtml(k); if(k.ok) pa++; }
+      });
+      q('.fs-dots[data-side="h"]').innerHTML = hh;
+      q('.fs-dots[data-side="a"]').innerHTML = aa;
+      q('.fs-pen-total').textContent = ph + ' - ' + pa;
+    }
+    function confetti(){
+      if(reduce) return;
+      const colors = [info.accent, '#ECE7DA', '#5A8F5A', '#B23A2E', '#75AADB'];
+      let h = '';
+      for(let i = 0; i < 110; i++){
+        const l = Math.random() * 100, d = 2.8 + Math.random() * 2.8, dl = Math.random() * 1.6, sz = 6 + Math.random() * 7, sx = Math.round((Math.random() - 0.5) * 160);
+        h += `<i style="left:${l}%;width:${sz}px;height:${Math.round(sz * 1.6)}px;background:${colors[i % colors.length]};animation-duration:${d}s;animation-delay:${dl}s;--sx:${sx}px"></i>`;
+      }
+      q('.fs-confetti').innerHTML = h;
+    }
+    function showResult(){
+      finished = true;
+      setScore(m.homeScore, m.awayScore);
+      if(shoot) renderPens(shoot.kicks.length);
+      const pen = shoot ? ` · ganó por penales ${winnerIsHome ? shoot.h + '-' + shoot.a : shoot.a + '-' + shoot.h}` : '';
+      const mine = iWon ? '<div class="fs-mine win">&#127881; ¡Tu equipo levantó la copa!</div>'
+        : (isMine ? '<div class="fs-mine lose">Tu equipo perdió la final. Quedó el subcampeonato.</div>' : '');
+      const champ = q('.fs-champ');
+      champ.innerHTML = `
+        <div class="fs-champ-badge">${teamBadgeHtml(winner, 110)}</div>
+        <div class="fs-champ-kicker">¡CAMPEÓN!</div>
+        <div class="fs-champ-name">${escapeHtml(winner.name)}</div>
+        <div class="fs-champ-sub">${escapeHtml(info.name)}${escapeHtml(pen)}</div>
+        ${mine}`;
+      champ.hidden = false;
+      q('.fs-stage').classList.add('fs-done');
+      q('.fs-actions').innerHTML = '<button class="btn primary fs-close" type="button">Continuar</button>';
+      const cb = q('.fs-close');
+      cb.addEventListener('click', close);
+      confetti();
+      try{ cb.focus(); }catch(e){}
+    }
+
+    (async function(){
+      try{
+        await wait(2900);
+        setEvent('¡Rueda el balón en la final!');
+        await wait(1100);
+        const goals = careerGenGoals(m);
+        let gi = 0, sh = 0, sa = 0;
+        for(let min = 1; min <= 90; min++){
+          q('.fs-clock').textContent = min + "'";
+          while(gi < goals.length && goals[gi].min === min){
+            const g = goals[gi++];
+            if(g.side === 'h') sh++; else sa++;
+            setScore(sh, sa, g.side);
+            setEvent('¡GOOOL de ' + (g.side === 'h' ? home.name : away.name) + '!', true);
+            await wait(1500);
+            setEvent('');
+          }
+          if(min === 1) setEvent('');
+          if(min === 45){ setEvent('Entretiempo'); await wait(1000); setEvent(''); }
+          await wait(min >= 80 ? 75 : 38);
+        }
+        setScore(m.homeScore, m.awayScore);
+        q('.fs-clock').textContent = "90'";
+        if(shoot){
+          setEvent('Final del tiempo reglamentario: ¡empate!');
+          await wait(1700);
+          setEvent('¡Se define por penales!');
+          q('.fs-pens').hidden = false;
+          await wait(1300);
+          for(let i = 1; i <= shoot.kicks.length; i++){
+            renderPens(i);
+            await wait(900);
+          }
+          await wait(600);
+        }else if(m.homeScore === m.awayScore){
+          setEvent('Empate: se define por ventaja deportiva');
+          await wait(1600);
+        }else{
+          setEvent('¡Final del partido!');
+          await wait(1300);
+        }
+        setEvent('… y el campeón es …');
+        await wait(1800);
+        showResult();
+      }catch(e){
+        if(e === SKIP){ showResult(); }
+        else { finished = true; close(); }
+      }
+    })();
+  }
+
+  function careerFinalNext(){
+    if(careerFinalActive || !careerFinalQueue.length) return;
+    const m = careerFinalQueue.shift();
+    careerFinalActive = true;
+    try{
+      careerRunFinalShow(m, () => { careerFinalActive = false; careerFinalNext(); });
+    }catch(e){
+      careerFinalActive = false;
+    }
+  }
+  function careerMaybeShowFinals(){
+    if(!careerFinalBefore) return;
+    const before = careerFinalBefore;
+    careerFinalBefore = null;
+    try{
+      careerPlayedFinals().forEach(x => {
+        if(!before.has(x.key) && !careerFinalShown.has(x.key)){
+          careerFinalShown.add(x.key);
+          careerFinalQueue.push(x.m);
+        }
+      });
+      careerFinalNext();
+    }catch(e){}
+  }
+
   // Avanza el calendario único al próximo día con partidos programados de cualquier competencia.
   // Devuelve true si encontró una fecha nueva, false si no queda nada programado por ahora.
   // La temporada terminó de verdad: campeón del Clausura, ningún partido pendiente en ninguna
@@ -697,9 +1025,14 @@ window.FIREBASE_CONFIG = {
     if(careerContPendingDraws().length > 0) return false;
     return true;
   }
+  // La final del Apertura ya se jugó pero el Clausura todavía no arrancó.
+  function careerAperturaFinalDone(){
+    const c = state.career;
+    return c.tournament === 'apertura' && !c.seasonDraws && !!(c.champion && c.champion.tournament === 'apertura' && c.champion.year === c.year);
+  }
   function careerAdvanceCalendar(){
     const c = state.career;
-    careerTryAutoAdvanceStages();
+    careerTryAutoAdvanceStages(true);
     const pending = careerAllUnplayedDatedMatches();
     if(pending.length === 0){
       // Fin de año: en vez de quedar trabado, el mismo botón pasa a la temporada siguiente.
@@ -1659,6 +1992,7 @@ window.FIREBASE_CONFIG = {
       bindEvents();
       careerPersist();
       careerAutosaveCheck();
+      careerMaybeShowFinals();
       return;
     }
     document.body.classList.remove('carrera-mode');
@@ -2400,6 +2734,9 @@ window.FIREBASE_CONFIG = {
     const btn = e.target.closest('[data-action]');
     if(!btn) return;
     const action = btn.getAttribute('data-action');
+    if(state.mode === 'carrera' && CAREER_SIM_ACTIONS.indexOf(action) >= 0){
+      try{ careerFinalBefore = careerPlayedFinalKeys(); }catch(e){ careerFinalBefore = null; }
+    }
 
     // ---- Escudos de equipos ----
     if(action === 'crest-remove'){
@@ -7224,7 +7561,7 @@ window.FIREBASE_CONFIG = {
       <div class="meta">${todays.length ? `${todays.length} partido${todays.length===1?'':'s'} programado${todays.length===1?'':'s'} &middot; ${pendingToday.length ? pendingToday.length+' sin jugar' : 'ya se jugaron todos'}.` : 'Sin partidos programados para hoy.'}</div>
       <div class="btn-row">
         ${pendingToday.length ? `<button class="btn" data-action="career-simulate-day">Simular los ${pendingToday.length} partidos que faltan hoy</button>` : ''}
-        <button class="btn primary" data-action="career-advance-calendar" ${(pendingTotal>0 || careerSeasonFinished())?'':'disabled'}>${(pendingTotal===0 && careerSeasonFinished()) ? `&#9654; Pasar a la temporada ${c.year+1}` : '&#9654; Avanzar calendario'}</button>
+        <button class="btn primary" data-action="career-advance-calendar" ${(pendingTotal>0 || careerSeasonFinished() || careerAperturaFinalDone())?'':'disabled'}>${(pendingTotal===0 && careerSeasonFinished()) ? `&#9654; Pasar a la temporada ${c.year+1}` : (pendingTotal===0 && careerAperturaFinalDone()) ? `&#9654; Empezar el Clausura ${c.year}` : '&#9654; Avanzar calendario'}</button>
       </div>
     </div>`;
 
@@ -7236,6 +7573,8 @@ window.FIREBASE_CONFIG = {
       html += `<div class="panel">`;
       if(pendingTotal === 0 && careerSeasonFinished()){
         html += `<p class="hint">&#127942; La temporada ${c.year} terminó. Antes de seguir podés mirar la Tabla Anual, la Tabla de Promedios y los descensos en \"Tablas y Copas\"; cuando quieras, tocá \"Pasar a la temporada ${c.year+1}\" arriba.</p>`;
+      } else if(pendingTotal === 0 && careerAperturaFinalDone()){
+        html += `<p class="hint">&#127942; El Apertura ${c.year} ya tiene campeón. Cuando quieras, tocá \"Empezar el Clausura ${c.year}\" arriba.</p>`;
       } else if(pendingTotal === 0){
         html += `<p class="hint">No hay más partidos programados por el momento. Puede que haga falta armar algo desde el menú de la izquierda (por ejemplo sortear la Copa Argentina).</p>`;
       } else {
@@ -7258,7 +7597,7 @@ window.FIREBASE_CONFIG = {
       groups.forEach(g => {
         html += `<div class="panel"><h2>${g.label}</h2>${g.matches.map(m=>renderCareerMatchRow(m, null, { serieGlobal:true })).join('')}</div>`;
       });
-      if(!pendingToday.length && pendingTotal > 0){
+      if(!pendingToday.length && (pendingTotal > 0 || careerAperturaFinalDone())){
         html += `<p class="hint">Ya se jugó todo lo de hoy. Avanzá el calendario para ir al próximo día con partidos.</p>`;
       }
     }
