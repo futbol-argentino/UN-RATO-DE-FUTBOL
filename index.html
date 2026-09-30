@@ -773,29 +773,61 @@ window.FIREBASE_CONFIG = {
   function careerPlayedFinalKeys(){
     return new Set(careerPlayedFinals().map(x => x.key));
   }
+  function careerIsFinalShow(m){
+    return !!m && m.stage === 'final' && !m.leg && CAREER_FINAL_COMPS.indexOf(m.comp) >= 0;
+  }
   function careerFinalInfo(m){
     const y = state.career.year;
-    if(m.comp === 'apertura') return { name: 'Copa de la Liga — Apertura ' + y, accent: '#E4C64E', rgb: '228,198,78' };
-    if(m.comp === 'clausura') return { name: 'Copa de la Liga — Clausura ' + y, accent: '#E4C64E', rgb: '228,198,78' };
-    if(m.comp === 'copa-argentina') return { name: 'Copa Argentina ' + y, accent: '#75AADB', rgb: '117,170,219' };
-    if(m.comp === 'libertadores') return { name: 'Copa Libertadores ' + y, accent: '#F0B23C', rgb: '240,178,60' };
-    if(m.comp === 'sudamericana') return { name: 'Copa Sudamericana ' + y, accent: '#4C9BE8', rgb: '76,155,232' };
-    return { name: 'Final', accent: '#E4C64E', rgb: '228,198,78' };
+    const colors = {
+      'apertura': ['#E4C64E', '228,198,78'], 'clausura': ['#E4C64E', '228,198,78'],
+      'copa-argentina': ['#75AADB', '117,170,219'], 'libertadores': ['#F0B23C', '240,178,60'],
+      'sudamericana': ['#4C9BE8', '76,155,232']
+    };
+    const col = colors[m.comp] || ['#E4C64E', '228,198,78'];
+    let name = 'Final';
+    if(careerIsFinalShow(m)){
+      if(m.comp === 'apertura') name = 'Copa de la Liga — Apertura ' + y;
+      else if(m.comp === 'clausura') name = 'Copa de la Liga — Clausura ' + y;
+      else if(m.comp === 'copa-argentina') name = 'Copa Argentina ' + y;
+      else if(m.comp === 'libertadores') name = 'Copa Libertadores ' + y;
+      else if(m.comp === 'sudamericana') name = 'Copa Sudamericana ' + y;
+    } else {
+      try{ name = careerCompLabel(m); }catch(e){ name = 'Partido'; }
+    }
+    return { name, accent: col[0], rgb: col[1] };
   }
+  // Goles del partido para la animación: usa los goleadores ya guardados (m.goals: minuto + jugador) y,
+  // si a un equipo no le cargaron plantel, completa los que falten con minutos al azar y sin nombre.
   function careerGenGoals(m){
-    const sides = [];
-    for(let i = 0; i < (m.homeScore || 0); i++) sides.push('h');
-    for(let i = 0; i < (m.awayScore || 0); i++) sides.push('a');
-    if(sides.length > 60) sides.length = 60;
-    for(let i = sides.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); const t = sides[i]; sides[i] = sides[j]; sides[j] = t; }
-    const mins = [];
-    while(mins.length < sides.length){ const x = 2 + Math.floor(Math.random() * 88); if(mins.indexOf(x) < 0) mins.push(x); }
-    mins.sort((x, y) => x - y);
-    return sides.map((sd, i) => ({ side: sd, min: mins[i] }));
+    const cache = playersCache();
+    const want = { h: Math.min(m.homeScore || 0, 30), a: Math.min(m.awayScore || 0, 30) };
+    const have = { h: 0, a: 0 };
+    const out = [];
+    (m.goals || []).forEach(g => {
+      if(want[g.s] === undefined || have[g.s] >= want[g.s]) return;
+      have[g.s]++;
+      const p = cache && cache.byId ? cache.byId[g.p] : null;
+      out.push({ side: g.s, min: Math.max(1, Math.min(90, g.m || 1)), name: p ? p.n : null });
+    });
+    ['h', 'a'].forEach(sd => {
+      for(let i = have[sd]; i < want[sd]; i++) out.push({ side: sd, min: 2 + Math.floor(Math.random() * 88), name: null });
+    });
+    out.sort((x, y) => x.min - y.min);
+    return out;
+  }
+  // Jugadores de campo de un equipo, en orden probable de ejecución de penales (delanteros y volantes primero).
+  function careerPenaltyTakers(teamId){
+    const t = careerTeamById(teamId), cache = playersCache();
+    if(!t || !cache) return [];
+    const squad = (cache.byTeam[playerNormKey(t.name)] || []).filter(p => p.p !== 'ARQ');
+    const rank = { DEL: 0, MED: 1, DEF: 2 };
+    return squad.map(p => ({ p, k: (rank[p.p] === undefined ? 1 : rank[p.p]) + Math.random() * 1.6 }))
+      .sort((x, y) => x.k - y.k).map(x => x.p);
   }
   // Tanda de penales verosímil que termina con el ganador que ya decidió la simulación.
-  function careerGenShootout(winnerIsHome){
-    for(let attempt = 0; attempt < 400; attempt++){
+  function careerGenShootout(winnerIsHome, m){
+    let res = null;
+    for(let attempt = 0; attempt < 400 && !res; attempt++){
       const kicks = []; let h = 0, a = 0, hk = 0, ak = 0, round = 0, done = false;
       while(!done && round < 12){
         round++;
@@ -813,24 +845,57 @@ window.FIREBASE_CONFIG = {
           }
         }
       }
-      if(done && h !== a && ((h > a) === winnerIsHome)) return { kicks, h, a };
+      if(done && h !== a && ((h > a) === winnerIsHome)) res = { kicks, h, a };
     }
-    return { kicks: [{ side:'h', ok: winnerIsHome }, { side:'a', ok: !winnerIsHome }], h: winnerIsHome ? 1 : 0, a: winnerIsHome ? 0 : 1 };
+    if(!res) res = { kicks: [{ side:'h', ok: winnerIsHome }, { side:'a', ok: !winnerIsHome }], h: winnerIsHome ? 1 : 0, a: winnerIsHome ? 0 : 1 };
+    if(m){
+      const th = careerPenaltyTakers(m.home), ta = careerPenaltyTakers(m.away);
+      let ih = 0, ia = 0;
+      res.kicks.forEach(k => {
+        const list = k.side === 'h' ? th : ta;
+        if(!list.length) return;
+        const p = list[(k.side === 'h' ? ih++ : ia++) % list.length];
+        k.pid = p.id; k.n = p.n;
+      });
+    }
+    return res;
+  }
+  function careerShootoutFromSaved(m, winnerIsHome){
+    if(!Array.isArray(m.penKicks) || !m.penKicks.length) return null;
+    const cache = playersCache();
+    const kicks = m.penKicks.map(k => {
+      const p = k.p && cache && cache.byId ? cache.byId[k.p] : null;
+      return { side: k.s, ok: !!k.ok, pid: k.p || null, n: p ? p.n : null };
+    });
+    let h = 0, a = 0;
+    kicks.forEach(k => { if(k.ok){ if(k.side === 'h') h++; else a++; } });
+    if(h === a || (h > a) !== winnerIsHome) return null;
+    return { kicks, h, a };
   }
 
   function careerRunFinalShow(m, done){
     const c = state.career;
     const home = careerTeamById(m.home), away = careerTeamById(m.away);
     if(!home || !away){ done(); return; }
+    const isFinal = careerIsFinalShow(m);
     const info = careerFinalInfo(m);
     const winnerId = careerMatchWinner(m);
-    const winnerIsHome = winnerId === m.home;
-    const winner = winnerIsHome ? home : away;
+    const winner = winnerId ? (winnerId === m.home ? home : away) : null;
     const reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     const isMine = !!c.myTeamId && (m.home === c.myTeamId || m.away === c.myTeamId);
     const iWon = isMine && winnerId === c.myTeamId;
-    const shoot = m.wentToPenalties ? careerGenShootout(winnerIsHome) : null;
-    if(shoot && !m.penScore) m.penScore = [shoot.h, shoot.a];
+    const drawn = m.homeScore === m.awayScore;
+    let shoot = null;
+    if(m.wentToPenalties && m.penaltyWinner){
+      const penHome = m.penaltyWinner === m.home;
+      shoot = careerShootoutFromSaved(m, penHome);
+      if(!shoot){
+        shoot = careerGenShootout(penHome, m);
+        m.penKicks = shoot.kicks.map(k => ({ s: k.side, ok: k.ok ? 1 : 0, p: k.pid || null }));
+      }
+      if(!m.penScore) m.penScore = [shoot.h, shoot.a];
+      try{ careerPersist(); }catch(e){}
+    }
 
     const root = document.createElement('div');
     root.className = 'fs-overlay';
@@ -842,8 +907,8 @@ window.FIREBASE_CONFIG = {
       <div class="fs-beams"></div>
       <div class="fs-confetti"></div>
       <div class="fs-stage">
-        <div class="fs-trophy">&#127942;</div>
-        <div class="fs-kicker">GRAN FINAL</div>
+        <div class="fs-trophy">${isFinal ? '&#127942;' : '&#9917;'}</div>
+        <div class="fs-kicker">${isFinal ? 'GRAN FINAL' : 'MINUTO A MINUTO'}</div>
         <div class="fs-comp">${escapeHtml(info.name)}</div>
         <div class="fs-board">
           <div class="fs-team fs-home">${teamBadgeHtml(home, 84)}<div class="fs-tname">${escapeHtml(home.name)}</div></div>
@@ -852,6 +917,7 @@ window.FIREBASE_CONFIG = {
         </div>
         <div class="fs-clock num">&nbsp;</div>
         <div class="fs-event">&nbsp;</div>
+        <div class="fs-feed" style="font-size:13px;color:var(--ink-dim);line-height:1.7;margin:6px 0;"></div>
         <div class="fs-pens" hidden>
           <div class="fs-pen-row"><span class="fs-pen-name">${escapeHtml(home.name)}</span><span class="fs-dots" data-side="h"></span></div>
           <div class="fs-pen-row"><span class="fs-pen-name">${escapeHtml(away.name)}</span><span class="fs-dots" data-side="a"></span></div>
@@ -894,7 +960,13 @@ window.FIREBASE_CONFIG = {
       ev.textContent = text;
       ev.className = 'fs-event' + (goal ? ' goal' : '');
     }
-    function dotHtml(k){ return `<span class="fs-dot ${k.ok ? 'ok' : 'no'}">${k.ok ? '&#10003;' : '&#10007;'}</span>`; }
+    function addFeed(g){
+      const line = document.createElement('div');
+      const team = g.side === 'h' ? home : away;
+      line.textContent = '\u26BD ' + g.min + "' " + (g.name ? g.name + ' (' + team.name + ')' : team.name);
+      q('.fs-feed').appendChild(line);
+    }
+    function dotHtml(k){ return `<span class="fs-dot ${k.ok ? 'ok' : 'no'}" title="${escapeHtml(k.n || '')}">${k.ok ? '&#10003;' : '&#10007;'}</span>`; }
     function renderPens(upTo){
       let ph = 0, pa = 0, hh = '', aa = '';
       shoot.kicks.slice(0, upTo).forEach(k => {
@@ -914,33 +986,60 @@ window.FIREBASE_CONFIG = {
       }
       q('.fs-confetti').innerHTML = h;
     }
+    function scorersBlock(){
+      if(!m.goals || !m.goals.length) return '';
+      const sh = careerScorersSide(m, 'h'), sa = careerScorersSide(m, 'a');
+      if(!sh && !sa) return '';
+      return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;font-size:13px;color:var(--ink-dim);line-height:1.6;margin:12px auto 6px;max-width:680px;">
+        <div style="text-align:right;">${sh ? '&#9917; ' + sh : ''}</div><div style="text-align:left;">${sa ? '&#9917; ' + sa : ''}</div></div>`;
+    }
     function showResult(){
       finished = true;
       setScore(m.homeScore, m.awayScore);
       if(shoot) renderPens(shoot.kicks.length);
-      const pen = shoot ? ` · ganó por penales ${winnerIsHome ? shoot.h + '-' + shoot.a : shoot.a + '-' + shoot.h}` : '';
-      const mine = iWon ? '<div class="fs-mine win">&#127881; ¡Tu equipo levantó la copa!</div>'
-        : (isMine ? '<div class="fs-mine lose">Tu equipo perdió la final. Quedó el subcampeonato.</div>' : '');
+      q('.fs-feed').hidden = true;
+      const penTxt = shoot ? ' · penales ' + m.penScore[0] + '-' + m.penScore[1] : '';
+      let mine = '';
+      if(isMine){
+        if(isFinal) mine = iWon ? '<div class="fs-mine win">&#127881; ¡Tu equipo levantó la copa!</div>' : '<div class="fs-mine lose">Tu equipo perdió la final. Quedó el subcampeonato.</div>';
+        else if(winnerId) mine = iWon ? '<div class="fs-mine win">&#127881; ¡Tu equipo ganó!</div>' : '<div class="fs-mine lose">Tu equipo perdió.</div>';
+        else mine = '<div class="fs-mine">Tu equipo empató.</div>';
+      }
       const champ = q('.fs-champ');
-      champ.innerHTML = `
-        <div class="fs-champ-badge">${teamBadgeHtml(winner, 110)}</div>
-        <div class="fs-champ-kicker">¡CAMPEÓN!</div>
-        <div class="fs-champ-name">${escapeHtml(winner.name)}</div>
-        <div class="fs-champ-sub">${escapeHtml(info.name)}${escapeHtml(pen)}</div>
-        ${mine}`;
+      if(isFinal){
+        champ.innerHTML = `
+          <div class="fs-champ-badge">${teamBadgeHtml(winner, 110)}</div>
+          <div class="fs-champ-kicker">¡CAMPEÓN!</div>
+          <div class="fs-champ-name">${escapeHtml(winner.name)}</div>
+          <div class="fs-champ-sub">${escapeHtml(info.name)}${escapeHtml(shoot ? ' · ganó por penales ' + (winner === home ? shoot.h + '-' + shoot.a : shoot.a + '-' + shoot.h) : '')}</div>
+          ${scorersBlock()}${mine}`;
+      } else if(winner){
+        champ.innerHTML = `
+          <div class="fs-champ-badge">${teamBadgeHtml(winner, 96)}</div>
+          <div class="fs-champ-kicker">${shoot ? 'GANÓ POR PENALES' : 'FINAL DEL PARTIDO'}</div>
+          <div class="fs-champ-name">${escapeHtml(winner.name)}</div>
+          <div class="fs-champ-sub">${escapeHtml(home.name + ' ' + m.homeScore + ' - ' + m.awayScore + ' ' + away.name + penTxt)}</div>
+          ${scorersBlock()}${mine}`;
+      } else {
+        champ.innerHTML = `
+          <div class="fs-champ-badge">${teamBadgeHtml(home, 64)} ${teamBadgeHtml(away, 64)}</div>
+          <div class="fs-champ-kicker">EMPATE</div>
+          <div class="fs-champ-name">${escapeHtml(home.name + ' ' + m.homeScore + ' - ' + m.awayScore + ' ' + away.name)}</div>
+          ${scorersBlock()}${mine}`;
+      }
       champ.hidden = false;
       q('.fs-stage').classList.add('fs-done');
       q('.fs-actions').innerHTML = '<button class="btn primary fs-close" type="button">Continuar</button>';
       const cb = q('.fs-close');
       cb.addEventListener('click', close);
-      confetti();
+      if(isFinal) confetti();
       try{ cb.focus(); }catch(e){}
     }
 
     (async function(){
       try{
-        await wait(2900);
-        setEvent('¡Rueda el balón en la final!');
+        await wait(isFinal ? 2900 : 1300);
+        setEvent(isFinal ? '¡Rueda el balón en la final!' : '¡Rueda el balón!');
         await wait(1100);
         const goals = careerGenGoals(m);
         let gi = 0, sh = 0, sa = 0;
@@ -950,8 +1049,10 @@ window.FIREBASE_CONFIG = {
             const g = goals[gi++];
             if(g.side === 'h') sh++; else sa++;
             setScore(sh, sa, g.side);
-            setEvent('¡GOOOL de ' + (g.side === 'h' ? home.name : away.name) + '!', true);
-            await wait(1500);
+            const tm = g.side === 'h' ? home : away;
+            setEvent('¡GOOOL de ' + (g.name ? g.name + ' (' + tm.name + ')' : tm.name) + '!', true);
+            addFeed(g);
+            await wait(1700);
             setEvent('');
           }
           if(min === 1) setEvent('');
@@ -961,25 +1062,29 @@ window.FIREBASE_CONFIG = {
         setScore(m.homeScore, m.awayScore);
         q('.fs-clock').textContent = "90'";
         if(shoot){
-          setEvent('Final del tiempo reglamentario: ¡empate!');
+          setEvent(drawn ? (isFinal ? 'Final del tiempo reglamentario: ¡empate!' : 'Final del partido: ¡empate!') : 'La serie está igualada en el global');
           await wait(1700);
           setEvent('¡Se define por penales!');
           q('.fs-pens').hidden = false;
           await wait(1300);
           for(let i = 1; i <= shoot.kicks.length; i++){
+            const k = shoot.kicks[i - 1];
+            const tm = k.side === 'h' ? home : away;
+            setEvent('Patea ' + (k.n ? k.n + ' (' + tm.name + ')' : tm.name));
+            await wait(800);
             renderPens(i);
-            await wait(900);
+            setEvent(k.ok ? '¡GOL' + (k.n ? ' de ' + k.n : '') + '!' : (k.n ? k.n + ' la perdió' : 'Penal fallado'), k.ok);
+            await wait(950);
           }
-          await wait(600);
-        }else if(m.homeScore === m.awayScore){
-          setEvent('Empate: se define por ventaja deportiva');
-          await wait(1600);
+          await wait(500);
+        }else if(drawn){
+          setEvent(m.advantage ? 'Empate: se define por ventaja deportiva' : 'Final del partido: empate');
+          await wait(1500);
         }else{
           setEvent('¡Final del partido!');
-          await wait(1300);
+          await wait(1200);
         }
-        setEvent('… y el campeón es …');
-        await wait(1800);
+        if(isFinal){ setEvent('… y el campeón es …'); await wait(1800); }
         showResult();
       }catch(e){
         if(e === SKIP){ showResult(); }
@@ -1239,6 +1344,8 @@ window.FIREBASE_CONFIG = {
   let careerCloudErr = '';
   let careerCloudBusy = false;
   let careerCloudQueued = null;
+  let careerCloudBusySince = 0;
+  const careerCloudPendingAt = {};   // savedAt de una subida que se cortó por timeout pero pudo llegar igual a la nube
   let careerAutoKey = null;
   const authUi = { msg: '', busy: false, email: '' };
   const CLOUD_TIMEOUT_MS = 30000;
@@ -1349,8 +1456,13 @@ window.FIREBASE_CONFIG = {
   async function careerCloudPush(payload, opts){
     opts = opts || {};
     if(!fbUser || !fbDb) return { ok: false, reason: 'nologin' };
-    if(careerCloudBusy){ careerCloudQueued = { payload, opts }; return { ok: false, reason: 'busy' }; }
-    careerCloudBusy = true;
+    if(careerCloudBusy && Date.now() - careerCloudBusySince > 120000) careerCloudBusy = false;   // guardado colgado: se libera
+    if(careerCloudBusy){
+      careerCloudQueued = { payload, opts };
+      if(opts.manual) careerSetStatus('saving', 'Ya hay un guardado en curso; se vuelve a guardar apenas termine.');
+      return { ok: false, reason: 'busy' };
+    }
+    careerCloudBusy = true; careerCloudBusySince = Date.now();
     careerSetStatus('saving', 'Guardando en tu cuenta…');
     let result = { ok: false, reason: 'error' };
     try{
@@ -1359,7 +1471,9 @@ window.FIREBASE_CONFIG = {
       const remote = remoteSnap.exists ? remoteSnap.data() : null;
       const local = careerLoadIndex().find(x => x.id === payload.id);
       const known = local ? local.cloudSavedAt : undefined;
-      if(remote && remote.savedAt !== known){
+      if(remote && remote.savedAt === careerCloudPendingAt[payload.id] && remote.savedAt !== known){
+        careerIndexUpsert({ id: payload.id, cloudSavedAt: remote.savedAt });   // la subida anterior sí había llegado
+      } else if(remote && remote.savedAt !== known){
         if(opts.manual){
           if(!confirm('En tu cuenta hay otra versión de esta carrera (guardada ' + careerFmtDate(remote.savedAt) + '), distinta de la última que sincronizó este dispositivo.\n\n¿Querés reemplazarla con la de este dispositivo?')){
             careerSetStatus('warn', 'No se subió: la nube tiene otra versión.');
@@ -1370,10 +1484,11 @@ window.FIREBASE_CONFIG = {
           return { ok: false, reason: 'conflict' };
         }
       }
-      const packed = await careerPack(payload.json);
+      const packed = await careerWithTimeout(careerPack(payload.json));
       const total = packed.parts.reduce((a, x) => a + x.length, 0);
       if(total > 9000000) throw new Error('La carrera es demasiado grande para la nube (' + Math.round(total / 1e6) + ' MB comprimida).');
       const savedAt = Date.now();
+      careerCloudPendingAt[payload.id] = savedAt;
       const chunks = metaRef.collection('chunks');
       const batch = fbDb.batch();
       packed.parts.forEach((part, i) => batch.set(chunks.doc('c' + i), { i, data: part }));
@@ -1386,6 +1501,7 @@ window.FIREBASE_CONFIG = {
       batch.set(metaRef, Object.assign({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, meta));
       await careerWithTimeout(batch.commit());
       careerIndexUpsert({ id: payload.id, cloudSavedAt: savedAt });
+      delete careerCloudPendingAt[payload.id];
       const li = careerCloudList.findIndex(x => x.id === payload.id);
       const row = Object.assign({ id: payload.id }, meta);
       if(li >= 0) careerCloudList[li] = row; else careerCloudList.push(row);
@@ -1461,17 +1577,34 @@ window.FIREBASE_CONFIG = {
   }
 
   // Guardado manual: local ya mismo + nube si hay sesión.
+  let careerSaveNowRunning = false;
   async function careerSaveNow(){
     const c = state.career;
     if(!c.id) return;
-    careerPersistRef = c;
-    const json = await careerFlushLocal();
-    if(!fbUser){
-      if(json) careerSetStatus('local', fbInitError ? 'Guardado en este dispositivo.' : 'Guardado en este dispositivo. Iniciá sesión en "Mis carreras" para guardarlo también en tu cuenta.');
-      return;
+    if(careerSaveNowRunning) return;   // evita dos guardados manuales pisándose por doble clic
+    careerSaveNowRunning = true;
+    try{
+      careerPersist();                  // deja el índice de "Mis carreras" al día
+      careerPersistRef = c;
+      const json = await careerFlushLocal();
+      if(!json && !fbUser){
+        alert('No se pudo guardar la carrera en este dispositivo.\n\n' + careerStatusText());
+        return;
+      }
+      if(!fbUser){
+        careerSetStatus('local', fbInitError ? 'Guardado en este dispositivo.' : 'Guardado en este dispositivo. Iniciá sesión en "Mis carreras" para guardarlo también en tu cuenta.');
+        return;
+      }
+      const payload = { id: c.id, json: json || JSON.stringify(c), name: c.name || '', summary: careerSummary() };
+      await careerCloudPush(payload, { manual: true });
+    }catch(e){
+      console.error('Guardar ahora falló:', e);
+      const msg = (e && e.message) || 'error desconocido';
+      careerSetStatus('error', 'No se pudo guardar: ' + msg);
+      alert('No se pudo guardar la carrera.\n\n' + msg);
+    }finally{
+      careerSaveNowRunning = false;
     }
-    const payload = { id: c.id, json: json || JSON.stringify(c), name: c.name || '', summary: careerSummary() };
-    await careerCloudPush(payload, { manual: true });
   }
   // Subir a la cuenta una carrera que solo existe en este dispositivo (desde "Mis carreras").
   async function careerCloudUploadById(id){
@@ -2999,6 +3132,22 @@ window.FIREBASE_CONFIG = {
       careerApplyEloUpdate(m);
       checkCareerChampion(m);
       render();
+      return;
+    }
+    else if(action === 'career-watch-match'){
+      const m = careerFindMatch(btn.getAttribute('data-id'));
+      if(!m || m.played || m.bye) return;
+      const c = state.career;
+      const [h,a] = careerSimulateResult(m);
+      m.homeScore = h; m.awayScore = a; m.played = true;
+      m.playedAt = ++c.playSeq;
+      if(h===a && careerMatchNeedsPenalties(m)){ m.wentToPenalties = true; m.penaltyWinner = resolvePenaltiesWinner(m); }
+      careerApplyEloUpdate(m);
+      checkCareerChampion(m);
+      if(careerIsFinalShow(m)) careerFinalShown.add(c.id + ':' + c.year + ':' + m.comp + ':' + m.id);
+      careerFinalQueue.push(m);
+      render();          // la pantalla de la animación tapa todo, así que el resultado no se ve antes
+      careerFinalNext();
       return;
     }
     else if(action === 'career-simulate-round'){
@@ -6625,6 +6774,7 @@ window.FIREBASE_CONFIG = {
       ${opts.serieGlobal ? careerSerieGlobalHtml(m) : ''}
       <div class="match-actions" style="grid-column:1/-1;justify-content:flex-end;">
         ${!m.played ? `<button class="btn small" data-action="career-simulate-match" data-id="${m.id}">Simular</button>
+        <button class="btn small" data-action="career-watch-match" data-id="${m.id}">&#9917; Minuto a minuto</button>
         <button class="btn small primary" data-action="career-confirm-match" data-id="${m.id}">Confirmar resultado</button>` : ''}
       </div>
     </div>`;
