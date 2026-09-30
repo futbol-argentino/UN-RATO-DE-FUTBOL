@@ -886,13 +886,24 @@ window.FIREBASE_CONFIG = {
       if(want[g.s] === undefined || have[g.s] >= want[g.s]) return;
       have[g.s]++;
       const p = cache && cache.byId ? cache.byId[g.p] : null;
-      out.push({ side: g.s, min: Math.max(1, Math.min(90, g.m || 1)), name: p ? p.n : null });
+      const as = (g.a && cache && cache.byId) ? cache.byId[g.a] : null;
+      out.push({ side: g.s, min: Math.max(1, Math.min(90, g.m || 1)), name: p ? p.n : null, type: g.t || null, assist: as ? as.n : null });
     });
     ['h', 'a'].forEach(sd => {
       for(let i = have[sd]; i < want[sd]; i++) out.push({ side: sd, min: 2 + Math.floor(Math.random() * 88), name: null });
     });
     out.sort((x, y) => x.min - y.min);
     return out;
+  }
+  // Texto de un gol para la animación: quién, de qué tipo y quién asistió.
+  function careerGoalDesc(g, team){
+    if(!g.name) return team.name;
+    if(g.type === 'ec') return g.name + ' (en contra) · suma ' + team.name;
+    let t = g.name + ' (' + team.name + ')';
+    if(g.type === 'pen') t += ' de penal';
+    else if(g.type === 'tl') t += ' de tiro libre';
+    if(g.assist) t += ' · asist. ' + g.assist;
+    return t;
   }
   // Jugadores de campo de un equipo, en orden probable de ejecución de penales (delanteros y volantes primero).
   function careerPenaltyTakers(teamId){
@@ -1042,7 +1053,7 @@ window.FIREBASE_CONFIG = {
     function addFeed(g){
       const line = document.createElement('div');
       const team = g.side === 'h' ? home : away;
-      line.textContent = '\u26BD ' + g.min + "' " + (g.name ? g.name + ' (' + team.name + ')' : team.name);
+      line.textContent = '\u26BD ' + g.min + "' " + careerGoalDesc(g, team);
       q('.fs-feed').appendChild(line);
     }
     function dotHtml(k){ return `<span class="fs-dot ${k.ok ? 'ok' : 'no'}" title="${escapeHtml(k.n || '')}">${k.ok ? '&#10003;' : '&#10007;'}</span>`; }
@@ -1129,7 +1140,7 @@ window.FIREBASE_CONFIG = {
             if(g.side === 'h') sh++; else sa++;
             setScore(sh, sa, g.side);
             const tm = g.side === 'h' ? home : away;
-            setEvent('¡GOOOL de ' + (g.name ? g.name + ' (' + tm.name + ')' : tm.name) + '!', true);
+            setEvent(g.name && g.type === 'ec' ? '¡Gol en contra de ' + g.name + '! Suma ' + tm.name : '¡GOOOL de ' + careerGoalDesc(g, tm) + '!', true);
             addFeed(g);
             await wait(1700);
             setEvent('');
@@ -4828,6 +4839,22 @@ window.FIREBASE_CONFIG = {
     }
     return squad[squad.length - 1];
   }
+  // Tipos de gol y asistencias. Cada gol guardado es {s: lado que suma, p: jugador, m: minuto} y ahora puede traer
+  // t: 'pen' (penal) | 'tl' (tiro libre directo) | 'ec' (en contra: p es un jugador del rival) y a: id de quien asistió
+  // (solo goles de jugada). Las probabilidades se cambian acá.
+  const GOAL_P_OWN = 0.03, GOAL_P_PEN = 0.07, GOAL_P_FK = 0.03, GOAL_P_ASSIST = 0.72;
+  const GOAL_W_FK = { MED: 10, DEL: 4, DEF: 1.5, ARQ: 0 };
+  const GOAL_W_OWN = { DEF: 10, MED: 2.5, ARQ: 1, DEL: 0.3 };
+  const GOAL_W_ASSIST = { MED: 10, DEL: 6, DEF: 3, ARQ: 0.1 };
+  function playerPickByWeights(squad, weights, excludeId){
+    const pool = squad.filter(p => p.id !== excludeId && (weights[p.p] || 0) > 0);
+    let total = 0;
+    pool.forEach(p => { total += weights[p.p]; });
+    if(total <= 0) return null;
+    let r = Math.random() * total;
+    for(let i = 0; i < pool.length; i++){ r -= weights[pool[i].p]; if(r < 0) return pool[i]; }
+    return pool[pool.length - 1];
+  }
   // Reparte los goles ya definidos del partido entre los jugadores de cada equipo (solo si tiene plantel cargado).
   function careerAssignScorers(m){
     if(!m || m.bye || m.goals !== undefined) return;
@@ -4837,31 +4864,56 @@ window.FIREBASE_CONFIG = {
     if(!cache) return;
     const home = careerTeamById(m.home), away = careerTeamById(m.away);
     if(!home || !away) return;
+    const sqH = cache.byTeam[playerNormKey(home.name)], sqA = cache.byTeam[playerNormKey(away.name)];
     const goals = [];
-    [['h', home, m.homeScore], ['a', away, m.awayScore]].forEach(([side, team, n]) => {
-      const squad = cache.byTeam[playerNormKey(team.name)];
+    [['h', m.homeScore, sqH, sqA], ['a', m.awayScore, sqA, sqH]].forEach(([side, n, squad, oppSquad]) => {
       if(!squad || !squad.length) return;
       for(let i = 0; i < n; i++){
-        const p = playerPickScorer(squad);
+        const r = Math.random();
+        let type = r < GOAL_P_OWN ? 'ec' : r < GOAL_P_OWN + GOAL_P_PEN ? 'pen' : r < GOAL_P_OWN + GOAL_P_PEN + GOAL_P_FK ? 'tl' : null;
+        let p = null;
+        if(type === 'ec'){
+          p = (oppSquad && oppSquad.length) ? playerPickByWeights(oppSquad, GOAL_W_OWN) : null;
+          if(!p) type = null;            // sin plantel rival cargado no se puede atribuir el gol en contra
+        }
+        if(type === 'tl'){ p = playerPickByWeights(squad, GOAL_W_FK); if(!p) type = null; }
+        if(!p) p = playerPickScorer(squad);
         if(!p) break;
-        goals.push({ s: side, p: p.id, m: 1 + Math.floor(Math.random() * 90) });
+        const g = { s: side, p: p.id, m: 1 + Math.floor(Math.random() * 90) };
+        if(type) g.t = type;
+        else if(Math.random() < GOAL_P_ASSIST){
+          const a = playerPickByWeights(squad, GOAL_W_ASSIST, p.id);
+          if(a) g.a = a.id;
+        }
+        goals.push(g);
       }
     });
     if(!goals.length) return;
     goals.sort((a, b) => a.m - b.m);
     m.goals = goals;
   }
+  function careerGoalNote(g, cache){
+    let note = '';
+    if(g.t === 'pen') note += ' (p)';
+    else if(g.t === 'tl') note += ' (t.l.)';
+    else if(g.t === 'ec') note += ' (e/c)';
+    if(g.a){
+      const a = cache && cache.byId[g.a];
+      if(a) note += ' (asist. ' + escapeHtml(a.n) + ')';
+    }
+    return note;
+  }
   function careerScorersSide(m, side){
     const cache = playersCache();
-    const order = [], mins = {};
+    const order = [], evs = {};
     m.goals.forEach(g => {
       if(g.s !== side) return;
-      if(!mins[g.p]){ mins[g.p] = []; order.push(g.p); }
-      mins[g.p].push(g.m);
+      if(!evs[g.p]){ evs[g.p] = []; order.push(g.p); }
+      evs[g.p].push(g);
     });
     return order.map(id => {
       const p = cache && cache.byId[id];
-      return escapeHtml(p ? p.n : '?') + ' ' + mins[id].map(x => x + "'").join(', ');
+      return escapeHtml(p ? p.n : '?') + ' ' + evs[id].map(g => g.m + "'" + careerGoalNote(g, cache)).join(', ');
     }).join(' &middot; ');
   }
   function careerScorersHtml(m){
@@ -4881,6 +4933,7 @@ window.FIREBASE_CONFIG = {
     (matches || []).forEach(m => {
       if(!m || m.bye || !m.played || !m.goals) return;
       m.goals.forEach(g => {
+        if(g.t === 'ec') return;                // los goles en contra no cuentan para el goleador
         const p = cache.byId[g.p];
         if(!p) return;
         const r = by[g.p] || (by[g.p] = { id: g.p, name: p.n, pos: p.p, teams: [], goals: 0 });
@@ -4890,6 +4943,43 @@ window.FIREBASE_CONFIG = {
       });
     });
     return Object.keys(by).map(k => by[k]).sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
+  }
+  // Tabla de asistencias de un torneo: cuenta el campo a de cada gol guardado.
+  function careerTopAssists(matches){
+    const cache = playersCache();
+    if(!cache) return [];
+    const by = {};
+    (matches || []).forEach(m => {
+      if(!m || m.bye || !m.played || !m.goals) return;
+      m.goals.forEach(g => {
+        if(!g.a) return;
+        const p = cache.byId[g.a];
+        if(!p) return;
+        const r = by[g.a] || (by[g.a] = { id: g.a, name: p.n, pos: p.p, teams: [], n: 0 });
+        const tid = g.s === 'h' ? m.home : m.away;
+        if(r.teams.indexOf(tid) < 0) r.teams.push(tid);
+        r.n++;
+      });
+    });
+    return Object.keys(by).map(k => by[k]).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  }
+  function careerAssistsPanelHtml(matches, title){
+    const rows = careerTopAssists(matches);
+    if(!rows.length) return '';
+    let prevN = null, prevPos = 0;
+    const body = rows.slice(0, 10).map((r, i) => {
+      const pos = (r.n === prevN) ? prevPos : i + 1;
+      prevN = r.n; prevPos = pos;
+      const teams = r.teams.map(id => careerTeamById(id)).filter(Boolean);
+      const teamCell = teams.length
+        ? teams.map(t => `<div style="display:flex;align-items:center;gap:8px;">${teamBadgeHtml(t, 20)}<span>${escapeHtml(t.name)}</span></div>`).join('')
+        : '&mdash;';
+      return `<tr class="${pos === 1 ? 'top3' : ''}"><td><span class="pos-pill">${pos}</span></td>
+        <td>${escapeHtml(r.name)} <span style="color:var(--ink-dim);font-size:11px;">${r.pos}</span></td>
+        <td>${teamCell}</td><td class="num" style="color:var(--gold);">${r.n}</td></tr>`;
+    }).join('');
+    return `<div class="panel"><h3>&#127919; ${title}</h3>
+      <div class="table-scroll"><table><thead><tr><th>#</th><th>Jugador</th><th>Equipo</th><th>Asist.</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
   }
   function careerScorersPanelHtml(matches, title){
     const rows = careerTopScorers(matches);
@@ -4909,7 +4999,7 @@ window.FIREBASE_CONFIG = {
     }).join('');
     const more = rows.length > LIMIT ? `<p class="hint" style="margin:8px 0 0;">Se muestran los primeros ${LIMIT} de ${rows.length} goleadores.</p>` : '';
     return `<div class="panel"><h3>&#9917; ${title}</h3>
-      <div class="table-scroll"><table><thead><tr><th>#</th><th>Jugador</th><th>Equipo</th><th>Goles</th></tr></thead><tbody>${body}</tbody></table></div>${more}</div>`;
+      <div class="table-scroll"><table><thead><tr><th>#</th><th>Jugador</th><th>Equipo</th><th>Goles</th></tr></thead><tbody>${body}</tbody></table></div>${more}</div>` + careerAssistsPanelHtml(matches, title.replace('Goleadores', 'Asistencias'));
   }
   // Qué partidos y qué título le corresponden a la pantalla de torneo que se está viendo.
   function careerScorersForView(c){
@@ -4953,6 +5043,7 @@ window.FIREBASE_CONFIG = {
   const AWARD_GOAL_POS = { DEL:1, MED:1.35, DEF:2, ARQ:3 };     // un gol de un defensor vale más que el de un 9
   const AWARD_CS_POS   = { ARQ:0.55, DEF:0.4, MED:0.12, DEL:0 }; // por cada valla invicta del equipo (ponderada por torneo)
   const AWARD_GF_POS   = { MED:0.05, DEF:0.02, DEL:0, ARQ:0 };   // por cada gol del equipo (ponderado)
+  const AWARD_ASSIST_PTS = 0.55;                                 // por asistencia (ponderada por torneo)
   const AWARD_TITLE_SHARE = 0.6;                                 // fracción de los puntos de títulos que se lleva cada titular
   const AWARD_SLOTS = { ARQ:1, DEF:4, MED:3, DEL:3 };            // equipo ideal 4-3-3
   const AWARD_POS_LABEL = { ARQ:'Arquero', DEF:'Defensor', MED:'Mediocampista', DEL:'Delantero' };
@@ -4999,9 +5090,14 @@ window.FIREBASE_CONFIG = {
         if(ga === 0) s.cs += w;
       });
       (m.goals || []).forEach(g => {
-        if(!cache.byId[g.p]) return;
-        const r = pl[g.p] || (pl[g.p] = { goals:0, gw:0 });
-        r.goals++; r.gw += w;
+        if(g.t !== 'ec' && cache.byId[g.p]){
+          const r = pl[g.p] || (pl[g.p] = { goals:0, gw:0, assists:0, aw:0 });
+          r.goals++; r.gw += w;
+        }
+        if(g.a && cache.byId[g.a]){
+          const r = pl[g.a] || (pl[g.a] = { goals:0, gw:0, assists:0, aw:0 });
+          r.assists++; r.aw += w;
+        }
       });
     });
     const titlePts = {}, titleNames = {};
@@ -5027,12 +5123,12 @@ window.FIREBASE_CONFIG = {
     Object.keys(keyToId).forEach(key => {
       const tid = keyToId[key], st = teamStat[tid], team = careerTeamById(tid);
       (cache.byTeam[key] || []).forEach(p => {
-        const g = pl[p.id] || { goals:0, gw:0 };
+        const g = pl[p.id] || { goals:0, gw:0, assists:0, aw:0 };
         const share = starters[p.id] ? 1 : 0.25;
-        const goalPts = g.gw * (AWARD_GOAL_POS[p.p] || 1);
+        const goalPts = g.gw * (AWARD_GOAL_POS[p.p] || 1) + g.aw * AWARD_ASSIST_PTS;
         const titPts = (titlePts[tid] || 0) * AWARD_TITLE_SHARE * share;
         const defPts = (st.cs * (AWARD_CS_POS[p.p] || 0) + st.gf * (AWARD_GF_POS[p.p] || 0)) * share;
-        rows.push({ id:p.id, n:p.n, pos:p.p, tid, tn: team ? team.name : p.t, goals:g.goals,
+        rows.push({ id:p.id, n:p.n, pos:p.p, tid, tn: team ? team.name : p.t, goals:g.goals, assists:g.assists,
           goalPts:r1(goalPts), titPts:r1(titPts), defPts:r1(defPts), score:r1(goalPts + titPts + defPts), titles:titleNames[tid] || [] });
       });
     });
@@ -5041,7 +5137,7 @@ window.FIREBASE_CONFIG = {
     const best = rows.filter(r => r.score > 0).slice(0, 10);
     const xi = {};
     Object.keys(AWARD_SLOTS).forEach(pos => { xi[pos] = rows.filter(r => r.pos === pos && r.score > 0).slice(0, AWARD_SLOTS[pos]); });
-    const scorers = Object.keys(pl).map(id => {
+    const scorers = Object.keys(pl).filter(id => pl[id].goals > 0).map(id => {
       const p = cache.byId[id];
       return { id, n:p.n, pos:p.p, tn:p.t, goals:pl[id].goals, gw:pl[id].gw };
     }).sort((a, b) => b.goals - a.goals || b.gw - a.gw || a.n.localeCompare(b.n)).slice(0, 10)
@@ -5074,7 +5170,7 @@ window.FIREBASE_CONFIG = {
       <p class="hint">Balón de Oro Sudamericano, Equipo Ideal y Goleador. Se calculan con los goles y los planteles de tu carrera y se cierran al pasar al Apertura del año siguiente.</p>
       <div class="btn-row" style="flex-wrap:wrap;gap:6px;">${tabs}</div></div>`;
     const how = `<details class="panel" style="cursor:pointer;"><summary style="font-family:'Oswald',sans-serif;">&#8505; &iquest;C&oacute;mo se calcula?</summary>
-      <p class="hint" style="margin:10px 0 6px;">Cada jugador suma puntos por sus goles (Libertadores vale m&aacute;s que la Liga, y la Liga m&aacute;s que las categor&iacute;as de ascenso; un gol de mediocampista o defensor pesa m&aacute;s que el de un delantero), por los t&iacute;tulos que gan&oacute; su equipo en el a&ntilde;o (Libertadores, Liga, Copa Argentina, etc.) y, seg&uacute;n el puesto, por las vallas invictas y los goles de su equipo. Los suplentes reciben solo una parte de los puntos de equipo.</p>
+      <p class="hint" style="margin:10px 0 6px;">Cada jugador suma puntos por sus goles y asistencias (Libertadores vale m&aacute;s que la Liga, y la Liga m&aacute;s que las categor&iacute;as de ascenso; un gol de mediocampista o defensor pesa m&aacute;s que el de un delantero), por los t&iacute;tulos que gan&oacute; su equipo en el a&ntilde;o (Libertadores, Liga, Copa Argentina, etc.) y, seg&uacute;n el puesto, por las vallas invictas y los goles de su equipo. Los suplentes reciben solo una parte de los puntos de equipo.</p>
       <p class="hint" style="margin:0;">Equipo Ideal: el mejor de cada puesto en 4-3-3. Goleador: m&aacute;s goles sumando todas las competiciones oficiales. Los amistosos y las ligas del mundo no cuentan.</p></details>`;
     if(!playersCache()){
       return html + `<div class="panel"><p class="hint">Todav&iacute;a no hay planteles cargados en esta carrera (jugadores.csv), as&iacute; que no hay goleadores para premiar.</p></div>`;
@@ -5096,9 +5192,9 @@ window.FIREBASE_CONFIG = {
         </div></div>`;
       const body = data.best.map((r, i) => `<tr class="${i === 0 ? 'top3' : ''}"><td><span class="pos-pill">${i + 1}</span></td>
         <td>${escapeHtml(r.n)} <span style="color:var(--ink-dim);font-size:11px;">${r.pos}</span></td><td>${awardTeamCell(r.tn)}</td>
-        <td class="num">${r.goals}</td><td style="color:var(--ink-dim);font-size:12px;">${r.titles.length ? escapeHtml(r.titles.join(', ')) : '&mdash;'}</td>
+        <td class="num">${r.goals}</td><td class="num">${r.assists || 0}</td><td style="color:var(--ink-dim);font-size:12px;">${r.titles.length ? escapeHtml(r.titles.join(', ')) : '&mdash;'}</td>
         <td class="num" style="color:var(--gold);">${r.score.toFixed(1)}</td></tr>`).join('');
-      html += `<div class="panel"><h3>Candidatos al Bal&oacute;n de Oro</h3><div class="table-scroll"><table><thead><tr><th>#</th><th>Jugador</th><th>Equipo</th><th>Goles</th><th>T&iacute;tulos del equipo</th><th>Puntos</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+      html += `<div class="panel"><h3>Candidatos al Bal&oacute;n de Oro</h3><div class="table-scroll"><table><thead><tr><th>#</th><th>Jugador</th><th>Equipo</th><th>Goles</th><th>Asist.</th><th>T&iacute;tulos del equipo</th><th>Puntos</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
     }
     const card = r => `<div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:130px;max-width:170px;text-align:center;">
       <div style="font-size:13px;line-height:1.25;">${escapeHtml(r.n)}</div>
