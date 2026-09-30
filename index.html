@@ -197,6 +197,15 @@
   .cs-result-dot.draw{ background:var(--ink-dim); }
   .cs-result-dot.loss{ background:var(--red); }
   .cs-empty-hint{ color:var(--ink-dim); font-size:13px; padding:16px 0; }
+  .news-card{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin:0 0 10px; display:flex; gap:12px; align-items:flex-start; }
+  .news-card.new{ border-color:var(--gold); }
+  .news-card.mine{ box-shadow:inset 3px 0 0 var(--gold); }
+  .news-ic{ font-size:22px; line-height:1.2; flex:0 0 auto; }
+  .news-h{ font-weight:600; font-size:14.5px; color:var(--ink); margin:0 0 3px; }
+  .news-b{ font-size:13px; color:var(--ink-dim); line-height:1.5; }
+  .news-meta{ font-size:11px; color:var(--ink-dim); margin-top:7px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .news-chip{ font-size:11px; padding:1px 8px; border-radius:999px; border:1px solid var(--red); color:#ff9a8f; }
+  .news-chip.ok{ border-color:var(--green-win); color:var(--green-win); }
   .cs-stub{ text-align:center; padding:60px 20px; color:var(--ink-dim); }
   .cs-stub .big{ font-size:34px; margin-bottom:10px; }
   .cs-comp-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px; margin-bottom:8px; }
@@ -1266,6 +1275,7 @@ window.FIREBASE_CONFIG = {
   }
   function careerAdvanceCalendar(){
     const c = state.career;
+    try{ careerNewsTick(); }catch(e){}
     careerTryAutoAdvanceStages(true);
     const pending = careerAllUnplayedDatedMatches();
     if(pending.length === 0){
@@ -1976,22 +1986,23 @@ window.FIREBASE_CONFIG = {
     return adjustedProbability(exp, state.config.surpriseFactor);
   }
 
+  // Promedio ajustado a ~2,3 goles por partido (antes ~3,4). Para más o menos goles se tocan los números de abajo.
   // Scorelines get bigger when the favorite wins as expected, and stay narrow on upsets — the way real surprise results tend to look.
   function goalsForOutcome(outcome, adjusted){
     const g = gapStrength(adjusted);
     const favoriteIsHome = adjusted >= 0.5;
     if(outcome === 'draw'){
-      const base = poissonRandom(0.9 + (1 - g) * 0.7);
+      const base = poissonRandom(0.6 + (1 - g) * 0.4);
       return [base, base];
     }
     const winnerIsFavorite = (outcome === 'home' && favoriteIsHome) || (outcome === 'away' && !favoriteIsHome);
     let margin, loserGoals;
     if(winnerIsFavorite){
-      margin = 1 + poissonRandom(0.3 + g * 1.6);
-      loserGoals = poissonRandom(0.5 + (1 - g) * 0.8);
+      margin = 1 + poissonRandom(0.12 + g * 0.8);
+      loserGoals = poissonRandom(0.25 + (1 - g) * 0.5);
     } else {
       margin = 1 + (Math.random() < (0.15 + (1 - g) * 0.1) ? 1 : 0);
-      loserGoals = poissonRandom(0.9);
+      loserGoals = poissonRandom(0.5);
     }
     const winnerGoals = loserGoals + margin;
     return outcome === 'home' ? [winnerGoals, loserGoals] : [loserGoals, winnerGoals];
@@ -3090,10 +3101,13 @@ window.FIREBASE_CONFIG = {
       state.career.view = view;
       if(btn.getAttribute('data-tab')) state.career.intlTab = btn.getAttribute('data-tab');
       if(view === 'equipos-list') state.career.selectedTeamId = null;
+      if(view === 'noticias'){ const nw = careerNews(); nwUi.prevSeen = nw.seen || 0; nw.seen = nw.seq; nwUi.filter = 'all'; nwUi.limit = 40; }
       if(view === 'jugadores'){ playersUi.tab = 'divisiones'; playersUi.div = ''; playersUi.team = ''; playersUi.player = ''; }
       render();
       return;
     }
+    else if(action === 'career-news-filter'){ nwUi.filter = btn.getAttribute('data-f') || 'all'; nwUi.limit = 40; render(); return; }
+    else if(action === 'career-news-more'){ nwUi.limit += 40; render(); return; }
     else if(action === 'career-lineup-toggle'){ const lid = btn.getAttribute('data-id'); lineupUi.open[lid] = !lineupUi.open[lid]; render(); return; }
     else if(action === 'career-pl-player'){ playersUi.player = btn.getAttribute('data-id') || ''; render(); return; }
     else if(action === 'career-pl-nav'){
@@ -4756,7 +4770,7 @@ window.FIREBASE_CONFIG = {
 
   function careerMatchAdjustedProb(m){
     const home = careerTeamById(m.home), away = careerTeamById(m.away);
-    const adv = m.neutral ? 0 : state.career.engine.homeAdvantage;
+    const adv = careerMatchHomeAdv(m);
     const exp = careerEloExpected(home.elo + adv, away.elo);
     return adjustedProbability(exp, state.career.engine.surpriseFactor);
   }
@@ -4913,7 +4927,7 @@ window.FIREBASE_CONFIG = {
     const bk = careerDiscBucket(m);
     squad.forEach(p => {
       if(c.inj && c.inj[p.id] && c.inj[p.id].n > 0) inj.push(p.id);
-      else if(bk[p.id] && bk[p.id].ban > 0) sus.push(p.id);
+      else if((bk[p.id] && bk[p.id].ban > 0) || careerNewsBan(p.id)) sus.push(p.id);
     });
     if(squad.length - sus.length - inj.length < CARD_MIN_SQUAD) return { sus: [], inj: [] };
     return { sus, inj };
@@ -5078,7 +5092,7 @@ window.FIREBASE_CONFIG = {
     if(bk){
       const c = state.career;
       ['h', 'a'].forEach(sd => {
-        (pre.sus[sd] || []).forEach(id => { if(bk[id] && bk[id].ban > 0){ (m.absInfo = m.absInfo || {})[id] = { n: bk[id].ban, t: bk[id].bt || bk[id].ban, w: bk[id].br || 'Suspensión' }; bk[id].ban--; } });
+        (pre.sus[sd] || []).forEach(id => { const nb = careerNewsBan(id); if(nb){ if(!(m.absInfo && m.absInfo[id] ) && !(bk[id] && bk[id].ban > 0)) (m.absInfo = m.absInfo || {})[id] = { n: nb.n, t: nb.t, w: nb.w }; nb.n--; if(nb.n <= 0) delete state.career.news.ban[id]; } if(bk[id] && bk[id].ban > 0){ (m.absInfo = m.absInfo || {})[id] = { n: bk[id].ban, t: bk[id].bt || bk[id].ban, w: bk[id].br || 'Suspensión' }; bk[id].ban--; } });
         (pre.inj[sd] || []).forEach(id => { const i = c.inj && c.inj[id]; if(i){ (m.absInfo = m.absInfo || {})[id] = { n: i.n, t: i.t, w: i.w || 'Lesión' }; i.n--; if(i.n <= 0) delete c.inj[id]; } });
       });
       if(pre.sus.h || pre.sus.a) m.sus = pre.sus;
@@ -5160,7 +5174,9 @@ window.FIREBASE_CONFIG = {
     const c = state.career;
     if(kind === 'i'){ const i = c.inj && c.inj[id]; return i ? { n: i.n, t: i.t, w: i.w || 'Lesión' } : null; }
     const b = m.comp === 'amistoso' ? null : careerDiscBucket(m)[id];
-    return b && b.ban > 0 ? { n: b.ban, t: b.bt || b.ban, w: b.br || 'Suspensión' } : null;
+    if(b && b.ban > 0) return { n: b.ban, t: b.bt || b.ban, w: b.br || 'Suspensión' };
+    const nb = m.comp === 'amistoso' ? null : careerNewsBan(id);
+    return nb ? { n: nb.n, t: nb.t, w: nb.w } : null;
   }
   function careerLineupPanelHtml(m, upto){
     const cache = playersCache();
@@ -5687,7 +5703,7 @@ window.FIREBASE_CONFIG = {
     });
     const th = h => `<th>${h}</th>`;
     const tbl = (head, body) => `<div class="table-scroll"><table><thead><tr>${head.map(th).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
-    const status = p.r ? `Retirado${p.ry ? ' en ' + p.ry : ''}` : (inj ? `&#129657; Lesionado: le ${inj.n === 1 ? 'falta 1 partido' : 'faltan ' + inj.n + ' partidos'}` : 'En actividad');
+    const status = p.r ? `Retirado${p.ry ? ' en ' + p.ry : ''}` : (inj ? `&#129657; Lesionado: le ${inj.n === 1 ? 'falta 1 partido' : 'faltan ' + inj.n + ' partidos'}` : (careerNewsBan(p.id) ? `&#128683; Suspendido (${escapeHtml(careerNewsBan(p.id).w)}): le ${careerNewsBan(p.id).n === 1 ? 'falta 1 partido' : 'faltan ' + careerNewsBan(p.id).n + ' partidos'}` : 'En actividad'));
     let html = `<div class="btn-row"><button class="btn small" data-action="career-pl-player" data-id="">&larr; Volver al plantel</button></div>`;
     html += `<div class="panel"><h2>${escapeHtml(p.n)}</h2><p class="hint" style="margin:0 0 8px;">${AWARD_POS_LABEL[p.p] || p.p} &middot; ${age === null ? 'edad desconocida' : age + ' años'} &middot; ${status}</p>${awardTeamCell(p.t, 24)}</div>`;
     html += `<div class="panel"><h3>Totales y r&eacute;cords</h3>` + tbl(['Concepto', 'Valor'],
@@ -5958,7 +5974,7 @@ window.FIREBASE_CONFIG = {
         return (by !== null && year - by >= 36) ? 0.3 : 1;
       });
       if(!player) continue;
-      const buyers = clubs.map(cl => st[cl.key]).filter(x => x !== seller && x.buys < MERCADO_MAX_COMPRAS && x.squad.length < MERCADO_MAX_PLANTEL);
+      const buyers = clubs.map(cl => st[cl.key]).filter(x => x !== seller && x.buys < MERCADO_MAX_COMPRAS && x.squad.length < MERCADO_MAX_PLANTEL && !nwNoBuy(x.club.name));
       const buyer = mercadoPickWeighted(buyers, x => 1 / (1 + Math.abs(x.club.tier - seller.club.tier)));
       if(!buyer) continue;
       seller.squad = seller.squad.filter(p => p !== player);
@@ -5972,6 +5988,7 @@ window.FIREBASE_CONFIG = {
       player.t = buyer.club.name;
     }
     c.transferLog.push({ year, list });
+    try{ nwAfterMarket(year); }catch(e){}
     playersInvalidateCache();
   }
   function mercadoClubCell(name){
@@ -6076,12 +6093,595 @@ window.FIREBASE_CONFIG = {
     return html;
   }
 
+  // ======================= NOTICIAS =======================
+  // Noticias al azar ligadas a lo que pasa en la simulación. TODA sanción que aparece en una noticia tiene efecto real:
+  //  * c.news.ban[idJugador] = {n, t, w}: suspensión en todas las competencias oficiales (dopaje, conducta, separado del plantel).
+  //    n = partidos oficiales que le faltan a su equipo; mientras n > 0 no entra en la alineación (se descuenta en careerAssignScorers).
+  //  * c.news.closed[idEquipo] = {n, t, kind}: puertas cerradas / tribuna clausurada / estadio clausurado. Reduce la ventaja de local
+  //    (ver NW_ADV y careerMatchHomeAdv) en los próximos n partidos de local del equipo, tanto en el resultado como en el ELO.
+  //  * c.news.awayBan[idEquipo] = {n, t}: sin público visitante para ese equipo; el local gana algo de ventaja (NW_ADV.sinvisita).
+  //  * c.news.deduct = [{teamId, comp, year, pts, w}]: quita de puntos (pts negativo = puntos que se suman); se aplica en careerComputeStandingsFrom.
+  //  * c.news.noBuy[clave del club] = {n, w, name}: inhibición, el club no puede comprar en el próximo mercado de pases (careerRunTransfers).
+  //  * Lesiones fuera de los partidos: se anotan en c.inj igual que las de partido (aparecen en Lesiones y el club no puede alinearlos).
+  // Las probabilidades se ajustan acá.
+  const NW_P = { riot: 0.007, conduct: 0.004, doping: 0.0025, claim: 0.0012, stadium: 0.001 };   // por partido oficial
+  const NW_ADV = { puertas: 0.35, tribuna: 0.75, clausura: 0.2, sinvisita: 1.25 };               // multiplicador de la ventaja de local
+  const NW_COMP_LABEL = { apertura: 'Copa de la Liga — Apertura', clausura: 'Copa de la Liga — Clausura', nacional: 'Primera Nacional', bmetro: 'Primera B Metropolitana', federal: 'Torneo Federal A', primerac: 'Primera C', promocional: 'Torneo Promocional' };
+  const NW_KIND_LABEL = { puertas: 'Puertas cerradas', tribuna: 'Tribuna clausurada', clausura: 'Estadio clausurado' };
+  const NW_KIND_RANK = { tribuna: 1, puertas: 2, clausura: 3 };
+  const nwUi = { filter: 'all', limit: 40, prevSeen: 0 };
+  let nwClock = null;
+  function nwPick(a){ return a[Math.floor(Math.random() * a.length)]; }
+  function nwInt(a, b){ return a + Math.floor(Math.random() * (b - a + 1)); }
+  function nwGames(n){ return n + (n === 1 ? ' partido' : ' partidos'); }
+  function nwFmt(t, v){ return String(t).replace(/\{(\w+)\}/g, (x, k) => v[k] != null ? v[k] : x).replace(/\b1 heridos leves/g, '1 herido leve').replace(/\b1 (detenido|herido|lesionado|aprehendido|demorado)s\b/g, '1 $1'); }
+  function careerNews(){
+    const c = state.career;
+    if(!c.news) c.news = { seq: 0, seen: 0, items: [], ban: {}, closed: {}, awayBan: {}, deduct: [], noBuy: {}, pending: [], lastTick: null };
+    return c.news;
+  }
+  function careerNewsBan(id){
+    const nw = state.career.news, b = nw && nw.ban && nw.ban[id];
+    return b && b.n > 0 ? b : null;
+  }
+  function nwNoBuy(clubName){
+    const nw = state.career.news, b = nw && nw.noBuy && nw.noBuy[playerNormKey(clubName)];
+    return !!(b && b.n > 0);
+  }
+  function nwTeamName(id){ const t = careerTeamById(id); return t ? t.name : '?'; }
+  function nwSquad(id){
+    const cache = playersCache(), t = careerTeamById(id);
+    return (cache && t && cache.byTeam[playerNormKey(t.name)]) || [];
+  }
+  // Competencia de liga en la que juega un equipo argentino (para las quitas de puntos).
+  function nwTeamComp(id){
+    const c = state.career, gs = careerAllRosterTeams();
+    for(let i = 0; i < gs.length; i++){
+      if(gs[i].teams.some(t => t.id === id)) return gs[i].key === 'primera' ? c.tournament : gs[i].key;
+    }
+    return null;
+  }
+  function nwNow(m){ const c = state.career; return (m && m.date) || c.calendarDate || (c.year + '-06-01'); }
+  function nwCmp(m){ try{ return careerCompLabel(m) || ''; }catch(e){ return ''; } }
+  function nwAdd(o){
+    const c = state.career, nw = careerNews();
+    o.id = ++nw.seq; o.date = o.date || nwClock || nwNow(); o.year = c.year;
+    o.my = !!(c.myTeamId && (o.tids || []).indexOf(c.myTeamId) >= 0);
+    nw.items.unshift(o);
+    if(nw.items.length > 500) nw.items.length = 500;
+    return o;
+  }
+  function nwSchedule(days, k, d){
+    const nw = careerNews();
+    if(nw.pending.length > 200) return;
+    nw.pending.push({ due: addDaysISO(nwClock || nwNow(), days), k, d });
+  }
+  // Jugador al azar de los que jugaron (o, si no hay alineación guardada, del plantel).
+  function nwPlayerOf(m, side){
+    const cache = playersCache();
+    if(!cache) return null;
+    const rows = m.lu && m.lu[side];
+    let pool = rows ? rows.map(r => cache.byId[r[0]]).filter(Boolean) : nwSquad(side === 'h' ? m.home : m.away);
+    pool = pool.filter(p => !p.r);
+    return pool.length ? nwPick(pool) : null;
+  }
+  // ---- Aplicación de sanciones (lo que hace que sean funcionales) ----
+  function nwBanPlayer(p, n, why){
+    const nw = careerNews(), cur = nw.ban[p.id];
+    if(cur && cur.n > 0){ cur.n = Math.min(150, cur.n + n); cur.t = Math.min(150, cur.t + n); cur.w = why; }
+    else nw.ban[p.id] = { n: Math.min(150, n), t: Math.min(150, n), w: why };
+  }
+  function nwClose(teamId, n, kind){
+    const nw = careerNews(), cur = nw.closed[teamId];
+    if(cur && cur.n > 0){
+      cur.n = Math.min(10, cur.n + n); cur.t = cur.n;
+      if(NW_KIND_RANK[kind] > NW_KIND_RANK[cur.kind]) cur.kind = kind;
+    } else nw.closed[teamId] = { n, t: n, kind };
+  }
+  function nwAwayBan(teamId, n){
+    const nw = careerNews(), cur = nw.awayBan[teamId];
+    if(cur && cur.n > 0){ cur.n = Math.min(10, cur.n + n); cur.t = cur.n; }
+    else nw.awayBan[teamId] = { n, t: n };
+  }
+  function nwDeduct(teamId, comp, pts, why){
+    careerNews().deduct.push({ teamId, comp, year: state.career.year, pts, w: why });
+  }
+  // Una vez jugado un partido oficial: se gasta una fecha de las restricciones de localía y se deja anotado en el partido.
+  function nwConsumeHome(m){
+    const nw = careerNews();
+    if(m.neutral) return;
+    const cl = nw.closed[m.home];
+    if(cl && cl.n > 0){ m.nwx = { cl: cl.kind }; cl.n--; if(cl.n <= 0) delete nw.closed[m.home]; }
+    const ab = nw.awayBan[m.away];
+    if(ab && ab.n > 0){ m.nwx = m.nwx || {}; m.nwx.ab = 1; ab.n--; if(ab.n <= 0) delete nw.awayBan[m.away]; }
+  }
+  // Ventaja de local efectiva de un partido (la usan el resultado simulado y la actualización del ELO).
+  function careerMatchHomeAdv(m){
+    const c = state.career;
+    let adv = c.engine.homeAdvantage;
+    if(m.neutral) return 0;
+    if(m.comp === 'amistoso' || !c.news) return adv;
+    const cl = c.news.closed && c.news.closed[m.home];
+    if(cl && cl.n > 0 && NW_ADV[cl.kind] != null) adv *= NW_ADV[cl.kind];
+    const ab = c.news.awayBan && c.news.awayBan[m.away];
+    if(ab && ab.n > 0) adv *= NW_ADV.sinvisita;
+    return adv;
+  }
+  // Aviso en la fila del partido: solo en los próximos partidos que van a ser afectados (o en los ya jugados con la restricción).
+  let nwNoteCache = { key: '', ids: null };
+  function nwNoteIds(){
+    const c = state.career, nw = c.news;
+    if(!nw) return null;
+    const tc = Object.keys(nw.closed || {}).filter(t => nw.closed[t].n > 0), ta = Object.keys(nw.awayBan || {}).filter(t => nw.awayBan[t].n > 0);
+    if(!tc.length && !ta.length) return null;
+    const key = c.playSeq + '|' + nw.seq + '|' + tc.map(t => t + ':' + nw.closed[t].n + nw.closed[t].kind).join(',') + '|' + ta.map(t => t + ':' + nw.awayBan[t].n).join(',');
+    if(nwNoteCache.key === key) return nwNoteCache.ids;
+    const ids = { cl: {}, ab: {} };
+    const all = careerAllUnplayedDatedMatches().filter(m => !m.neutral && !m.bye && m.comp !== 'amistoso').sort((x, y) => x.date < y.date ? -1 : (x.date > y.date ? 1 : 0));
+    tc.forEach(t => { let k = nw.closed[t].n; for(let i = 0; i < all.length && k > 0; i++){ if(all[i].home === t){ ids.cl[all[i].id] = nw.closed[t].kind; k--; } } });
+    ta.forEach(t => { let k = nw.awayBan[t].n; for(let i = 0; i < all.length && k > 0; i++){ if(all[i].away === t){ ids.ab[all[i].id] = 1; k--; } } });
+    nwNoteCache = { key, ids };
+    return ids;
+  }
+  function careerMatchSanctionNote(m){
+    if(!m || m.bye) return '';
+    let cl = null, ab = false;
+    if(m.nwx){ cl = m.nwx.cl || null; ab = !!m.nwx.ab; }
+    else if(!m.played){
+      const ids = nwNoteIds();
+      if(ids){ cl = ids.cl[m.id] || null; ab = !!ids.ab[m.id]; }
+    }
+    if(!cl && !ab) return '';
+    const parts = [];
+    if(cl) parts.push(NW_KIND_LABEL[cl] + ' (local debilitado)');
+    if(ab) parts.push('Sin público visitante de ' + (careerTeamById(m.away) ? careerTeamById(m.away).name : 'el visitante'));
+    return `<div style="grid-column:1/-1;font-size:11.5px;color:var(--red);text-align:center;">&#128683; ${escapeHtml(parts.join(' · '))}</div>`;
+  }
+
+  // ---- Seguimientos con fecha (Tribunal de Disciplina, muestra B, apelaciones...) ----
+  function nwProcessPending(now){
+    const nw = careerNews();
+    if(!nw.pending.length) return;
+    const due = nw.pending.filter(p => p.due <= now);
+    if(!due.length) return;
+    nw.pending = nw.pending.filter(p => p.due > now);
+    const saved = nwClock; nwClock = now;
+    due.forEach(p => {
+      try{
+        if(p.k === 'riot') nwResolveRiot(p.d);
+        else if(p.k === 'player') nwResolvePlayer(p.d);
+        else if(p.k === 'doping') nwResolveDoping(p.d);
+        else if(p.k === 'claim') nwResolveClaim(p.d);
+        else if(p.k === 'appeal') nwResolveAppeal(p.d);
+      }catch(e){}
+    });
+    nwClock = saved;
+  }
+
+  // ---- Incidentes de hinchadas ----
+  const NW_PLACES = ['en las inmediaciones del estadio', 'sobre la avenida de acceso al estadio', 'en la estación de tren más cercana a la cancha', 'en la terminal de ómnibus', 'en una estación de servicio sobre la autopista', 'en el peaje de ingreso a la ciudad', 'en un barrio cercano a la cancha', 'en la plaza frente al estadio', 'sobre la ruta, a pocos kilómetros del estadio', 'en el playón de estacionamiento', 'en las tribunas populares', 'en la zona de plateas', 'en el túnel de acceso al campo', 'en un bar de la zona', 'frente a la sede del club', 'en el cruce de dos avenidas camino a la cancha', 'sobre el puente peatonal de acceso', 'en las puertas de ingreso de la hinchada visitante', 'en los alrededores del micro de la hinchada visitante', 'en una esquina a pocas cuadras del estadio'];
+  const NW_WHEN = ['antes del partido', 'durante el partido', 'al término del partido', 'horas después del partido', 'en el entretiempo'];
+  const NW_RIOT_TXT = [
+    'Incidentes entre hinchas de {A} y {B} {L} {T}: hubo {d} detenidos y {h} heridos leves.',
+    'Barras de {A} y {B} se enfrentaron {L} {T}. La policía intervino con balas de goma y detuvo a {d} personas.',
+    'Tensión {T}: simpatizantes de {A} atacaron {L} a hinchas de {B}. Hubo {h} heridos y {d} demorados.',
+    'Batalla campal {L}: {d} detenidos tras un enfrentamiento entre las hinchadas de {A} y {B}.',
+    'Hinchas de {A} lanzaron piedras y provocaron destrozos {L} {T}; la policía reportó {h} heridos, {p} de ellos efectivos.',
+    'El partido estuvo detenido varios minutos por incidentes: hinchas de {A} arrojaron objetos {L}. Se contabilizaron {d} detenidos.',
+    'Bengalas y piedrazos: la hinchada de {A} provocó incidentes {L} {T} y hubo {h} heridos.',
+    'Escándalo {L}: hinchas de {A} ingresaron sin entrada, hubo corridas y {h} lesionados. Fueron aprehendidas {d} personas.',
+    'Se viralizó un video: integrantes de la barra de {A} golpearon a simpatizantes de {B} {L} {T}. Hubo {d} detenidos.',
+    'Incidentes y corridas {L} {T}: {d} aprehendidos y {h} lesionados tras los choques entre las parcialidades de {A} y {B}.',
+    'Se registraron graves disturbios protagonizados por hinchas de {A} {L}. La policía detuvo a {d} personas y {p} efectivos resultaron heridos.',
+    'Pelea entre facciones de la hinchada de {A} {L} {T}; la policía tuvo que intervenir y hubo {d} detenidos.'
+  ];
+  const NW_RIOT_HEAD = ['🚨 Incidentes entre hinchadas: {A} y {B}', '🚨 Violencia en el fútbol: {A} vs {B}', '🚨 Detenidos y heridos por el partido {A} - {B}', '🚨 Disturbios con hinchas de {A}', '🚨 Escándalo en la previa y el final: {A} y {B}', '🚨 Noche caliente: incidentes entre {A} y {B}'];
+  function nwEvRiot(m){
+    const nw = careerNews();
+    if(!careerTeamById(m.home) || !careerTeamById(m.away)) return;
+    const side = Math.random() < 0.5 ? 'h' : 'a';
+    const cid = side === 'h' ? m.home : m.away, oid = side === 'h' ? m.away : m.home;
+    if(nw.pending.some(p => p.k === 'riot' && p.d.c === cid)) return;
+    const r = Math.random(), sev = r < 0.6 ? 1 : (r < 0.9 ? 2 : 3);
+    const v = { A: nwTeamName(cid), B: nwTeamName(oid), L: nwPick(NW_PLACES), T: nwPick(NW_WHEN),
+      d: sev === 1 ? nwInt(2, 8) : sev === 2 ? nwInt(9, 25) : nwInt(26, 60), h: sev === 1 ? nwInt(1, 5) : sev === 2 ? nwInt(5, 15) : nwInt(15, 40), p: nwInt(2, 9) };
+    nwAdd({ k: 'hinchas', ic: '🚨', h: nwFmt(nwPick(NW_RIOT_HEAD), v), b: nwFmt(nwPick(NW_RIOT_TXT), v) + (sev === 3 ? ' El Comité de Seguridad en el Fútbol pidió sanciones ejemplares.' : ''), tids: [cid, oid], cmp: nwCmp(m) });
+    nwSchedule(nwInt(3, 9), 'riot', { c: cid, o: oid, sev });
+  }
+  function nwResolveRiot(d){
+    const A = nwTeamName(d.c), B = nwTeamName(d.o), r = Math.random();
+    let kind = null, nC = 0, nA = 0, pts = 0, none = false;
+    if(d.sev === 1){
+      if(r < 0.12) none = true;
+      else if(r < 0.5){ kind = 'tribuna'; nC = nwInt(1, 2); }
+      else if(r < 0.72){ kind = 'puertas'; nC = 1; }
+      else nA = nwInt(2, 4);
+    } else if(d.sev === 2){
+      if(r < 0.5){ kind = 'puertas'; nC = nwInt(1, 3); }
+      else if(r < 0.72){ kind = 'clausura'; nC = nwInt(1, 2); }
+      else if(r < 0.9) nA = nwInt(3, 5);
+      else { kind = 'puertas'; nC = 2; nA = nwInt(3, 5); }
+    } else {
+      if(r < 0.45){ kind = 'clausura'; nC = nwInt(2, 4); }
+      else if(r < 0.75){ kind = 'puertas'; nC = nwInt(3, 6); }
+      else { kind = 'clausura'; nC = nwInt(2, 3); pts = nwInt(1, 3); }
+    }
+    const comp = pts ? nwTeamComp(d.c) : null;
+    if(!comp) pts = 0;
+    if(none){
+      nwAdd({ k: 'hinchas', ic: '⚖️', h: '⚖️ Sin sanciones para ' + A, b: 'El Tribunal de Disciplina archivó la causa por los incidentes del partido ante ' + B + ': consideró que no se acreditó la responsabilidad del club.', tids: [d.c, d.o] });
+      return;
+    }
+    const parts = [], tags = [];
+    if(kind === 'puertas'){ nwClose(d.c, nC, kind); parts.push(A + ' jugará ' + nwGames(nC) + ' de local a puertas cerradas.'); tags.push('🚫 ' + nwGames(nC) + ' a puertas cerradas'); }
+    if(kind === 'tribuna'){ nwClose(d.c, nC, kind); parts.push(A + ' deberá clausurar una tribuna de su estadio durante ' + nwGames(nC) + '.'); tags.push('🚫 Tribuna clausurada ' + nwGames(nC)); }
+    if(kind === 'clausura'){ nwClose(d.c, nC, kind); parts.push('Clausuraron el estadio de ' + A + ' por ' + nwGames(nC) + ': tendrá que jugar de local en otra cancha.'); tags.push('🚫 Estadio clausurado ' + nwGames(nC)); }
+    if(nA){ nwAwayBan(d.c, nA); parts.push(A + ' no podrá llevar hinchas como visitante en ' + nwGames(nA) + '.'); tags.push('🚫 Sin público visitante ' + nwGames(nA)); }
+    if(pts){ nwDeduct(d.c, comp, pts, 'Incidentes de sus hinchas'); parts.push('Además, le descontaron ' + pts + (pts === 1 ? ' punto' : ' puntos') + ' en ' + NW_COMP_LABEL[comp] + '.'); tags.push('⛔ -' + pts + (pts === 1 ? ' pt' : ' pts')); }
+    const intro = nwPick(['El Tribunal de Disciplina sancionó a ' + A + ' por los incidentes ante ' + B + '.', 'Tras analizar el informe de seguridad, el Tribunal resolvió castigar a ' + A + ' por lo ocurrido ante ' + B + '.', 'Se conoció la sanción para ' + A + ' por los disturbios de sus hinchas en el partido con ' + B + '.']);
+    nwAdd({ k: 'hinchas', ic: '⚖️', h: nwPick(['⚖️ Sanción para ' + A + ' por los incidentes', '⚖️ Castigo para ' + A + ': el Tribunal resolvió', '⚖️ ' + A + ' fue sancionado']), b: intro + ' ' + parts.join(' '), tag: tags.join(' · '), sanc: true, tids: [d.c, d.o] });
+  }
+
+  // ---- Conducta de jugadores ----
+  const NW_CONDUCT = [
+    { w: 'Agresión al árbitro', n: [5, 12], h: '🟥 {P} ({T}) agredió al árbitro', b: 'Según el informe arbitral, {P} ({T}) empujó e insultó al árbitro al terminar el partido ante {R}.' },
+    { w: 'Insultos al árbitro', n: [2, 4], h: '🟥 {P} ({T}) en la mira del Tribunal', b: 'El árbitro reflejó en su informe que {P} ({T}) lo insultó reiteradamente durante el partido ante {R}.' },
+    { w: 'Agresión a un rival', n: [3, 7], h: '📹 Las cámaras captaron a {P} ({T}) golpeando a un rival', b: 'El árbitro no lo vio, pero las imágenes de TV mostraron a {P} ({T}) golpeando a un rival lejos de la jugada en el partido ante {R}.' },
+    { w: 'Gesto obsceno a la tribuna', n: [1, 3], h: '🤬 {P} ({T}) y un gesto que le puede costar caro', b: '{P} ({T}) hizo gestos obscenos a la hinchada rival tras convertirse un gol en el partido ante {R}.' },
+    { w: 'Escupió a un rival', n: [4, 8], h: '😡 {P} ({T}) escupió a un rival', b: 'Una cámara registró cuando {P} ({T}) escupió a un rival en el partido ante {R}. El árbitro lo incluyó en el informe.' },
+    { w: 'Pelea en el túnel', n: [2, 5], h: '🥊 Pelea en el túnel de vestuarios con {P} ({T})', b: 'Tras el partido ante {R}, {P} ({T}) protagonizó una pelea en el túnel de vestuarios y fue denunciado en el informe.' },
+    { w: 'Declaraciones contra el arbitraje', n: [1, 3], h: '🎙️ Duras críticas de {P} ({T}) al arbitraje', b: '{P} ({T}) cuestionó con dureza la actuación del árbitro en la zona mixta tras el partido ante {R}. El Tribunal abrió una investigación.' },
+    { w: 'Provocación a la hinchada rival', n: [1, 3], h: '🔥 {P} ({T}) provocó a la hinchada de {R}', b: '{P} ({T}) provocó a los hinchas de {R} durante el partido y se generó un tumulto en el campo. El Tribunal analiza el caso.' }
+  ];
+  function nwEvConduct(m){
+    if(!careerTeamById(m.home) || !careerTeamById(m.away)) return;
+    const side = Math.random() < 0.5 ? 'h' : 'a', p = nwPlayerOf(m, side);
+    if(!p || careerNewsBan(p.id)) return;
+    const rid = side === 'h' ? m.away : m.home, tid = side === 'h' ? m.home : m.away;
+    const tp = nwPick(NW_CONDUCT), v = { P: p.n, T: p.t, R: nwTeamName(rid) };
+    nwAdd({ k: 'conducta', ic: '🟥', h: nwFmt(tp.h, v), b: nwFmt(tp.b, v), tids: [tid, rid], cmp: nwCmp(m) });
+    nwSchedule(nwInt(2, 5), 'player', { pid: p.id, n: nwInt(tp.n[0], tp.n[1]), w: tp.w });
+  }
+  function nwResolvePlayer(d){
+    const cache = playersCache(), p = cache && cache.byId[d.pid];
+    if(!p || p.r) return;
+    nwBanPlayer(p, d.n, d.w);
+    const t = careerTeamById(nwFindTeamId(p.t));
+    nwAdd({ k: 'conducta', ic: '⚖️', h: nwPick(['⚖️ Suspendieron a ' + p.n, '⚖️ El Tribunal sancionó a ' + p.n + ' (' + p.t + ')', '⚖️ Fallo del Tribunal: ' + p.n + ' no jugará']),
+      b: nwPick(['El Tribunal de Disciplina suspendió a ' + p.n + ' (' + p.t + ') por ' + nwGames(d.n) + ' por el motivo: ' + d.w.toLowerCase() + '.', 'Se conoció el fallo: ' + p.n + ' (' + p.t + ') estará ' + nwGames(d.n) + ' sin jugar por ' + d.w.toLowerCase() + '.']),
+      tag: '🚫 ' + nwGames(d.n), sanc: true, tids: t ? [t.id] : [] });
+    if(d.n >= 5 && Math.random() < 0.25) nwSchedule(nwInt(5, 12), 'appeal', { pid: p.id });
+  }
+  function nwFindTeamId(name){
+    const k = playerNormKey(name), gs = careerAllRosterTeams();
+    for(let i = 0; i < gs.length; i++){ const t = gs[i].teams.find(x => playerNormKey(x.name) === k); if(t) return t.id; }
+    return null;
+  }
+  function nwResolveAppeal(d){
+    const cache = playersCache(), p = cache && cache.byId[d.pid], cur = careerNewsBan(d.pid);
+    if(!p || !cur) return;
+    const tid = nwFindTeamId(p.t), tids = tid ? [tid] : [];
+    if(Math.random() < 0.4 && cur.n > 1){
+      let cut = Math.max(1, Math.round(cur.n * (0.3 + Math.random() * 0.3)));
+      if(cur.n - cut < 1) cut = cur.n - 1;
+      cur.n -= cut; cur.t = Math.max(cur.n, cur.t - cut);
+      nwAdd({ k: 'conducta', ic: '📉', h: '📉 Redujeron la sanción de ' + p.n, b: 'El Tribunal de Apelaciones aceptó parcialmente el recurso de ' + p.n + ' (' + p.t + '): le quitó ' + nwGames(cut) + ' a la suspensión. Le quedan ' + nwGames(cur.n) + '.', tag: '✅ -' + nwGames(cut), tagOk: true, sanc: true, tids });
+    } else {
+      nwAdd({ k: 'conducta', ic: '📄', h: '📄 Rechazaron la apelación de ' + p.n, b: 'El Tribunal de Apelaciones rechazó el recurso de ' + p.n + ' (' + p.t + ') y ratificó la suspensión. Le quedan ' + nwGames(cur.n) + '.', sanc: true, tids });
+    }
+  }
+
+  // ---- Doping ----
+  const NW_DOPING = [
+    { s: 'clenbuterol', c: 'ana' }, { s: 'clostebol', c: 'ana' }, { s: 'nandrolona', c: 'ana' }, { s: 'estanozolol', c: 'ana' }, { s: 'boldenona', c: 'ana' }, { s: 'testosterona exógena', c: 'ana' },
+    { s: 'efedrina', c: 'est' }, { s: 'metilhexanamina', c: 'est' }, { s: 'higenamina', c: 'est' }, { s: 'heptaminol', c: 'est' }, { s: 'oxilofrina', c: 'est' },
+    { s: 'hidroclorotiazida', c: 'diu' }, { s: 'furosemida', c: 'diu' }, { s: 'acetazolamida', c: 'diu' },
+    { s: 'eritropoyetina (EPO)', c: 'hor' }, { s: 'hormona de crecimiento', c: 'hor' },
+    { s: 'salbutamol en exceso', c: 'ter' }, { s: 'un corticoide sin autorización médica', c: 'ter' }
+  ];
+  const NW_DOPING_RANGE = { ana: [45, 90], est: [20, 40], diu: [25, 45], hor: [60, 100], ter: [5, 12] };
+  const NW_DOPING_TXT = [
+    '{P} ({T}) dio positivo de {S} en el control antidoping realizado tras el partido ante {R}. Quedó suspendido de manera provisional hasta que se conozca el resultado de la muestra B.',
+    'Se conoció el resultado de un control antidoping: {P} ({T}) arrojó positivo por {S}. El jugador fue apartado provisionalmente y puede pedir el análisis de la contramuestra.',
+    'Fuerte golpe para {T}: {P} dio positivo por {S} en el control posterior al partido ante {R}. Quedó suspendido provisionalmente mientras se espera la muestra B.',
+    'La Agencia antidoping notificó a {T} que {P} tuvo un resultado adverso por {S}. El futbolista no podrá jugar hasta que se resuelva su situación.'
+  ];
+  function nwEvDoping(m){
+    if(!careerTeamById(m.home) || !careerTeamById(m.away)) return;
+    const side = Math.random() < 0.5 ? 'h' : 'a', p = nwPlayerOf(m, side);
+    if(!p) return;
+    const nw = careerNews();
+    if(careerNewsBan(p.id) || nw.pending.some(x => x.k === 'doping' && x.d.pid === p.id)) return;
+    const sub = nwPick(NW_DOPING), rid = side === 'h' ? m.away : m.home, tid = side === 'h' ? m.home : m.away, prov = nwInt(4, 8);
+    const v = { P: p.n, T: p.t, S: sub.s, R: nwTeamName(rid) };
+    nwBanPlayer(p, prov, 'Suspensión provisional por dopaje');
+    nwAdd({ k: 'dopaje', ic: '🧪', h: nwPick(['🧪 Doping positivo: ' + p.n + ' (' + p.t + ')', '🧪 Escándalo: control antidoping positivo en ' + p.t, '🧪 ' + p.n + ' dio positivo en un control']), b: nwFmt(nwPick(NW_DOPING_TXT), v), tag: '🚫 Suspensión provisional', sanc: true, tids: [tid, rid], cmp: nwCmp(m) });
+    nwSchedule(nwInt(10, 22), 'doping', { pid: p.id, s: sub.s, c: sub.c, prov });
+  }
+  function nwResolveDoping(d){
+    const nw = careerNews(), cache = playersCache(), p = cache && cache.byId[d.pid];
+    if(!p || p.r) return;
+    const cur = nw.ban[d.pid], isProv = cur && cur.w.indexOf('provisional') >= 0;
+    const served = isProv ? cur.t - cur.n : d.prov, tid = nwFindTeamId(p.t), tids = tid ? [tid] : [];
+    const r = Math.random(), rg = NW_DOPING_RANGE[d.c] || [10, 30];
+    if(r < (d.c === 'ter' ? 0.35 : 0.12)){
+      if(isProv) delete nw.ban[d.pid];
+      nwAdd({ k: 'dopaje', ic: '✅', h: '✅ ' + p.n + ' quedó libre: la muestra B no confirmó el doping', b: nwPick(['La contramuestra de ' + p.n + ' (' + p.t + ') no confirmó la presencia de ' + d.s + ' y se levantó la suspensión provisional. Ya puede volver a jugar.', 'El Tribunal aceptó los argumentos de la defensa de ' + p.n + ' (' + p.t + ') y lo absolvió: queda habilitado para jugar de inmediato.']), tag: '✅ Habilitado', tagOk: true, sanc: true, tids });
+      return;
+    }
+    let total = nwInt(rg[0], rg[1]), mot = '';
+    if(r < 0.3){ total = Math.max(served + 1, Math.round(total * 0.4)); mot = ' El Tribunal consideró atenuantes y redujo la pena.'; }
+    total = Math.max(total, served + 1);
+    const remaining = Math.max(1, total - served);
+    nw.ban[d.pid] = { n: remaining, t: total, w: 'Dopaje (' + d.s + ')' };
+    nwAdd({ k: 'dopaje', ic: '⚖️', h: '⚖️ ' + p.n + ' fue sancionado por doping', b: 'La muestra B confirmó el positivo de ' + p.n + ' (' + p.t + ') por ' + d.s + '. Recibió una sanción de ' + nwGames(total) + ' (ya cumplió ' + served + ' de forma provisional).' + mot, tag: '🚫 ' + nwGames(total) + ' · quedan ' + remaining, sanc: true, tids });
+    if(total >= 20 && Math.random() < 0.3) nwSchedule(nwInt(6, 14), 'appeal', { pid: d.pid });
+  }
+
+  // ---- Reclamos por puntos (alineación indebida) ----
+  function nwEvClaim(m){
+    if(m.stage || typeof m.homeScore !== 'number' || m.homeScore === m.awayScore || !NW_COMP_LABEL[m.comp]) return;
+    const winner = m.homeScore > m.awayScore ? m.home : m.away, loser = winner === m.home ? m.away : m.home;
+    const nw = careerNews();
+    if(nwTeamComp(winner) === null || nwTeamComp(loser) === null) return;
+    if(nw.pending.some(p => p.k === 'claim' && p.d.a === winner)) return;
+    const W = nwTeamName(winner), L = nwTeamName(loser), x = Math.max(m.homeScore, m.awayScore), y = Math.min(m.homeScore, m.awayScore);
+    nwAdd({ k: 'club', ic: '📑', h: nwPick(['📑 Reclamo de ' + L + ' por puntos', '📑 ' + L + ' reclama la alineación de ' + W, '📑 Polémica administrativa: ' + L + ' presentó un reclamo']), b: L + ' presentó un reclamo ante el Tribunal por la supuesta alineación indebida de un futbolista de ' + W + ' en el partido que perdió ' + y + '-' + x + '. Si prospera, podría quedarse con los puntos.', tids: [winner, loser], cmp: nwCmp(m) });
+    nwSchedule(nwInt(7, 20), 'claim', { a: winner, b: loser, comp: m.comp });
+  }
+  function nwResolveClaim(d){
+    const A = nwTeamName(d.a), B = nwTeamName(d.b);
+    if(Math.random() < 0.35){
+      nwDeduct(d.a, d.comp, 3, 'Alineación indebida'); nwDeduct(d.b, d.comp, -3, 'Puntos por reclamo');
+      nwAdd({ k: 'club', ic: '⚖️', h: '⚖️ El Tribunal le dio los puntos a ' + B, b: 'El Tribunal hizo lugar al reclamo de ' + B + ': ' + A + ' perdió los puntos del partido por alineación indebida y se los adjudicaron a ' + B + ' (' + NW_COMP_LABEL[d.comp] + ').', tag: '⛔ ' + A + ' -3 · ' + B + ' +3', sanc: true, tids: [d.a, d.b] });
+    } else {
+      nwAdd({ k: 'club', ic: '📑', h: '📑 Rechazaron el reclamo de ' + B, b: 'El Tribunal desestimó el reclamo de ' + B + ' contra ' + A + ': el resultado del partido queda firme y no hay cambios en la tabla.', tids: [d.a, d.b] });
+    }
+  }
+
+  // ---- Clausura por infraestructura ----
+  const NW_STADIUM_CAUSE = ['por deficiencias en las instalaciones eléctricas', 'por falta de habilitación municipal', 'por el desprendimiento de una parte de la tribuna', 'por problemas en el sistema de evacuación', 'tras una inspección que detectó irregularidades en los accesos', 'por el mal estado de las instalaciones sanitarias y los accesos'];
+  function nwEvStadium(m){
+    const hT = careerTeamById(m.home);
+    if(!hT || m.neutral) return;
+    const n = nwInt(1, 3), A = hT.name;
+    nwClose(m.home, n, 'clausura');
+    nwAdd({ k: 'club', ic: '🏟️', h: nwPick(['🏟️ Clausuraron el estadio de ' + A, '🏟️ Golpe para ' + A + ': su cancha fue clausurada']), b: 'El estadio de ' + A + ' fue clausurado ' + nwPick(NW_STADIUM_CAUSE) + '. El club deberá jugar de local en otra cancha durante ' + nwGames(n) + '.', tag: '🚫 Estadio clausurado ' + nwGames(n), sanc: true, tids: [m.home] });
+  }
+
+  // ---- Noticias con datos reales del partido (no cambian nada, solo cuentan lo que pasó) ----
+  function nwFactual(m){
+    const cache = playersCache(), hT = careerTeamById(m.home), aT = careerTeamById(m.away);
+    if(!hT || !aT || typeof m.homeScore !== 'number') return;
+    const res = hT.name + ' ' + m.homeScore + '-' + m.awayScore + ' ' + aT.name, tids = [m.home, m.away], cmp = nwCmp(m);
+    const diff = Math.abs(m.homeScore - m.awayScore);
+    if(diff >= 4 && (diff >= 6 || Math.random() < 0.45)){
+      const w = m.homeScore > m.awayScore ? hT : aT;
+      nwAdd({ k: 'partido', ic: '💥', h: nwPick(['💥 Goleada: ' + res, '💥 Paliza de ' + w.name + ': ' + res, '💥 Resultado abultado: ' + res]), b: nwPick([w.name + ' aplastó a su rival y se quedó con una goleada de ' + diff + ' goles de diferencia.', 'Una tarde para el olvido para el perdedor: ' + w.name + ' goleó sin atenuantes.']), tids, cmp });
+    }
+    if(cache && m.goals && m.goals.length){
+      const cnt = {};
+      m.goals.forEach(g => { if(g.t !== 'ec') cnt[g.p] = (cnt[g.p] || 0) + 1; });
+      Object.keys(cnt).forEach(id => {
+        const n = cnt[id], p = cache.byId[id];
+        if(!p || n < 3 || Math.random() > 0.7) return;
+        nwAdd({ k: 'partido', ic: '🎩', h: '🎩 ' + (n >= 4 ? (n >= 5 ? 'Manita' : 'Póker') + ' de ' : 'Hat-trick de ') + p.n, b: p.n + ' (' + p.t + ') convirtió ' + n + ' goles en el ' + res + '.', tids, cmp });
+      });
+    }
+    if(cache && m.cards){
+      const reds = m.cards.filter(cd => cd.t !== 'y');
+      if(reds.length >= 3){
+        const names = reds.map(cd => cache.byId[cd.p] ? cache.byId[cd.p].n : '?').join(', ');
+        nwAdd({ k: 'partido', ic: '🟥', h: '🟥 Partido caliente: ' + reds.length + ' expulsados en ' + hT.name + ' vs ' + aT.name, b: 'El partido terminó ' + m.homeScore + '-' + m.awayScore + ' con ' + reds.length + ' jugadores expulsados: ' + names + '.', tids, cmp });
+      }
+    }
+    if(cache && m.hurt){
+      m.hurt.forEach(h => {
+        const p = cache.byId[h.p];
+        if(!p || h.n < 7 || (h.n < 16 && Math.random() > 0.6)) return;
+        nwAdd({ k: 'lesion', ic: '🩹', h: '🩹 ' + (h.n >= 16 ? 'Lesión gravísima' : 'Lesión importante') + ': ' + p.n + ' (' + p.t + ')', b: p.n + ' sufrió ' + h.w.toLowerCase() + ' en el partido ' + res + '. Se perderá ' + nwGames(h.n) + '.', tids, cmp });
+      });
+    }
+  }
+  // Seguimientos tras una roja: a veces amplían o reducen la sanción (se aplica sobre la suspensión por tarjetas ya registrada).
+  function nwRedFollowUps(m){
+    const cache = playersCache();
+    if(!cache || !m.cards) return;
+    const bk = careerDiscBucket(m);
+    m.cards.forEach(cd => {
+      if(cd.t === 'y') return;
+      const p = cache.byId[cd.p], st = bk[cd.p];
+      if(!p || !st || st.ban <= 0) return;
+      const tid = cd.s === 'h' ? m.home : m.away, r = Math.random();
+      if(r < 0.07){
+        const extra = nwInt(1, 3);
+        st.ban += extra; st.bt = (st.bt || st.ban - extra) + extra;
+        nwAdd({ k: 'conducta', ic: '📈', h: '📈 Ampliaron la sanción de ' + p.n, b: 'Tras el informe del árbitro, el Tribunal de Disciplina le sumó ' + nwGames(extra) + ' más a ' + p.n + ' (' + p.t + ') por su expulsión. Ahora son ' + nwGames(st.ban) + ' en total.', tag: '🚫 +' + nwGames(extra), sanc: true, tids: [tid], cmp: nwCmp(m) });
+      } else if(r < 0.12 && st.ban >= 2){
+        st.ban -= 1; st.bt = Math.max(st.ban, (st.bt || st.ban + 1) - 1);
+        nwAdd({ k: 'conducta', ic: '📉', h: '📉 Le redujeron la sanción a ' + p.n, b: 'El Tribunal aceptó el descargo de ' + p.n + ' (' + p.t + ') y le recortó un partido de suspensión por su expulsión. Ahora son ' + nwGames(st.ban) + '.', tag: '✅ -1 partido', tagOk: true, sanc: true, tids: [tid], cmp: nwCmp(m) });
+      }
+    });
+  }
+
+  // ---- Gancho principal: se llama cuando se termina de jugar un partido oficial ----
+  function careerNewsAfterMatch(m){
+    if(!m || m.bye || m.comp === 'amistoso') return;
+    careerNews();
+    nwClock = nwNow(m);
+    nwConsumeHome(m);
+    nwProcessPending(nwClock);
+    const tryRun = fn => { try{ fn(); }catch(e){} };
+    tryRun(() => nwFactual(m));
+    tryRun(() => nwRedFollowUps(m));
+    if(Math.random() < NW_P.riot) tryRun(() => nwEvRiot(m));
+    if(Math.random() < NW_P.conduct) tryRun(() => nwEvConduct(m));
+    if(Math.random() < NW_P.doping) tryRun(() => nwEvDoping(m));
+    if(Math.random() < NW_P.claim) tryRun(() => nwEvClaim(m));
+    if(Math.random() < NW_P.stadium) tryRun(() => nwEvStadium(m));
+  }
+
+  // ---- Noticias fuera de la cancha: una tanda por cada fecha del calendario que avanza ----
+  const NW_TRAIN_TXT = [
+    '{P} ({A}) se lesionó durante el entrenamiento: {w}.',
+    'Mala noticia para {A}: {P} sufrió {w} en la práctica de fútbol reducido.',
+    '{P} dejó el entrenamiento de {A} con molestias y los estudios confirmaron {w}.',
+    'En la práctica de {A}, {P} cayó mal tras un salto y le diagnosticaron {w}.',
+    '{P} ({A}) se resintió de una molestia previa y los médicos detectaron {w}.',
+    '{P} se lesionó en la concentración con la Selección: {w}. Vuelve a {A} con baja.',
+    'Susto en {A}: {P} salió en camilla de la práctica y le diagnosticaron {w}.',
+    '{P} ({A}) se lesionó jugando un partido amistoso de entrenamiento: {w}.'
+  ];
+  function nwTeamPool(){
+    const out = [];
+    careerAllRosterTeams().forEach(g => g.teams.forEach(t => { if(nwSquad(t.id).length > 14) out.push(t); }));
+    return out;
+  }
+  function nwEvTrainingInjury(t){
+    const c = state.career;
+    if(!c.inj) c.inj = {};
+    const pool = nwSquad(t.id).filter(p => !p.r && !(c.inj[p.id] && c.inj[p.id].n > 0));
+    if(!pool.length) return;
+    const p = nwPick(pool), n = playerInjuryGames(), w = playerInjuryName(n);
+    c.inj[p.id] = { n, t: n, y: c.year, w };
+    nwAdd({ k: 'lesion', ic: '🩹', h: nwPick(['🩹 Baja en ' + t.name + ': ' + p.n, '🩹 Lesión en ' + t.name, '🩹 Preocupación en ' + t.name + ' por ' + p.n]), b: nwFmt(nwPick(NW_TRAIN_TXT), { P: p.n, A: t.name, w: w.toLowerCase() }) + ' Estará ' + nwGames(n) + ' afuera.', tag: '🩹 ' + nwGames(n) + ' de baja', sanc: false, tids: [t.id] });
+  }
+  const NW_INDISC = ['llegar tarde a la concentración', 'una discusión con el cuerpo técnico', 'faltar a un entrenamiento sin aviso', 'declaraciones públicas contra la dirigencia', 'una pelea con un compañero en el vestuario', 'un video en redes sociales criticando al técnico', 'una salida nocturna la víspera de un partido'];
+  function nwEvIndiscipline(t){
+    const pool = nwSquad(t.id).filter(p => !p.r && !careerNewsBan(p.id));
+    if(!pool.length) return;
+    const p = nwPick(pool), n = nwInt(1, 4), mot = nwPick(NW_INDISC);
+    nwBanPlayer(p, n, 'Separado del plantel por indisciplina');
+    nwAdd({ k: 'club', ic: '🚷', h: nwPick(['🚷 ' + t.name + ' separó a ' + p.n, '🚷 Conflicto en ' + t.name + ': ' + p.n + ' al margen', '🚷 Sanción interna en ' + t.name]), b: p.n + ' fue separado del plantel de ' + t.name + ' por ' + mot + '. No será tenido en cuenta durante ' + nwGames(n) + '.', tag: '🚫 ' + nwGames(n) + ' afuera', sanc: true, tids: [t.id] });
+  }
+  const NW_NOBUY = ['deudas con un ex futbolista', 'el incumplimiento de un pago a otro club por un pase', 'un reclamo de una agencia de representación', 'una deuda con un entrenador despedido', 'el incumplimiento de un acuerdo de pago por la compra de un jugador'];
+  function nwEvNoBuy(t){
+    const nw = careerNews(), k = playerNormKey(t.name);
+    if(nw.noBuy[k] && nw.noBuy[k].n > 0) return;
+    nw.noBuy[k] = { n: 1, w: nwPick(NW_NOBUY), name: t.name };
+    nwAdd({ k: 'club', ic: '🚫', h: '🚫 Inhibieron a ' + t.name + ' para fichar', b: 'FIFA inhibió a ' + t.name + ' para incorporar jugadores por ' + nw.noBuy[k].w + '. No podrá comprar en el próximo mercado de pases hasta regularizar la situación.', tag: '🚫 Sin compras en el próximo mercado', sanc: true, tids: [t.id] });
+  }
+  const NW_DEDUCT = ['incumplimientos financieros ante la AFA', 'haber incluido a un jugador sin habilitación', 'deudas salariales con el plantel', 'irregularidades en la documentación de inscripción', 'no cumplir con los requisitos de seguridad del estadio'];
+  function nwEvDeduct(t){
+    const comp = nwTeamComp(t.id);
+    if(!comp) return;
+    const pts = nwInt(1, 6), mot = nwPick(NW_DEDUCT);
+    nwDeduct(t.id, comp, pts, mot);
+    nwAdd({ k: 'club', ic: '⛔', h: '⛔ Le quitaron ' + pts + (pts === 1 ? ' punto' : ' puntos') + ' a ' + t.name, b: 'La AFA le descontó ' + pts + (pts === 1 ? ' punto' : ' puntos') + ' a ' + t.name + ' en ' + NW_COMP_LABEL[comp] + ' por ' + mot + '. El descuento ya se refleja en la tabla de posiciones.', tag: '⛔ -' + pts + (pts === 1 ? ' pt' : ' pts'), sanc: true, tids: [t.id] });
+  }
+  const NW_FLAVOR = [
+    ['📣 Banderazo en {A}', 'Miles de hinchas de {A} alentaron al plantel con un banderazo multitudinario en la previa del próximo partido.'],
+    ['🏆 Homenaje en {A}', '{A} recordó a uno de sus ídolos históricos con un emotivo acto en el estadio, al que asistieron hinchas de todas las edades.'],
+    ['🌧️ El césped de {A}, en la mira', 'Tras las últimas lluvias, el campo de juego de {A} quedó en malas condiciones. El club trabaja para recuperarlo.'],
+    ['🤝 Campaña solidaria en {A}', '{A} lanzó una campaña solidaria junto a sus hinchas para juntar alimentos y abrigo para los barrios cercanos al club.'],
+    ['🏗️ Obras en el estadio de {A}', '{A} inauguró un nuevo sector de plateas en su estadio y anunció que seguirá con las obras en los próximos meses.'],
+    ['🗳️ Asamblea en {A}', 'Los socios de {A} aprobaron el balance del ejercicio en una asamblea con gran concurrencia.'],
+    ['👕 Nueva camiseta en {A}', '{A} presentó su indumentaria alternativa, que los hinchas ya pueden conseguir en la tienda oficial.'],
+    ['📑 {A} pidió árbitros de otra provincia', 'La dirigencia de {A} solicitó formalmente que se designen árbitros de otra provincia para sus próximos partidos.'],
+    ['🎥 Reclamo arbitral de {A}', '{A} presentó un reclamo formal por decisiones del árbitro y pidió que se revisen los audios del VAR.'],
+    ['⭐ {P}, figura del mes en {A}', 'Los hinchas de {A} eligieron a {P} como la figura del último mes en una votación del club.'],
+    ['⚽ Escuelita de fútbol de {A}', 'Jugadores de {A} visitaron escuelas del barrio y compartieron una clínica de fútbol con los chicos.'],
+    ['🎟️ Venta de entradas en {A}', '{A} agotó las entradas populares para su próximo partido como local en pocas horas.'],
+    ['🙌 Pedido de los hinchas en {A}', 'Los hinchas de {A} le pidieron a la dirigencia que renueve el contrato de {P}, una de las figuras del equipo.'],
+    ['🚌 Viaje largo para {A}', '{A} partió en micro rumbo a su próxima presentación como visitante, con más de un día de viaje por delante.']
+  ];
+  function nwEvFlavor(t){
+    const p = nwSquad(t.id).filter(x => !x.r), tp = nwPick(NW_FLAVOR), v = { A: t.name, P: p.length ? nwPick(p).n : 'un jugador' };
+    nwAdd({ k: 'info', ic: (tp[0].match(/^\p{Extended_Pictographic}\uFE0F?/u) || ['📰'])[0], h: nwFmt(tp[0], v), b: nwFmt(tp[1], v), tids: [t.id] });
+  }
+  function careerNewsTick(){
+    const c = state.career, nw = careerNews(), now = c.calendarDate;
+    if(!now || nw.lastTick === now) return;
+    nw.lastTick = now; nwClock = now;
+    nwProcessPending(now);
+    careerEnsurePlayers();
+    if(!playersCache()) return;
+    const pool = nwTeamPool();
+    if(!pool.length) return;
+    const mine = c.myTeamId && pool.find(t => t.id === c.myTeamId);
+    const pick = () => (mine && Math.random() < 0.1) ? mine : nwPick(pool);
+    const run = fn => { try{ fn(); }catch(e){} };
+    if(Math.random() < 0.3) run(() => nwEvTrainingInjury(pick()));
+    if(Math.random() < 0.12) run(() => nwEvIndiscipline(pick()));
+    if(Math.random() < 0.012) run(() => nwEvNoBuy(pick()));
+    if(Math.random() < 0.015) run(() => nwEvDeduct(pick()));
+    if(Math.random() < 0.4) run(() => nwEvFlavor(pick()));
+    nw.deduct = nw.deduct.filter(d => d.year >= c.year - 1);
+  }
+  // Tras el mercado de pases: se gasta la inhibición y se avisa qué clubes no pudieron comprar.
+  function nwAfterMarket(year){
+    const nw = state.career.news;
+    if(!nw || !nw.noBuy) return;
+    const ks = Object.keys(nw.noBuy).filter(k => nw.noBuy[k].n > 0);
+    if(!ks.length) return;
+    nwClock = state.career.calendarDate || nwNow();
+    const names = ks.map(k => nw.noBuy[k].name), tids = names.map(nwFindTeamId).filter(Boolean);
+    ks.forEach(k => { nw.noBuy[k].n--; if(nw.noBuy[k].n <= 0) delete nw.noBuy[k]; });
+    nwAdd({ k: 'club', ic: '📦', h: '📦 Mercado de pases: clubes inhibidos', b: 'Por la inhibición de FIFA, no pudieron incorporar jugadores en este mercado: ' + names.join(', ') + '. Ya cumplieron la sanción.', tids });
+  }
+
+  // ---- Vista Noticias ----
+  const NW_FILTERS = [['all', 'Todas'], ['sanc', 'Sanciones'], ['mine', 'Mi equipo'], ['lesion', 'Lesiones'], ['hinchas', 'Hinchadas'], ['dopaje', 'Dopaje'], ['conducta', 'Conducta'], ['partido', 'Partidos'], ['club', 'Clubes']];
+  function nwUnreadBadge(){
+    const nw = state.career.news;
+    if(!nw) return '';
+    const u = nw.seq - (nw.seen || 0);
+    return u > 0 ? ' <span class="badge warn">' + (u > 99 ? '99+' : u) + '</span>' : '';
+  }
+  function nwTeamCellId(id){
+    const t = careerTeamById(id);
+    return t ? `<span style="display:inline-flex;align-items:center;gap:6px;">${teamBadgeHtml(t, 18)}${escapeHtml(t.name)}</span>` : '&mdash;';
+  }
+  function nwActivePanel(){
+    const c = state.career, nw = careerNews(), cache = playersCache();
+    const th = h => `<th>${h}</th>`;
+    const tbl = (head, rows) => `<div class="table-scroll"><table><thead><tr>${head.map(th).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    let html = '';
+    const clubs = [];
+    Object.keys(nw.closed).forEach(id => { const x = nw.closed[id]; if(x.n > 0) clubs.push(`<tr><td>${nwTeamCellId(id)}</td><td>${NW_KIND_LABEL[x.kind]}</td><td class="num">${x.n} de ${x.t}</td></tr>`); });
+    Object.keys(nw.awayBan).forEach(id => { const x = nw.awayBan[id]; if(x.n > 0) clubs.push(`<tr><td>${nwTeamCellId(id)}</td><td>Sin público visitante</td><td class="num">${x.n} de ${x.t}</td></tr>`); });
+    Object.keys(nw.noBuy).forEach(k => { const x = nw.noBuy[k]; if(x.n > 0) clubs.push(`<tr><td>${escapeHtml(x.name)}</td><td>Inhibido para comprar (${escapeHtml(x.w)})</td><td class="num">próximo mercado</td></tr>`); });
+    nw.deduct.filter(d => d.year === c.year).forEach(d => { clubs.push(`<tr><td>${nwTeamCellId(d.teamId)}</td><td>${d.pts > 0 ? 'Quita de puntos' : 'Puntos adjudicados'} &middot; ${escapeHtml(NW_COMP_LABEL[d.comp] || d.comp)}</td><td class="num">${d.pts > 0 ? '-' : '+'}${Math.abs(d.pts)} pts</td></tr>`); });
+    const players = [];
+    Object.keys(nw.ban).forEach(id => {
+      const x = nw.ban[id], p = cache && cache.byId[id];
+      if(x.n > 0 && p && !p.r) players.push({ p, x });
+    });
+    players.sort((a, b) => b.x.n - a.x.n);
+    if(!clubs.length && !players.length) return `<div class="panel"><h3>Sanciones vigentes</h3><p class="hint" style="margin:0;">No hay sanciones en curso.</p></div>`;
+    html += `<div class="panel"><h3>Sanciones vigentes</h3><p class="hint">Todo lo que figura acá tiene efecto real: los suspendidos no juegan, los clubes castigados pierden parte de la ventaja de local y las quitas de puntos se restan en las tablas.</p>`;
+    if(clubs.length) html += tbl(['Club', 'Sanción', 'Restan'], clubs.join(''));
+    if(players.length) html += `<div style="margin-top:10px;"></div>` + tbl(['Jugador', 'Equipo', 'Motivo', 'Le faltan'], players.slice(0, 40).map(o => `<tr><td>${escapeHtml(o.p.n)}</td><td>${escapeHtml(o.p.t)}</td><td>${escapeHtml(o.x.w)}</td><td class="num">${o.x.n} de ${o.x.t}</td></tr>`).join(''));
+    return html + `</div>`;
+  }
+  function nwCardHtml(it){
+    const isNew = it.id > nwUi.prevSeen;
+    let d = '';
+    try{ d = it.date ? fromISO(it.date).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }) : ''; }catch(e){}
+    return `<div class="news-card${isNew ? ' new' : ''}${it.my ? ' mine' : ''}"><div class="news-ic">${it.ic || '📰'}</div><div style="min-width:0;flex:1;"><div class="news-h">${escapeHtml(String(it.h).replace(/^[^\p{L}\p{N}]+/u, ''))}</div><div class="news-b">${escapeHtml(it.b)}</div><div class="news-meta"><span>${escapeHtml(d)}</span>${it.cmp ? `<span>&middot; ${escapeHtml(it.cmp)}</span>` : ''}${it.my ? '<span class="badge warn">TU EQUIPO</span>' : ''}${it.tag ? `<span class="news-chip${it.tagOk ? ' ok' : ''}">${escapeHtml(it.tag)}</span>` : ''}${isNew ? '<span class="badge warn">NUEVA</span>' : ''}</div></div></div>`;
+  }
+  function renderCareraNoticias(){
+    const nw = careerNews();
+    const f = nwUi.filter;
+    const list = nw.items.filter(it => f === 'all' ? true : f === 'sanc' ? it.sanc : f === 'mine' ? it.my : it.k === f);
+    let html = `<div class="panel"><h2>Noticias</h2><p class="hint" style="margin:0;">Novedades al azar del fútbol argentino: incidentes de hinchadas, dopaje, suspensiones, lesiones, clausuras y más. Las noticias son ficticias y se generan con la simulaci&oacute;n; las sanciones que anuncian son reales dentro del juego.</p></div>`;
+    html += nwActivePanel();
+    html += `<div class="btn-row" style="flex-wrap:wrap;">${NW_FILTERS.map(x => `<button class="btn small ${f === x[0] ? 'primary' : ''}" data-action="career-news-filter" data-f="${x[0]}">${x[1]}</button>`).join('')}</div>`;
+    if(!list.length){
+      html += `<div class="cs-empty-hint">${nw.items.length ? 'No hay noticias con este filtro.' : 'Todavía no hay noticias. Aparecen a medida que se juegan partidos y avanza el calendario.'}</div>`;
+      return html;
+    }
+    html += list.slice(0, nwUi.limit).map(nwCardHtml).join('');
+    if(list.length > nwUi.limit) html += `<div class="btn-row"><button class="btn small" data-action="career-news-more">Ver más noticias (${list.length - nwUi.limit} restantes)</button></div>`;
+    return html;
+  }
+
   function careerApplyEloUpdate(m){
     try{ careerAssignScorers(m); }catch(e){}
     if(m.comp === 'amistoso') return; // los amistosos de pretemporada no mueven el ELO
     const home = careerTeamById(m.home), away = careerTeamById(m.away);
     if(!home || !away) return;
-    const adv = m.neutral ? 0 : state.career.engine.homeAdvantage;
+    const adv = careerMatchHomeAdv(m);
     const expHome = careerEloExpected(home.elo+adv, away.elo);
     const expAway = 1-expHome;
     let sHome;
@@ -6094,6 +6694,7 @@ window.FIREBASE_CONFIG = {
     const dA = eloDelta(k, sAway, expAway);
     home.elo += dH; away.elo += dA;
     m.deltaHome = dH; m.deltaAway = dA;
+    try{ careerNewsAfterMatch(m); }catch(e){}
   }
 
   // En los octavos, cuartos, semis y final del formato real no hay alargue: empate en 90' va directo a penales.
@@ -6142,6 +6743,12 @@ window.FIREBASE_CONFIG = {
         else { r.pe++; r.pts += 1; }
       }
     });
+    const nwd = state.career.news && state.career.news.deduct;
+    if(nwd && nwd.length){
+      const nwComps = {};
+      list.forEach(m => { if(m.comp) nwComps[m.comp] = true; });
+      nwd.forEach(d => { if(d.year === state.career.year && nwComps[d.comp] && rows[d.teamId]) rows[d.teamId].pts -= d.pts; });
+    }
     const arr = Object.values(rows);
     arr.forEach(r => r.dg = r.gf - r.gc);
     arr.sort((x,y) => y.pts - x.pts || y.dg - x.dg || y.gf - x.gf || (careerTeamById(y.id).elo - careerTeamById(x.id).elo));
@@ -8062,7 +8669,7 @@ window.FIREBASE_CONFIG = {
       if(c.seasonLog[r.id].length > 3) c.seasonLog[r.id].shift();
     });
     careerArchiveTournament();
-    (c.history || []).forEach(h => { if(h && h.year === c.year) [h.matches, h.knockout].forEach(l => (l || []).forEach(mm => { if(mm){ delete mm.lu; delete mm.cards; delete mm.sus; delete mm.hurt; delete mm.inj; delete mm.pre; delete mm.absInfo; } })); });
+    (c.history || []).forEach(h => { if(h && h.year === c.year) [h.matches, h.knockout].forEach(l => (l || []).forEach(mm => { if(mm){ delete mm.lu; delete mm.cards; delete mm.sus; delete mm.hurt; delete mm.inj; delete mm.pre; delete mm.absInfo; delete mm.nwx; } })); });
     c.disc = {};
     try{ careerRunRetirements(c.year); }catch(e){}
     careerApplyPromotionsRelegations();
@@ -8246,6 +8853,7 @@ window.FIREBASE_CONFIG = {
       <input type="number" min="0" class="score-input" data-role="away-score" value="${m.awayScore ?? ''}" ${m.played?'disabled':''}>
       <div class="badge-wrap">${teamBadgeHtml(away, 28)}</div>
       <div class="side away ${winnerAway?'winner':''}">${escapeHtml(away.name)}<span class="elo-tag num">${away.elo}${m.played && m.deltaAway!==undefined ? ` <span class="delta ${m.deltaAway>0?'pos':(m.deltaAway<0?'neg':'')}">${m.deltaAway>=0?'+':''}${m.deltaAway}</span>`:''}</span>${renderPosForm(m.away, meta)}</div>
+      ${careerMatchSanctionNote(m)}
       ${careerScorersHtml(m)}
       ${opts.serieGlobal ? careerSerieGlobalHtml(m) : ''}
       <div class="match-actions" style="grid-column:1/-1;justify-content:flex-end;">
@@ -8540,6 +9148,7 @@ window.FIREBASE_CONFIG = {
       ${item('equipos-list','&#9917;','Equipos')}
       ${item('jugadores','&#128100;','Jugadores')}
       ${item('mercado','&#128260;','Mercado')}
+      ${item('noticias','&#128240;','Noticias' + nwUnreadBadge())}
       ${item('campeones','&#127942;','Historia')}
       ${item('premios','&#11088;','Premios')}
       ${item('escudos','&#128737;','Escudos')}
@@ -9002,6 +9611,7 @@ window.FIREBASE_CONFIG = {
     if(c.view === 'equipos-list') return renderCareraEquiposGaleria();
     if(c.view === 'jugadores') return renderCareraJugadores();
     if(c.view === 'mercado') return renderCareraMercado();
+    if(c.view === 'noticias') return renderCareraNoticias();
     if(c.view === 'configuracion') return renderCareraStub('&#9881;', 'Configuración', 'Próximamente vas a poder ajustar acá los parámetros del motor de simulación.');
     return renderCareraCalendario();
   }
