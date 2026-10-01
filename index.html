@@ -3117,7 +3117,8 @@ window.FIREBASE_CONFIG = {
       playersUi.team = btn.getAttribute('data-team') || '';
       render(); return;
     }
-    else if(action === 'career-view-team'){ state.career.selectedTeamId = btn.getAttribute('data-id') || null; render(); return; }
+    else if(action === 'career-view-team'){ state.career.selectedTeamId = btn.getAttribute('data-id') || null; state.career.teamTab = 'ficha'; render(); return; }
+    else if(action === 'career-team-tab'){ state.career.teamTab = btn.getAttribute('data-tab') || 'ficha'; render(); return; }
     else if(action === 'career-wl-set-pais'){
       state.career.wlPais = btn.getAttribute('data-pais');
       state.career.wlComp = null; state.career.wlGrupo = null; state.career.wlTab = null;
@@ -5193,7 +5194,10 @@ window.FIREBASE_CONFIG = {
       const lu = (m.lu && m.lu[side]) || [], byRow = {}, subOf = {};
       lu.forEach(r => { byRow[r[0]] = r; if(r[3]) subOf[r[3]] = r; });
       const cards = (m.cards || []).filter(x => x.s === side && x.m <= done), hurt = (m.hurt || []).filter(x => x.s === side && x.m <= done);
-      const tags = id => cards.filter(x => x.p === id).map(x => `<span class="lu-tag">${x.t === 'y' ? '🟨' : '🟥'} ${x.m}'${x.b ? ' · ' + x.b + (x.b === 1 ? ' partido' : ' partidos') + ' de suspensión' : ''}</span>`).join('')
+      const gl = (m.goals || []).filter(g => g.m <= done), goalTags = id => gl.filter(g => g.s === side && g.t !== 'ec' && g.p === id).map(g => `<span class="lu-tag">&#9917; ${g.m}'${g.t === 'pen' ? ' (pen.)' : g.t === 'tl' ? ' (tiro libre)' : ''}</span>`).join('')
+        + gl.filter(g => g.s !== side && g.t === 'ec' && g.p === id).map(g => `<span class="lu-tag">&#9917; ${g.m}' (en contra)</span>`).join('')
+        + gl.filter(g => g.s === side && g.t !== 'ec' && g.a === id).map(g => `<span class="lu-tag">&#128095; asist. ${g.m}'</span>`).join('');
+      const tags = id => goalTags(id) + cards.filter(x => x.p === id).map(x => `<span class="lu-tag">${x.t === 'y' ? '🟨' : '🟥'} ${x.m}'${x.b ? ' · ' + x.b + (x.b === 1 ? ' partido' : ' partidos') + ' de suspensión' : ''}</span>`).join('')
         + hurt.filter(x => x.p === id).map(x => `<span class="lu-tag">🩹 ${x.m}'${x.w ? ' · ' + escapeHtml(x.w) : ''} · baja de ${x.n} ${x.n === 1 ? 'partido' : 'partidos'}</span>`).join('');
       const row = (id, extra, cls) => {
         const p = cache.byId[id];
@@ -7520,11 +7524,88 @@ window.FIREBASE_CONFIG = {
     });
   }
 
+  // ---------- Historial de ascensos y descensos por equipo ----------
+  // c.moves = [{year, teamId, name, from, to, kind:'asc'|'desc'|'out'}]. Se arma comparando en qué categoría estaba cada equipo
+  // antes y después de aplicar los movimientos de fin de temporada (year = temporada que se cierra).
+  function careerDivSnapshot(){
+    const c = state.career, snap = {};
+    const add = (list, d, l) => (list || []).forEach(t => { snap[t.id] = { d, l, n: t.name }; });
+    add(c.teams, 'Primera División', 1);
+    add(careerNacional().teams, 'Primera Nacional', 2);
+    add(careerBmetro().teams, 'Primera B Metropolitana', 3);
+    add(careerFederal().teams, 'Torneo Federal A', 3);
+    add(careerPrimeraC().teams, 'Primera C', 4);
+    add(careerPromocional().teams, 'Promocional Amateur', 5);
+    return snap;
+  }
+  function careerRecordMoves(before, after, desafiliado){
+    const c = state.career;
+    if(!c.moves) c.moves = [];
+    if(!c.movesDone) c.movesDone = {};
+    Object.keys(before).forEach(id => {
+      const b = before[id], a = after[id];
+      if(!a){ if(id === desafiliado) c.moves.push({ year: c.year, teamId: id, name: b.n, from: b.d, to: null, kind: 'out' }); return; }
+      if(a.d !== b.d && a.l !== b.l) c.moves.push({ year: c.year, teamId: id, name: b.n, from: b.d, to: a.d, kind: a.l < b.l ? 'asc' : 'desc' });
+    });
+    c.movesDone[c.year] = true;
+  }
+  // Carreras empezadas antes de este registro: se recupera la última temporada a partir de c.lastMovements.
+  function careerBackfillMoves(){
+    const c = state.career, mov = c.lastMovements;
+    if(!c.moves) c.moves = [];
+    if(!c.movesDone) c.movesDone = {};
+    if(!mov || c.movesDone[mov.year] || c.moves.some(x => x.year === mov.year)) return;
+    const add = (ids, from, to, kind) => (ids || []).forEach(id => { const t = careerTeamById(id); c.moves.push({ year: mov.year, teamId: id, name: t ? t.name : '?', from, to, kind }); });
+    add(mov.subenAPrimera, 'Primera Nacional', 'Primera División', 'asc');
+    add(mov.bajanANacional, 'Primera División', 'Primera Nacional', 'desc');
+    add(mov.subenANacional, 'Tercera división', 'Primera Nacional', 'asc');
+    add(mov.bajanDeNacional, 'Primera Nacional', 'Tercera división', 'desc');
+    add(mov.subenALaB, 'Primera C', 'Primera B Metropolitana', 'asc');
+    add(mov.bajanDeB, 'Primera B Metropolitana', 'Primera C', 'desc');
+    if(mov.subeALaC) add([mov.subeALaC], 'Promocional Amateur', 'Primera C', 'asc');
+    if(mov.promocion) add([mov.promocion], 'Promocional Amateur', 'Primera C', 'asc');
+    if(mov.desafiliado) add([mov.desafiliado], 'Primera C', null, 'out');
+    c.movesDone[mov.year] = true;
+  }
+  function renderCareraEquipoHistorial(teamId){
+    const c = state.career;
+    careerBackfillMoves();
+    const titles = (c.titles || []).filter(x => x.teamId === teamId);
+    const moves = (c.moves || []).filter(x => x.teamId === teamId).slice().sort((a, b) => b.year - a.year);
+    const asc = moves.filter(x => x.kind === 'asc').length, desc = moves.filter(x => x.kind === 'desc').length;
+    const snap = careerDivSnapshot()[teamId];
+    let html = `<div class="cs-cards-row">
+      <div class="cs-stat-card"><div class="label">Campeonatos</div><div class="value">${titles.length}</div></div>
+      <div class="cs-stat-card"><div class="label">Ascensos</div><div class="value" style="color:var(--green-win);">${asc}</div></div>
+      <div class="cs-stat-card"><div class="label">Descensos</div><div class="value" style="color:var(--red);">${desc}</div></div>
+      <div class="cs-stat-card"><div class="label">Categoría actual</div><div class="value" style="font-size:15px;">${escapeHtml(snap ? snap.d : '—')}</div></div>
+    </div>`;
+    html += `<div class="cs-section-title">Campeonatos</div>`;
+    const rows = COMPETITION_ORDER.map(key => {
+      const years = titles.filter(x => x.competition === key).map(x => x.year).sort((a, b) => b - a);
+      return years.length ? `<tr><td>${escapeHtml(COMPETITION_LABELS[key] || key)}</td><td class="num">${years.length}</td><td>${years.join(', ')}</td></tr>` : '';
+    }).join('');
+    html += rows ? `<div class="table-scroll"><table><thead><tr><th>Competición</th><th>Títulos</th><th>Años</th></tr></thead><tbody>${rows}</tbody></table></div>`
+      : `<div class="cs-empty-hint">Todavía no ganó campeonatos en esta carrera.</div>`;
+    html += `<div class="cs-section-title">Ascensos y descensos</div>`;
+    if(moves.length){
+      html += `<div class="table-scroll"><table><thead><tr><th>Temporada</th><th>Movimiento</th><th>Categoría</th></tr></thead><tbody>` + moves.map(x => {
+        const tag = x.kind === 'asc' ? '<span style="color:var(--green-win);">&#9650; Ascenso</span>' : x.kind === 'desc' ? '<span style="color:var(--red);">&#9660; Descenso</span>' : '<span style="color:var(--red);">Desafiliado</span>';
+        return `<tr><td class="num">${x.year}</td><td>${tag}</td><td>${escapeHtml(x.from)}${x.to ? ' &rarr; ' + escapeHtml(x.to) : ''}</td></tr>`;
+      }).join('') + `</tbody></table></div>`;
+    } else {
+      html += `<div class="cs-empty-hint">Todavía no tuvo ascensos ni descensos en esta carrera.</div>`;
+    }
+    html += `<p class="hint" style="margin-top:10px;">Los ascensos y descensos se registran cada vez que se cierra una temporada (en las carreras ya empezadas se recupera la última).</p>`;
+    return html;
+  }
+
   function careerApplyPromotionsRelegations(){
     const c = state.career;
     const n = careerNacional(), b = careerBmetro(), f = careerFederal();
     const db = CAREER_TEAM_DB;
     const mov = { year: c.year };
+    const divBefore = careerDivSnapshot();
 
     // Primera <-> Primera Nacional
     const desc = careerComputeDescensos();
@@ -7589,6 +7670,7 @@ window.FIREBASE_CONFIG = {
     f.promoted = []; f.relegated = []; f.champion = null;
     pc.promoted = []; pc.champion = null; pc.desafiliado = null; pc.permanenciaWinner = null;
     pr.promoted = []; pr.aperturaChampion = null; pr.clausuraChampion = null; pr.promocionWinner = null;
+    try{ careerRecordMoves(divBefore, careerDivSnapshot(), mov.desafiliado); }catch(e){}
     c.lastMovements = mov;
   }
 
@@ -9834,6 +9916,9 @@ window.FIREBASE_CONFIG = {
       ${teamBadgeHtml(t,52)}
       <div><div class="season-tag" style="margin-bottom:4px;">${teamId===c.myTeamId?'Tu equipo':'Equipo'}</div><div class="matchup" style="margin:0;">${escapeHtml(t.name)}</div></div>
     </div>`;
+    const tab = c.teamTab === 'historial' ? 'historial' : 'ficha';
+    html += `<div class="btn-row" style="margin:0 0 12px;"><button class="btn small ${tab === 'ficha' ? 'primary' : ''}" data-action="career-team-tab" data-tab="ficha">Ficha</button><button class="btn small ${tab === 'historial' ? 'primary' : ''}" data-action="career-team-tab" data-tab="historial">&#127942; Historial</button></div>`;
+    if(tab === 'historial') return html + renderCareraEquipoHistorial(teamId);
     html += `<div class="cs-cards-row"><div class="cs-stat-card"><div class="label">ELO actual</div><div class="value">${t.elo}</div></div></div>`;
     html += `<div class="cs-section-title">Próximo partido</div>`;
     if(next){
