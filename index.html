@@ -3138,6 +3138,7 @@ window.FIREBASE_CONFIG = {
 
   function onChange(e){
     if(e.target.hasAttribute){
+      if(e.target.hasAttribute('data-inst-sel')){ instUi.id = e.target.value; render(); return; }
       if(e.target.hasAttribute('data-crest-upload')){ crestHandleSingle(e.target); return; }
       if(e.target.hasAttribute('data-crest-bulk')){ crestHandleBulk(e.target); return; }
       if(e.target.hasAttribute('data-crest-import')){ crestImport(e.target); return; }
@@ -3353,6 +3354,7 @@ window.FIREBASE_CONFIG = {
     else if(action === 'career-advance-calendar'){ careerAdvanceCalendar(); render(); return; }
     else if(action === 'career-simulate-day'){
       const c = state.career;
+      try{ instPreDay(); }catch(e){ console.error(e); }
       const todays = careerAllUnplayedDatedMatches().filter(m=>m.date === c.calendarDate);
       todays.forEach(m => {
         const [h,a] = careerSimulateResult(m);
@@ -8049,6 +8051,7 @@ window.FIREBASE_CONFIG = {
     if(!m || m.bye || m.comp === 'amistoso') return;
     careerNews();
     nwClock = nwNow(m);
+    try{ instPreAttend(m); }catch(e){ console.error(e); }
     nwConsumeHome(m);
     nwProcessPending(nwClock);
     const tryRun = fn => { try{ fn(); }catch(e){} };
@@ -8061,6 +8064,9 @@ window.FIREBASE_CONFIG = {
     if(Math.random() < NW_P.doping) tryRun(() => nwEvDoping(m));
     if(Math.random() < NW_P.claim) tryRun(() => nwEvClaim(m));
     if(Math.random() < NW_P.stadium) tryRun(() => nwEvStadium(m));
+    tryRun(() => instStadiumEvent(m));
+    tryRun(() => instFanEvent(m));
+    tryRun(() => instMedEvent(m));
     if(Math.random() < NW_P.fixing) tryRun(() => nwEvFixing(m));
     if(Math.random() < NW_P.betting) tryRun(() => nwEvBetting(m));
   }
@@ -10509,6 +10515,7 @@ window.FIREBASE_CONFIG = {
     c.disc = {};
     try{ careerRunRetirements(c.year); }catch(e){}
     careerApplyPromotionsRelegations();
+    try{ instYearTick(); }catch(e){ console.error(e); }
     c.year += 1;
     c.tournament = 'apertura';
     try{ careerRunTransfers(c.year); }catch(e){}
@@ -10706,6 +10713,7 @@ window.FIREBASE_CONFIG = {
 
   function renderCarreraStep(){
     const c = state.career;
+    try{ instPreDay(); }catch(e){ console.error(e); }
     if(c.step === 'equipos') return renderCareraEquipos();
     if(c.step === 'elegir') return renderCareraElegir();
     if(c.step === 'temporada') return renderCareraTemporada();
@@ -11050,6 +11058,7 @@ window.FIREBASE_CONFIG = {
       ${item('redes','&#128172;','Redes' + socBadge())}
       ${item('campeones','&#127942;','Historia')}
       ${item('premios','&#11088;','Premios')}
+      ${item('instituciones','&#127963;','Instituciones')}
       ${item('escudos','&#128737;','Escudos')}
       ${item('configuracion','&#9881;','Configuración')}
     </aside>`;
@@ -11534,6 +11543,7 @@ window.FIREBASE_CONFIG = {
     if(c.view === 'mercado') return renderCareraMercado();
     if(c.view === 'noticias') return renderCareraNoticias();
     if(c.view === 'redes') return renderCareraRedes();
+    if(c.view === 'instituciones') return renderCareraInst();
     if(c.view === 'configuracion') return renderCareraStub('&#9881;', 'Configuración', 'Próximamente vas a poder ajustar acá los parámetros del motor de simulación.');
     return renderCareraCalendario();
   }
@@ -22297,6 +22307,474 @@ window.FIREBASE_CONFIG = {
   playersLoadCsv();
   render();
   // Los escudos guardados se leen de IndexedDB de forma asíncrona: cuando llegan se redibuja.
+  // ================= PUNTO 5: VIDA INSTITUCIONAL DE LOS CLUBES =================
+  // c.inst.clubs[id] = {pres:{name,filo,since,term}, debt (M US$), owner:{name,since,fund}|null, state:'ok'|'crisis'|'judicial'|'refundado', unpaid, hist:[{y,t}]}
+  // Datos reales de los 30 clubes de Primera (presidente, estadio, capacidad aproximada). Clave: nombre normalizado.
+  const INST_REAL = {
+    'aldosivi':['Hernán Tillous','José María Minella',35180],'argentinos juniors':['Cristian Malaspina','Diego Armando Maradona',24000],
+    'atletico tucuman':['Mario Alberto Leito','Monumental José Fierro',35200],'banfield':['Matías Mariotto','Florencio Sola',34900],
+    'barracas central':['Matías Tapia','Claudio Fabián Tapia',10000],'belgrano':['Luis Fabián Artime','Julio César Villagra',38500],
+    'boca juniors':['Juan Román Riquelme','Alberto J. Armando (La Bombonera)',54000],'central cordoba sde':['Hernán Zanni','Único Madre de Ciudades',30000],
+    'defensa y justicia':['Diego Lemme','Norberto Tomaghello',20000],'deportivo riestra':['Fernando Salorio','Guillermo Laza',8000],
+    'estudiantes lp':['Juan Sebastián Verón','Jorge Luis Hirschi',32530],'estudiantes rc':['Luis Eduardo Amor','Antonio Candini',10000],
+    'gimnasia lp':['Carlos Alberto Anacleto','Juan Carmelo Zerillo',30973],'gimnasia de mendoza':['Fernando Porretta','Víctor Antonio Legrotaglie',11000],
+    'huracan':['Abel Poza','Tomás Adolfo Ducó',48314],'independiente':['Néstor Grindetti','Libertadores de América-Ricardo E. Bochini',49592],
+    'independiente rivadavia':['Daniel Vila','Bautista Gargantini',24000],'instituto':['Juan Manuel Cavagliatto','Juan Domingo Perón',26000],
+    'lanus':['Nicolás Russo','Ciudad de Lanús-Néstor Díaz Pérez',47027],'newells':['Ignacio Boero','Marcelo Bielsa',49000],
+    'platense':['Gastón Arcieri','Ciudad de Vicente López',34530],'racing club':['Diego Milito','Presidente Perón (Cilindro)',55880],
+    'river plate':['Stefano Di Carlo','Mâs Monumental',85018],'rosario central':['Gonzalo Belloso','Gigante de Arroyito',48000],
+    'san lorenzo':['Marcelo Moretti','Pedro Bidegain (Nuevo Gasómetro)',47964],'sarmiento':['Fernando Chiófalo','Eva Perón',23156],
+    'talleres':['Andrés Fassi','Mario Alberto Kempes',57000],'tigre':['Martín Suárez','José Dellagiovanna',26282],
+    'union':['Luis Jorge Spahn','15 de Abril',27000],'velez sarsfield':['Luis Fabián Berlanga','José Amalfitani',49540]
+  };
+  // Aplica los datos reales una sola vez por club (también en carreras ya empezadas). Después la historia sigue por su cuenta.
+  const INST_DT = {
+    'aldosivi':'Javier Sanguinetti','argentinos juniors':'Nicolás Diez','atletico tucuman':'Julio César Falcioni','banfield':'Pedro Troglio',
+    'barracas central':'Damián Ayude','belgrano':'Ricardo Zielinski','boca juniors':'Rodolfo Arruabarrena','central cordoba sde':'Matías Villavicencio y Emilio Romero (interinos)',
+    'defensa y justicia':'Julio Vaccari','deportivo riestra':'Guillermo Duró','estudiantes lp':'Alexander Medina','estudiantes rc':'Rubén Darío Forestello',
+    'gimnasia lp':'Ariel Pereyra','gimnasia de mendoza':'Darío Franco','huracan':'Diego Martínez','independiente':'Gustavo Quinteros',
+    'independiente rivadavia':'Alfredo Berti','instituto':'Diego Flores','lanus':'Mauricio Pellegrino','newells':'Frank Darío Kudelka',
+    'platense':'Martín Palermo','racing club':'Sebastián Romero y Luciano Aued (interinos)','river plate':'Leonardo Ponzio (interino)','rosario central':'Jorge Almirón',
+    'san lorenzo':'Rubén Darío Insúa','sarmiento':'Facundo Sava','talleres':'Omar De Felippe','tigre':'Diego Dabove',
+    'union':'Leonardo Madelón','velez sarsfield':'Guillermo Barros Schelotto'
+  };
+  function instApplyDt(t, k){
+    if(k.realDt) return; k.realDt = true;
+    const n = INST_DT[playerNormKey(t.name)]; if(!n) return;
+    k.dt = { name: n, since: state.career.year, heat: 0 }; if(k.form == null) k.form = 0;
+  }
+  function instApplyReal(t, k){
+    if(k.real) return; k.real = true;
+    const r = INST_REAL[playerNormKey(t.name)]; if(!r) return;
+    const e = instEst(k);
+    k.pres.name = r[0]; e.cap = r[2]; e.stadium = r[1];
+  }
+  const INST_NAMES = ['Carlos Medina','Julio Ferraro','Hugo Salvatierra','Ricardo Beltrán','Alberto Quiroga','Mario Paredes','Diego Lanús','Fernando Ibarra','Oscar Villalba','Gustavo Rinaldi','Pablo Echeverría','Sergio Montoya','Raúl Cabrera','Eduardo Lamas','Marcelo Arriaga','Néstor Funes'];
+  const INST_FUNDS = ['Grupo Aurora Capital','Meridian Sports Holdings','Fondo Pampa Invest','Atlas Football Group','Corporación Delta','Santa Cruz Partners','Nordic Ball Ventures','Grupo Sol Naciente'];
+  const INST_FILO = { juveniles:'Apuesta por las juveniles', refuerzos:'Gastar en refuerzos', equilibrado:'Gestión equilibrada' };
+  function instRnd(){ return Math.random(); }
+  function instState(){
+    const c = state.career;
+    if(!c.inst) c.inst = { clubs:{} };
+    return c.inst;
+  }
+  function instClub(t){
+    const k0 = instClub0(t); try{ instApplyReal(t, k0); instApplyDt(t, k0); }catch(e){} return k0;
+  }
+  function instClub0(t){
+    const S = instState();
+    if(!S.clubs[t.id]){
+      const f = nwPick(['juveniles','refuerzos','equilibrado']);
+      S.clubs[t.id] = { pres:{ name:nwPick(INST_NAMES), filo:f, since:state.career.year, term:state.career.year + 2 + Math.floor(instRnd()*3) },
+        debt: Math.round(instRnd()*10), owner:null, state:'ok', unpaid:0, jud:0,
+        hist:[{ y:state.career.year, t:'Inicio de la historia registrada. Presidente: ' + '—' }] };
+      S.clubs[t.id].hist[0].t = 'Inicio de la historia registrada.';
+    }
+    return S.clubs[t.id];
+  }
+  function instLog(k, t, club, ic, h, b, force){
+    const y = state.career.year;
+    k.hist.unshift({ y:y, t:h.replace(/^\S+\s/, '') });
+    if(k.hist.length > 80) k.hist.length = 80;
+    if(force || t.id === state.career.myTeamId || instRnd() < 0.35) nwAdd({ k:'club', ic:ic, h:h, b:b, tids:[t.id] });
+  }
+  // Se ejecuta una vez por año, al cerrar la temporada.
+  function instYearTick(){
+    const c = state.career;
+    c.teams.forEach(t => {
+      const k = instClub(t), n = t.name, y = c.year;
+      // 1) Evolución de la deuda según la filosofía y el dueño
+      let d = k.debt + (k.pres.filo === 'refuerzos' ? 1.5 : k.pres.filo === 'juveniles' ? -1.5 : -0.3) + (instRnd()*4 - 2);
+      if(k.debt > 20) d -= 1; // los clubes tienden a sanear sus cuentas
+      if(instRnd() < 0.004) d += 25; // mala gestión puntual, muy poco frecuente
+      if(k.owner) d += k.owner.fund > 0 ? -1 : 3;
+      k.debt = Math.max(0, Math.round(d));
+      // 2) Dueño: inversor que llega o que abandona
+      if(!k.owner && k.state !== 'judicial' && instRnd() < 0.004){
+        const f = nwPick(INST_FUNDS), m = 40 + Math.floor(instRnd()*160);
+        k.owner = { name:f, since:y, fund:m };
+        k.debt = Math.max(0, k.debt - Math.round(m/6));
+        instLog(k, t, null, '💼', '💼 ' + f + ' compró ' + n, 'Un grupo inversor adquirió el club con una inyección de US$ ' + m + ' millones. Se esperan nuevos refuerzos y cambios de objetivos.', true);
+      }else if(k.owner){
+        k.owner.fund -= 10 + instRnd()*15;
+        if(k.owner.fund < 0 && instRnd() < 0.15){
+          instLog(k, t, null, '🚪', '🚪 ' + k.owner.name + ' abandona ' + n, 'El propietario anunció que dejará de financiar al club: se recortan gastos, se renegocian salarios y se suspenden obras.', true);
+          k.owner = null; k.debt += 12; k.unpaid += 1;
+        }
+      }
+      // 3) Presidente: elecciones / renuncia / escándalo
+      let why = null;
+      if(y >= k.pres.term) why = 'elecciones';
+      else if(instRnd() < 0.006) why = nwPick(['renuncia','escándalo','fallecimiento']);
+      else if((k.state !== 'ok' || k.protest) && instRnd() < (k.protest ? 0.2 : 0.05)) why = 'pérdida de apoyo';
+      if(why){
+        const cand = [0,1,2].map(() => ({ name:nwPick(INST_NAMES), filo:nwPick(['juveniles','refuerzos','equilibrado']), v:instRnd() }));
+        const sum = cand.reduce((a,x) => a + x.v, 0); cand.forEach(x => x.p = Math.round(x.v/sum*100));
+        cand.sort((a,b) => b.p - a.p);
+        const w = cand[0], old = k.pres.name;
+        k.pres = { name:w.name, filo:w.filo, since:y, term:y + 3 + Math.floor(instRnd()*3) }; k.protest = 0;
+        const txt = why === 'elecciones' ? 'Elecciones: ganó ' + w.name + ' con el ' + w.p + '% de los votos (' + INST_FILO[w.filo].toLowerCase() + ').' : old + ' dejó la presidencia por ' + why + '. Asume ' + w.name + ' (' + INST_FILO[w.filo].toLowerCase() + ').';
+        instLog(k, t, null, '🗳️', '🗳️ Nuevo presidente en ' + n, txt, false);
+        if(w.filo === 'refuerzos') k.debt += 4;
+      }
+      // 4) Crisis financiera escalonada
+      if(k.debt >= 180 && k.state === 'judicial' && ++k.jud >= 4 && instRnd() < 0.02){
+        k.state = 'refundado'; k.debt = 15; k.owner = null; k.unpaid = 0; k.jud = 0;
+        instLog(k, t, null, '🏚️', '🏚️ ' + n + ' fue declarado insolvente y refundado', 'La institución perdió instalaciones y heredó una deuda histórica. Comienza una reconstrucción desde cero.', true);
+      }else if(k.debt >= 120 && k.state !== 'judicial' && k.state !== 'refundado'){
+        k.state = 'judicial'; k.jud = 0;
+        instLog(k, t, null, '⚖️', '⚖️ ' + n + ' entra en administración judicial', 'Un administrador controla gastos, contratos y ventas. Con deuda de US$ ' + k.debt + ' M, hay embargo sobre cuentas e ingresos futuros.', true);
+        const nw = careerNews(); nw.noBuy[playerNormKey(n)] = { n:1, w:'una inhibición por la administración judicial', name:n };
+      }else if(k.debt >= 70 && k.state === 'ok'){
+        k.state = 'crisis'; k.unpaid = 1;
+        instLog(k, t, null, '📉', '📉 Grave crisis financiera en ' + n, 'La deuda llegó a US$ ' + k.debt + ' M y aparecen los salarios atrasados.', false);
+      }else if(k.state === 'crisis'){
+        k.unpaid++;
+        if(k.unpaid >= 2 && instRnd() < 0.1) instLog(k, t, null, '✊', '✊ Los jugadores de ' + n + ' se niegan a entrenar', 'Por los salarios impagos, el plantel inició una huelga y exige negociación colectiva con los dirigentes.', true);
+        if(k.debt < 50){ k.state = 'ok'; k.unpaid = 0; k.hist.unshift({ y:y, t:'Saneó sus cuentas y salió de la crisis.' }); }
+      }else if(k.state === 'judicial' && k.debt < 90){
+        k.state = 'ok'; k.unpaid = 0; instLog(k, t, null, '✅', '✅ ' + n + ' sale de la administración judicial', 'El club recuperó su autonomía.', false);
+      }
+      // 5) Hitos deportivos en la historia
+      if(c.champion && c.champion.year === y && c.champion.teamId === t.id) k.hist.unshift({ y:y, t:'Campeón (' + (c.champion.tournament || '') + ').' });
+    });
+    c.teams.forEach(t => { try{ instStadiumYear(t); instFanYear(t); instIdolYear(t); instDisasterYear(t); }catch(e){ console.error(e); } });
+  }
+  // ================= PUNTO 6: ESTADIOS E INFRAESTRUCTURA =================
+  // k.est = {cap, cond (0-100), hist (valor histórico 0-100), obra:{y,cap,kind}|null, inc (incidentes registrados)}
+  function instEst(k){
+    if(!k.est) k.est = { cap: Math.round((12000 + Math.pow(instRnd(), 1.4) * 48000) / 500) * 500, cond: 60 + Math.round(instRnd() * 35), hist: Math.round(instRnd() * 60), obra: null, inc: 0 };
+    return k.est;
+  }
+  function instCondLabel(v){ return v >= 85 ? 'Excelente' : v >= 70 ? 'Bueno' : v >= 50 ? 'Normal' : v >= 30 ? 'Deteriorado' : 'Crítico'; }
+  function instFmtN(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  // Una vez por año: mantenimiento, obras y eventos estructurales (todos muy poco frecuentes).
+  function instStadiumYear(t){
+    const c = state.career, y = c.year, k = instClub(t), e = instEst(k), n = t.name;
+    e.hist = Math.min(100, e.hist + 1);
+    // Mantenimiento: con las cuentas sanas se sostiene; en crisis el estadio se deteriora
+    e.cond += (k.state === 'ok' && k.debt < 30) ? 3 : k.state === 'ok' ? 0 : -6;
+    e.cond -= 3; // desgaste normal
+    // Obra en curso
+    if(e.obra && y >= e.obra.y){
+      e.cap = e.obra.cap; e.cond = Math.max(e.cond, 92);
+      instLog(k, t, null, '🏗️', '🏗️ ' + n + ' inauguró su ' + (e.obra.kind === 'nuevo' ? 'nuevo estadio' : 'estadio remodelado'), 'La capacidad pasó a ' + instFmtN(e.cap) + ' espectadores, con más ingresos, prestigio y ambiente.', false);
+      if(e.obra.kind === 'nuevo') e.hist = 5;
+      e.obra = null;
+    }else if(!e.obra && k.state === 'ok' && k.debt < 30){
+      if(instRnd() < 0.006){ // ampliación
+        e.obra = { y: y + 2, cap: Math.round(e.cap * (1.2 + instRnd() * 0.5) / 500) * 500, kind: 'ampliacion' };
+        instLog(k, t, null, '📐', '📐 ' + n + ' ampliará su estadio', 'El club anunció obras: pasará de ' + instFmtN(e.cap) + ' a ' + instFmtN(e.obra.cap) + ' espectadores en ' + (e.obra.y - y) + ' años.', false);
+      }else if(instRnd() < 0.0015){ // estadio nuevo: rarísimo, y más aún si el actual es histórico
+        if(e.hist < 80 || instRnd() < 0.2){
+          e.obra = { y: y + 3, cap: Math.round(e.cap * (1.3 + instRnd() * 0.6) / 500) * 500, kind: 'nuevo' };
+          instLog(k, t, null, '🏟️', '🏟️ ' + n + ' construirá un nuevo estadio' + (e.hist >= 80 ? ' y deja atrás su cancha histórica' : ''), 'El proyecto demandará tres años y llevará la capacidad a ' + instFmtN(e.obra.cap) + ' espectadores.', true);
+        }
+      }
+    }
+    // Daño excepcional (incendio, inundación o falla estructural): mucho más probable con el estadio deteriorado
+    if(instRnd() < 0.002 * (e.cond < 40 ? 4 : 1)){
+      const what = nwPick(['un incendio en una tribuna', 'una inundación', 'un daño estructural en el techo']);
+      e.cond = Math.max(10, e.cond - 30); k.debt += 4; e.inc++; nwClose(t.id, 5, 'clausura');
+      instLog(k, t, null, '🔥', '🔥 El estadio de ' + n + ' quedó dañado por ' + what, 'No estará disponible durante unos 8 meses: jugará sus próximos 5 partidos de local en otra cancha, con menos ventaja.', true);
+    }
+    e.cond = Math.max(10, Math.min(100, Math.round(e.cond)));
+  }
+  // Incidente puntual en un partido de local. Probabilidad base muy baja, mayor si el estadio está deteriorado.
+  const INST_EVENTS = [
+    { w: 12, ic: '⚡', h: 'Apagón en el estadio de {H}', b: 'Un corte eléctrico detuvo el partido ante {A} durante unos minutos, hasta que se reactivaron los reflectores.', gen: true },
+    { w: 10, ic: '📺', h: 'Falló la pantalla del estadio de {H}', b: 'El marcador y los parlantes dejaron de funcionar en el partido ante {A}; el club pidió disculpas.' },
+    { w: 10, ic: '🥅', h: 'Red rota antes del partido en {H}', b: 'El árbitro ordenó reparar el arco antes del inicio del encuentro ante {A}, que se demoró unos minutos.' },
+    { w: 10, ic: '🐕', h: 'Un perro en el campo en {H}', b: 'Un perro ingresó a la cancha y detuvo el partido ante {A} unos segundos, hasta que lo retiraron.' },
+    { w: 8, ic: '🛸', h: 'Dron sobre el estadio de {H}', b: 'El árbitro frenó el partido ante {A} por un dron en el espacio aéreo. Seguridad lo retiró y se reanudó el juego.' },
+    { w: 8, ic: '🚪', h: 'Acceso bloqueado en {H}', b: 'Una entrada principal quedó bloqueada y hubo colas y demoras antes del partido ante {A}.' },
+    { w: 7, ic: '🚌', h: 'Problemas de transporte hacia {H}', b: 'Un corte de avenida y trenes demorados hicieron que muchos hinchas llegaran tarde al partido ante {A}.' },
+    { w: 6, ic: '🏨', h: 'Mala noche para {A} antes de visitar a {H}', b: 'El plantel de {A} durmió mal por problemas en el hotel (calefacción y ruidos) en la previa del partido.', away: 1 },
+    { w: 6, ic: '🚿', h: 'Vestuario inutilizable en {H}', b: 'Una avería dejó sin agua caliente un vestuario y {A} tuvo que cambiarse en otro sector.', away: 1 },
+    { w: 5, ic: '📡', h: 'El VAR dejó de funcionar en {H}', b: 'Por una falla de conexión, el árbitro no pudo utilizar el VAR durante el partido entre {H} y {A}.' },
+    { w: 4, ic: '📹', h: 'Cayó una cámara de TV en {H}', b: 'La transmisión perdió señal por momentos y se perdieron algunas repeticiones.' },
+    { w: 3, ic: '👕', h: 'Camiseta equivocada en {H}', b: 'Un error de utilería, con un nombre mal impreso, se solucionó antes del partido ante {A}.' },
+  ];
+  function instStadiumEvent(m){
+    const c = state.career; if(!m || m.neutral || m.bye) return;
+    const hid = m.home && m.home.id != null ? m.home.id : m.home, aid = m.away && m.away.id != null ? m.away.id : m.away;
+    const H = c.teams.find(t => t.id === hid), A = c.teams.find(t => t.id === aid);
+    if(!H || !A) return;
+    const k = instClub(H), e = instEst(k);
+    if(Math.random() > 0.004 * (1 + (100 - e.cond) / 40)) return;
+    const pool = INST_EVENTS.filter(ev => !(ev.gen && e.cond >= 70 && ev.w === 1)); // el generador casi nunca falla con el estadio en buen estado
+    let r = Math.random() * pool.reduce((a, ev) => a + ev.w, 0), ev = pool[0];
+    for(const x of pool){ if((r -= x.w) < 0){ ev = x; break; } }
+    const f = s => s.replace(/\{H\}/g, H.name).replace(/\{A\}/g, A.name);
+    e.inc++; if(ev.bad) k.hist.unshift({ y: c.year, t: f(ev.h) });
+    nwAdd({ k: 'club', ic: ev.ic, h: ev.ic + ' ' + f(ev.h), b: f(ev.b), tids: [H.id, A.id] });
+  }
+  // ---- Efecto dominó: clima + estado del estadio -> suspensión -> reprogramación -> calendario apretado -> fatiga ----
+  // c.inst.tired[teamId] = {a, b}: entre esas fechas el equipo arrastra un calendario apretado (pierde algo de rendimiento).
+  function instPreDay(){
+    const c = state.career; if(!c || !c.teams || !c.calendarDate || !c.myTeamId) return;
+    const S = instState(); if(S.checked === c.calendarDate) return; S.checked = c.calendarDate;
+    if(!S.tired) S.tired = {};
+    const all = careerAllUnplayedDatedMatches();
+    try{ instDisasterDay(all); }catch(e){ console.error(e); }
+    all.filter(m => m.date === c.calendarDate && !m.bye && !m.neutral && typeof m.round === 'number').forEach(m => {
+      const H = c.teams.find(t => t.id === m.home), A = c.teams.find(t => t.id === m.away); if(!H || !A) return;
+      const e = instEst(instClub(H)), wx = m.wx || {}, low = e.cond < 50;
+      if(instRegion(H) !== instRegion(A) && Math.random() < 0.0008){
+        const nd = addDaysISO(c.calendarDate, 1 + Math.floor(Math.random() * 2)), kind = nwPick(['el aeropuerto cerrado por tormenta','una ruta cortada por un derrumbe']);
+        if(!all.some(x => x !== m && x.date === nd && [m.home, m.away].some(id => x.home === id || x.away === id))){ m.postponed = { from: m.date, why: kind }; m.date = nd; S.tired[m.away] = { a: c.calendarDate, b: addDaysISO(nd, 3) };
+          nwAdd({ k: 'club', ic: '✈️', h: '✈️ ' + A.name + ' no pudo viajar a ' + H.name, b: 'Por ' + kind + ', el equipo visitante quedó varado y el partido se reprogramó para el ' + nd + '.', tids: [H.id, A.id] }); return; }
+      }
+      let p = 0.0006 * (1 + (100 - e.cond) / 40), why = 'un corte de luz y la falla del generador de emergencia en';
+      if(wx.w === 'tormenta'){ p += low ? 0.03 : 0.006; why = 'una tormenta eléctrica sobre'; }
+      if(wx.p === 'anegada'){ p += low ? 0.05 : 0.01; why = 'el campo anegado de'; }
+      if(Math.random() >= p) return;
+      let nd = null;
+      for(const off of [3, 4, 5, 6, 7]){
+        const d = addDaysISO(c.calendarDate, off);
+        if(!all.some(x => x !== m && x.date === d && [m.home, m.away].some(id => x.home === id || x.away === id))){ nd = d; break; }
+      }
+      if(!nd) return;
+      m.postponed = { from: m.date, why: why }; m.date = nd;
+      S.tired[m.home] = S.tired[m.away] = { a: c.calendarDate, b: addDaysISO(nd, 3) };
+      instClub(H).hist.unshift({ y: c.year, t: 'Partido ante ' + A.name + ' suspendido por ' + why.replace(/ (sobre|en|de)$/, '') + '.' });
+      nwAdd({ k: 'club', ic: '⛈️', h: '⛈️ Suspendido: ' + H.name + ' vs ' + A.name, b: 'El partido se suspendió por ' + why + ' ' + H.name + '. Se reprograma para el ' + nd + ' y ambos equipos llegan con el calendario apretado.', tids: [H.id, A.id] });
+    });
+  }
+  // Calendario apretado (-3 puntos de probabilidad) y ambiente de un estadio grande (hasta ±1 punto).
+  function instMatchShift(m){
+    const c = state.career, S = c && c.inst; if(!S || !m || m.neutral) return 0;
+    let d = 0; const tr = S.tired || {};
+    if(tr[m.home] && m.date && m.date <= tr[m.home].b) d -= 0.03;
+    if(tr[m.away] && m.date && m.date <= tr[m.away].b) d += 0.03;
+    const hk = S.clubs && S.clubs[m.home];
+    if(hk && hk.est) d += Math.max(-0.01, Math.min(0.01, (hk.est.cap - 30000) / 30000 * 0.01));
+    return d;
+  }
+  const _instAdj = careerMatchAdjustedProb;
+  careerMatchAdjustedProb = function(m){ const p = _instAdj(m); return Math.max(0.02, Math.min(0.98, p + (function(){ try{ return instMatchShift(m); }catch(e){ return 0; } })())); };
+  // ================= PUNTO 7: HINCHADAS, SEGURIDAD Y SANCIONES =================
+  // k.fans = {inc: reincidencia reciente, tot: incidentes históricos, fines: miles de US$ en multas, ejem: años ejemplares}; k.fh = historia de la hinchada; k.protest = 1 si pide la renuncia.
+  const INST_CLASICOS = [['boca juniors','river plate'],['racing club','independiente'],['san lorenzo','huracan'],['newells','rosario central'],['estudiantes lp','gimnasia lp'],['talleres','belgrano'],['lanus','banfield'],['velez sarsfield','ferro'],['argentinos juniors','platense'],['union','colon'],['atletico tucuman','san martin']];
+  function instIsClasico(a, b){ const x = playerNormKey(a), y = playerNormKey(b); return INST_CLASICOS.some(p => (p[0] === x && p[1] === y) || (p[0] === y && p[1] === x)); }
+  function instFans(k){ if(!k.fans) k.fans = { inc: 0, tot: 0, fines: 0, ejem: 0 }; if(!k.fh) k.fh = []; return k.fans; }
+  function instFanLog(k, t){ k.fh.unshift({ y: state.career.year, t: t }); if(k.fh.length > 60) k.fh.length = 60; }
+  // Sanción con memoria: multa -> multa + tribuna -> puertas cerradas -> sanción grave. 20% de apelaciones que la reducen.
+  function instFanSanction(H, k, sev){
+    const f = instFans(k); f.inc++; f.tot++;
+    let lvl = Math.min(4, f.inc + (sev >= 3 ? 1 : 0)), apel = false;
+    if(lvl > 1 && Math.random() < 0.2){ lvl--; apel = true; }
+    const fine = Math.round(50 * Math.pow(1.6, lvl - 1) * sev); f.fines += fine;
+    let txt = 'Multa de US$ ' + fine + ' mil';
+    if(lvl === 2){ nwClose(H.id, 2, 'tribuna'); txt += ' y clausura de una tribuna por 2 partidos'; }
+    else if(lvl === 3){ nwClose(H.id, 1, 'puertas'); txt += ' y un partido a puertas cerradas'; }
+    else if(lvl >= 4){ nwClose(H.id, 3, 'puertas'); nwAwayBan(H.id, 2); txt += ' y 3 partidos a puertas cerradas, más 2 sin público visitante por reincidencia'; }
+    return txt + (apel ? ' (tras una apelación que redujo la sanción)' : '') + '.';
+  }
+  const INST_FAN_EV = [
+    { w: 26, pos: 1, ic: '🎉', h: 'Recibimiento histórico en {H}', b: 'Banderas, papelitos y humo en el estadio de {H} antes del partido ante {A}: una de las postales de la temporada.' },
+    { w: 18, sev: 1, ic: '🧨', h: 'Pirotecnia en {H}', b: 'Hubo bengalas y fuegos no autorizados en la tribuna de {H} durante el partido ante {A}.' },
+    { w: 16, sev: 1, ic: '🧴', h: 'Lanzamiento de objetos en {H}', b: 'Cayeron botellas y monedas al campo en el partido ante {A}; el árbitro detuvo el juego unos minutos.' },
+    { w: 14, sev: 1, ic: '🥊', h: 'Peleas entre hinchas en los alrededores de {H}', b: 'Hubo incidentes en los accesos antes del partido ante {A}, con detenidos y heridos leves.' },
+    { w: 10, sev: 2, ic: '🏃', h: 'Invasión de campo en {H}', b: 'Varios hinchas ingresaron al campo en el partido ante {A}. La seguridad tardó en controlar la situación.' },
+    { w: 8, sev: 0, ic: '🤫', h: 'Estadio en silencio en {H}', b: 'La hinchada de {H} se mantuvo en silencio durante el partido ante {A} en señal de protesta.', protest: 1 },
+    { w: 6, sev: 0, ic: '🚨', h: 'Falsa alarma en {H}', b: 'Se activó una alarma de emergencia en el partido ante {A}. Tras 15 minutos de inspección no se halló ningún peligro y se reanudó el juego.' },
+    { w: 3, sev: 3, ic: '☎️', h: 'Amenaza contra {H}', b: 'Una amenaza anónima obligó a reforzar la seguridad del partido ante {A}. Se abrió una investigación.' },
+    { w: 2, sev: 3, ic: '🚌', h: 'Atacaron el micro de {A} en {H}', b: 'El micro visitante sufrió lanzamiento de objetos y llegó tarde: el partido se demoró y quedó bajo investigación.', bus: 1 }
+  ];
+  function instFanEvent(m){
+    const c = state.career; if(!m || m.neutral || m.bye) return;
+    const H = c.teams.find(t => t.id === m.home), A = c.teams.find(t => t.id === m.away); if(!H || !A) return;
+    const k = instClub(H), f = instFans(k), cl = instIsClasico(H.name, A.name);
+    if(cl && Math.random() < 0.15) nwAdd({ k: 'club', ic: '👮', h: '👮 Operativo especial para el clásico ' + H.name + ' - ' + A.name, b: 'Se dispuso un operativo de ' + (800 + Math.floor(Math.random() * 500)) + ' efectivos, con rutas separadas para las hinchadas y escolta policial para el micro visitante. El club afrontó parte del costo.', tids: [H.id, A.id] }), f.fines += 40;
+    if(Math.random() > 0.005 * (cl ? 3 : 1) * (1 + f.inc * 0.3) * (m.sec === 'Máxima' ? 0.7 : 1)) return;
+    let r = Math.random() * INST_FAN_EV.reduce((a, x) => a + x.w, 0), ev = INST_FAN_EV[0];
+    for(const x of INST_FAN_EV){ if((r -= x.w) < 0){ ev = x; break; } }
+    const fm = s => s.replace(/\{H\}/g, H.name).replace(/\{A\}/g, A.name);
+    let extra = '';
+    if(ev.sev) extra = ' ' + instFanSanction(H, k, ev.sev);
+    if(ev.protest){ k.protest = 1; instSoc(H.id, '#FueraPresidente La gente se expresó hoy en silencio. Ya basta.'); }
+    if(ev.sev >= 2) instSoc(H.id, ev.ic + ' ' + fm(ev.h) + '. Increíble lo de hoy.');
+    if(ev.sev === 1 && ev.ic === '🥊' || ev.bus){ m.delay = ev.bus ? 25 : 15; extra += ' El partido comenzó con ' + m.delay + ' minutos de retraso.'; if(ev.bus){ const S = instState(); (S.tired = S.tired || {})[A.id] = { a: m.date || '', b: addDaysISO(m.date || c.calendarDate, 4) }; extra += ' Los visitantes llegaron con el calentamiento reducido.'; } }
+    if(ev.sev >= 2) instFanLog(k, fm(ev.h) + '.' + extra); else if(ev.pos || ev.sev) instFanLog(k, fm(ev.h) + '.');
+    nwAdd({ k: 'club', ic: ev.ic, h: ev.ic + ' ' + fm(ev.h), b: fm(ev.b) + extra, tids: [H.id, A.id] });
+  }
+  // Una vez por año: la memoria de reincidencia se va olvidando, los hinchas protestan si el club está mal y se debitan las multas.
+  function instFanYear(t){
+    const k = instClub(t), f = instFans(k), n = t.name;
+    k.debt += Math.floor(f.fines / 1000); f.fines = f.fines % 1000;
+    if(f.inc === 0 && Math.random() < 0.12){ f.ejem++; instFanLog(k, 'Año de comportamiento ejemplar de la hinchada.'); }
+    f.inc = Math.max(0, f.inc - 1);
+    if(!k.protest && (k.state !== 'ok' || k.debt > 50) && Math.random() < 0.08){
+      k.protest = 1; instFanLog(k, 'La hinchada pidió la renuncia del presidente.');
+      nwAdd({ k: 'club', ic: '📣', h: '📣 La hinchada de ' + n + ' pide la renuncia del presidente', b: 'Con el club en problemas, los socios protestaron frente a la sede contra ' + k.pres.name + '.', tids: [t.id] });
+    }
+  }
+  // ---- Asistencia, seguridad, entrenador, redes, periodistas e ídolos ----
+  function instSoc(tid, text, press){ try{ socPost(press ? socPage(3) : socFan(tid), text, { boost: 1 }); }catch(e){} }
+  function instClubSoc(tid, text){ try{ socPost(socClub(tid), text, {}); }catch(e){} }
+  function instDt(k){ if(!k.dt) k.dt = { name: nwPick(INST_NAMES), since: state.career.year, heat: 0 }; if(k.form == null) k.form = 0; return k.dt; }
+  // Se llama antes de procesar las noticias de cada partido (antes de descontar clausuras).
+  function instPreAttend(m){
+    const c = state.career; if(!m || m.bye || m.neutral || m.comp === 'amistoso' || typeof m.homeScore !== 'number') return;
+    const H = c.teams.find(t => t.id === m.home), A = c.teams.find(t => t.id === m.away); if(!H || !A) return;
+    const kh = instClub(H), ka = instClub(A), e = instEst(kh), f = instFans(kh), nw = careerNews(), cl = instIsClasico(H.name, A.name);
+    // Asistencia: depende de la importancia, la racha, la protesta y las sanciones vigentes
+    let occ = 0.5 + (cl ? 0.35 : 0) + (kh.form || 0) * 0.03 + Math.random() * 0.12 - (kh.protest ? 0.08 : 0);
+    const cz = nw.closed && nw.closed[H.id]; if(cz && cz.n > 0) occ *= cz.kind === 'puertas' ? 0 : cz.kind === 'tribuna' ? 0.8 : 0.7;
+    occ = Math.max(0, Math.min(1, occ));
+    m.att = Math.round(e.cap * occ);
+    // Nivel de seguridad según rivalidad, antecedentes y ocupación (consume recursos)
+    m.sec = cl && f.inc >= 3 ? 'Máxima' : cl ? 'Alta' : occ > 0.9 ? 'Media' : 'Baja';
+    f.fines += { Baja: 0, Media: 5, Alta: 40, Máxima: 90 }[m.sec];
+    e.sum = (e.sum || 0) + m.att; e.n = (e.n || 0) + 1;
+    if(m.att > (e.rec || 0)){ const old = e.rec || 0; e.rec = m.att; if(old && m.att >= e.cap * 0.97 && Math.random() < 0.3){ nwAdd({ k: 'club', ic: '🏟️', h: '🏟️ Récord de asistencia en ' + H.name, b: 'El estadio recibió a ' + instFmtN(m.att) + ' espectadores en el partido ante ' + A.name + ', la mayor concurrencia registrada.', tids: [H.id, A.id] }); instFanLog(kh, 'Récord de asistencia: ' + instFmtN(m.att) + ' espectadores.'); } }
+    // Racha y presión sobre el entrenador
+    const r = m.homeScore > m.awayScore ? 1 : m.homeScore < m.awayScore ? -1 : 0;
+    [[H, kh, r], [A, ka, -r]].forEach(x => { const t = x[0], k = x[1], d = instDt(k); k.form = Math.max(-3, Math.min(3, k.form * 0.8 + x[2]));
+      if(k.form <= -2.2){ d.heat++; if(d.heat === 3 && Math.random() < 0.5){ nwAdd({ k: 'club', ic: '😤', h: '😤 Silbidos y cánticos contra el DT de ' + t.name, b: 'La hinchada le reclamó a ' + d.name + ' tras la última derrota.', tids: [t.id] }); instSoc(t.id, '#RenunciaYa ' + d.name + ' no da para más, así no se puede.'); }
+        if(d.heat >= 5 && Math.random() < 0.4){ nwAdd({ k: 'club', ic: '✂️', h: '✂️ ' + d.name + ' dejó de ser el entrenador de ' + t.name, b: 'Tras la pérdida de apoyo de la hinchada, el club buscó un reemplazante.', tids: [t.id] }); instFanLog(k, d.name + ' deja el cargo tras el pedido de renuncia.'); k.dt = { name: nwPick(INST_NAMES), since: c.year, heat: 0 }; k.form = 0; } }
+      else if(k.form >= 2) d.heat = Math.max(0, d.heat - 1); });
+    // Operativos y rutas separadas en clásicos de seguridad Alta/Máxima
+    if(m.sec === 'Máxima' && Math.random() < 0.3) nwAdd({ k: 'club', ic: '🚓', h: '🚓 Seguridad máxima en ' + H.name + ' - ' + A.name, b: 'Con antecedentes recientes, el partido se jugó con rutas separadas, horarios escalonados de llegada y escolta policial para el micro visitante.', tids: [H.id, A.id] });
+    // Información falsa y conflicto prensa-club (rarísimos)
+    if(Math.random() < 0.0015){ nwAdd({ k: 'club', ic: '🔍', h: '🔍 Desmienten una noticia falsa sobre ' + H.name, b: 'Circuló la versión de que el partido ante ' + A.name + ' estaba suspendido. El club la desmintió: era información falsa y generó confusión entre los hinchas.', tids: [H.id, A.id] }); instSoc(H.id, '🚨 URGENTE: suspendieron el partido de hoy. Pásenlo.'); instClubSoc(H.id, '❌ FALSO. El partido se juega con normalidad.'); }
+    if(Math.random() < 0.0015){ nwAdd({ k: 'club', ic: '🎙️', h: '🎙️ Polémica entre un periodista y ' + H.name, b: 'Un periodista fue retirado de una zona restringida del estadio. Él habló de censura; el club respondió que no tenía acreditación.', tids: [H.id] }); instSoc(H.id, 'El club intentó censurar mi trabajo. Lo cuento todo.', true); instClubSoc(H.id, 'El periodista no contaba con la acreditación correspondiente.'); }
+  }
+  // Una vez por año: ídolos (años en el club + títulos), rechazo si se va al rival y regreso.
+  function instIdolYear(t){
+    const c = state.career, k = instClub(t), y = c.year, champ = !!(c.champion && c.champion.year === y && c.champion.teamId === t.id);
+    if(!k.ten) k.ten = {}; if(!k.exiled) k.exiled = {};
+    const sq = nwSquad(t.id).filter(p => !p.r); if(!sq.length) return;
+    const ids = {}; sq.forEach(p => { ids[p.id] = 1; const z = k.ten[p.id] || (k.ten[p.id] = { n: p.n, yrs: 0, ttl: 0, idol: 0 }); z.yrs++; if(champ) z.ttl++;
+      if(k.exiled[p.id]){ const w = k.exiled[p.id]; delete k.exiled[p.id]; nwAdd({ k: 'club', ic: '🔙', h: '🔙 ' + p.n + ' vuelve a ' + t.name, b: 'El ídolo regresa tras ' + (y - w.y) + ' año(s)' + (w.rival ? ', luego de haber jugado en un rival: la hinchada está dividida.' : '.'), tids: [t.id] }); instFanLog(k, p.n + ' vuelve al club.'); }
+      if(!z.idol && (z.yrs >= 8 || (z.yrs >= 5 && z.ttl >= 2))){ z.idol = 1; instFanLog(k, p.n + ' ya es ídolo del club (' + z.yrs + ' años).'); if(Math.random() < 0.3) nwAdd({ k: 'club', ic: '⭐', h: '⭐ ' + p.n + ' es ídolo histórico de ' + t.name, b: 'Con ' + z.yrs + ' temporadas en el club y ' + z.ttl + ' título(s), la hinchada lo consagra.', tids: [t.id] }); } });
+    Object.keys(k.ten).forEach(pid => { if(ids[pid]) return; const z = k.ten[pid]; delete k.ten[pid]; if(!z.idol) return;
+      const rv = c.teams.filter(r => r.id !== t.id && instIsClasico(t.name, r.name)).some(r => nwSquad(r.id).some(p => String(p.id) === String(pid) && !p.r));
+      k.exiled[pid] = { y: y, rival: rv };
+      if(rv){ nwAdd({ k: 'club', ic: '🐍', h: '🐍 ' + z.n + ', ídolo de ' + t.name + ', se fue al clásico rival', b: 'De ídolo a rechazo absoluto: la hinchada no le perdona el pase.', tids: [t.id] }); instFanLog(k, z.n + ' se va al clásico rival: rechazo de la hinchada.'); instSoc(t.id, '#' + socHandle(z.n) + ' nunca más. Traidor.'); } });
+    const e = instEst(k); e.avg = e.n ? Math.round(e.sum / e.n) : e.avg; e.sum = 0; e.n = 0;
+    if(champ && k.dt && k.dt.heat >= 3){ instFanLog(k, k.dt.name + ' ganó el título tras estar cuestionado: ahora es ídolo.'); }
+  }
+  // ================= PUNTO 8: DESASTRES, CLIMA EXTREMO Y CATÁSTROFES =================
+  // Escala: 1 individual, 2 club, 3 ciudad, 4 región, 5 nacional/mundial. Cuanto más alto, más excepcional.
+  const INST_REG = { 'gimnasia de mendoza':'cuyo','independiente rivadavia':'cuyo','talleres':'cba','belgrano':'cba','instituto':'cba','estudiantes rc':'cba','atletico tucuman':'noa','central cordoba sde':'noa','newells':'lit','rosario central':'lit','union':'lit','aldosivi':'costa' };
+  const INST_DIS = { amba:[['inundación',5],['temporal',3],['epidemia',1]], lit:[['inundación',5],['temporal',3],['epidemia',1]], costa:[['temporal',4],['inundación',3],['epidemia',1]], cuyo:[['terremoto',3],['nevada',3],['temporal',2],['epidemia',1]], cba:[['incendio forestal',4],['inundación',3],['ola de calor',3],['epidemia',1]], noa:[['inundación',3],['ola de calor',4],['temporal',2],['epidemia',1]] };
+  const INST_DIS_COST = { 'terremoto':12, 'inundación':6, 'temporal':3, 'incendio forestal':4, 'nevada':1, 'ola de calor':0, 'epidemia':0 };
+  const INST_DIS_IC = { 'terremoto':'🌋', 'inundación':'🌊', 'temporal':'⛈️', 'incendio forestal':'🔥', 'nevada':'❄️', 'ola de calor':'🥵', 'epidemia':'🦠' };
+  const INST_LVL = { 1:'🟢 Nivel 1', 2:'🟡 Nivel 2', 3:'🟠 Nivel 3', 4:'🔴 Nivel 4', 5:'⚫ Nivel 5' };
+  function instRegion(t){ return INST_REG[playerNormKey(t.name)] || 'amba'; }
+  // Mueve un partido sin superponerlo con otro de cualquiera de los dos equipos
+  function instMoveMatch(m, days, all){
+    for(let off = days; off <= days + 8; off++){
+      const d = addDaysISO(m.date, off);
+      if(!all.some(x => x !== m && x.date === d && [m.home, m.away].some(id => x.home === id || x.away === id))){ m.postponed = { from: m.date, why: 'desastre' }; m.date = d; return true; }
+    }
+    return false;
+  }
+  function instTire(S, ids, from, to){ if(!S.tired) S.tired = {}; ids.forEach(id => { S.tired[id] = { a: from, b: to }; }); }
+  function instDisasterHit(kind, lvl, teams){
+    const c = state.career, S = instState(), y = c.year, today = c.calendarDate, days = { 3: 7, 4: 14 }[lvl] || 14;
+    const ids = teams.map(t => t.id), all = careerAllUnplayedDatedMatches();
+    let moved = 0, worst = null;
+    teams.forEach(t => {
+      const k = instClub(t), e = instEst(k), base = INST_DIS_COST[kind] * (lvl - 1) * (0.5 + Math.random());
+      if(base > 0){
+        if(k.ins == null) k.ins = 0.5 + Math.random() * 0.4; if(k.fund == null) k.fund = Math.round(Math.random() * 8);
+        const rest = base * (1 - k.ins), fromFund = Math.min(k.fund, rest); k.fund -= fromFund; k.debt += Math.round(rest - fromFund + (lvl >= 3 ? 1 : 0));
+        e.cond = Math.max(10, e.cond - 25); e.rebuild = { cost: Math.round(base), until: y + 1 }; nwClose(t.id, lvl + 1, 'clausura');
+        if(!worst || base > worst.b) worst = { t: t, b: Math.round(base), cov: Math.round(base * k.ins) };
+      }
+      instFanLog(k, INST_LVL[lvl] + ': ' + kind + ' en la zona.'); k.hist.unshift({ y: y, t: 'Afectado por ' + kind + ' (nivel ' + lvl + ').' });
+    });
+    all.filter(m => typeof m.round === 'number' && ids.indexOf(m.home) >= 0 && m.date >= today && m.date <= addDaysISO(today, days)).forEach(m => { if(instMoveMatch(m, days, all)) moved++; });
+    instTire(S, ids, today, addDaysISO(today, days + 4));
+    const my = ids.indexOf(c.myTeamId) >= 0;
+    nwAdd({ k: 'club', ic: INST_DIS_IC[kind], h: INST_DIS_IC[kind] + ' ' + INST_LVL[lvl] + ': ' + kind + ' afecta a ' + (teams.length > 2 ? teams.length + ' clubes' : teams.map(t => t.name).join(' y ')), b: 'Se reprogramaron ' + moved + ' partidos y los equipos de la zona llegan con el calendario apretado.' + (worst ? ' El daño más grave: ' + worst.t.name + ', con US$ ' + worst.b + ' M de reparaciones (el seguro cubre US$ ' + worst.cov + ' M); su estadio queda clausurado varios partidos.' : ''), tids: ids });
+    if(lvl >= 4 || (worst && worst.b >= 10)){ // ayuda externa y partido benéfico
+      const donor = nwPick(c.teams.filter(t => ids.indexOf(t.id) < 0));
+      if(donor && Math.random() < 0.5){ const v = worst ? worst.t : teams[0]; instClub(v).debt = Math.max(0, instClub(v).debt - 1); nwAdd({ k: 'club', ic: '🤝', h: '🤝 ' + donor.name + ' ayuda a ' + v.name, b: 'Tras la catástrofe, ' + donor.name + ' donó US$ 500 mil para la reconstrucción.', tids: [donor.id, v.id] }); }
+      if(Math.random() < 0.5){ teams.forEach(t => { const k = instClub(t); k.debt = Math.max(0, k.debt - 1); instFanLog(k, 'Partido benéfico tras la catástrofe.'); }); nwAdd({ k: 'club', ic: '❤️', h: '❤️ Partido benéfico por las víctimas de ' + kind, b: 'Grandes clubes jugaron un amistoso solidario y donaron lo recaudado a la zona afectada.', tids: ids }); }
+    }
+    return moved;
+  }
+  function instDisasterDay(all){
+    const c = state.career, S = instState(), today = c.calendarDate;
+    S.pend = (S.pend || []).filter(p => { if(p.date > today) return true; // réplicas
+      if(Math.random() < 0.4){ const T = c.teams.filter(t => p.ids.indexOf(t.id) >= 0); T.forEach(t => nwClose(t.id, 1, 'clausura')); nwAdd({ k: 'club', ic: '〰️', h: '〰️ Réplicas tras el terremoto', b: 'Una réplica obligó a mantener cerrado un estadio ya dañado por un partido más.', tids: p.ids }); } return false; });
+    const r = Math.random();
+    if(r < 0.000003){ // nivel 5: crisis global, todo el calendario se corre
+      all.forEach(m => { if(m.date) m.date = addDaysISO(m.date, 21); });
+      nwAdd({ k: 'club', ic: '🌍', h: '🌍 ⚫ Nivel 5: crisis global paraliza el fútbol', b: 'Una emergencia sanitaria mundial suspendió todas las competiciones durante tres semanas. El calendario completo se corrió.', tids: [] });
+      return;
+    }
+    const lvl = r < 0.00003 ? 4 : r < 0.0003 ? 3 : 0; if(!lvl) return;
+    const regs = ['amba', 'lit', 'costa', 'cuyo', 'cba', 'noa'], reg = nwPick(regs);
+    const pool = INST_DIS[reg]; let q = Math.random() * pool.reduce((a, x) => a + x[1], 0), kind = pool[0][0];
+    for(const x of pool){ if((q -= x[1]) < 0){ kind = x[0]; break; } }
+    let teams = c.teams.filter(t => instRegion(t) === reg); if(!teams.length) return;
+    if(lvl === 3) teams = teams.sort(() => Math.random() - 0.5).slice(0, 1 + Math.floor(Math.random() * 3));
+    instDisasterHit(kind, lvl, teams);
+    if(kind === 'terremoto') S.pend.push({ date: addDaysISO(today, 6), ids: teams.map(t => t.id) });
+  }
+  // Nivel 1 (intoxicación, brote) tras un partido y nivel 2 (predio) una vez por año
+  function instMedEvent(m){
+    const c = state.career, S = instState(); if(!m || m.bye || m.comp === 'amistoso') return;
+    const t = c.teams.find(x => x.id === (Math.random() < 0.5 ? m.home : m.away)); if(!t || Math.random() > 0.0012) return;
+    const n = 5 + Math.floor(Math.random() * 5), brote = Math.random() < 0.3, d = m.date || c.calendarDate;
+    instTire(S, [t.id], d, addDaysISO(d, brote ? 9 : 5));
+    nwAdd({ k: 'club', ic: brote ? '🦠' : '🤢', h: (brote ? '🦠 Brote en el plantel de ' : '🤢 Intoxicación en ') + t.name, b: (brote ? n + ' jugadores presentaron síntomas y fueron aislados; el club usará juveniles y modificará los entrenamientos.' : n + ' jugadores se enfermaron tras una comida en la concentración y quedaron en duda para el próximo partido.'), tids: [t.id] });
+  }
+  function instDisasterYear(t){
+    const c = state.career, k = instClub(t), e = instEst(k), y = c.year;
+    if(k.ins == null) k.ins = 0.5 + Math.random() * 0.4; if(k.fund == null) k.fund = Math.round(Math.random() * 8);
+    if(k.state === 'ok' && k.debt < 15) k.fund = Math.min(10, k.fund + 1); // fondo de emergencia de los clubes sanos
+    if(e.rebuild && y >= e.rebuild.until){ e.cond = Math.max(e.cond, 75); if(Math.random() < 0.3) nwAdd({ k: 'club', ic: '🏗️', h: '🏗️ ' + t.name + ' terminó la reconstrucción de su estadio', b: 'Tras el desastre, el club completó las reparaciones por US$ ' + e.rebuild.cost + ' M.', tids: [t.id] }); instFanLog(k, 'Reconstruyó el estadio tras el desastre.'); e.rebuild = null; }
+    if(Math.random() < 0.003){ // nivel 2: incendio o inundación en el predio de entrenamiento
+      const cost = 2 + Math.floor(Math.random() * 3), what = Math.random() < 0.5 ? 'un incendio' : 'una inundación', pay = Math.round(cost * (1 - k.ins));
+      k.fund = Math.max(0, k.fund - pay); k.debt += Math.max(0, pay - k.fund); k.hist.unshift({ y: y, t: 'Daños en el predio por ' + what + ' (US$ ' + cost + ' M).' });
+      nwAdd({ k: 'club', ic: '🏚️', h: '🏚️ ' + INST_LVL[2] + ': ' + what + ' en el predio de ' + t.name, b: 'El plantel entrenará en instalaciones alquiladas mientras dure la reparación, de US$ ' + cost + ' M (el seguro cubre parte).', tids: [t.id] });
+    }
+  }
+  const instUi = { id:null };
+  function renderCareraInst(){
+    const c = state.career, S = instState();
+    const sel = c.teams.find(t => t.id === (instUi.id || c.myTeamId)) || c.teams[0];
+    const rank = c.teams.map(t => ({ t, k:instClub(t) })).sort((a,b) => b.k.debt - a.k.debt);
+    const k = instClub(sel);
+    const st = { ok:'Estable', crisis:'En crisis', judicial:'Administración judicial', refundado:'Refundado' };
+    const opts = rank.map(r => '<option value="' + r.t.id + '"' + (r.t.id === sel.id ? ' selected' : '') + '>' + escapeHtml(r.t.name) + '</option>').join('');
+    const rows = rank.slice(0, 10).map(r => '<div class="team-row"><span class="name">' + escapeHtml(r.t.name) + '</span><span class="num">US$ ' + r.k.debt + ' M · ' + st[r.k.state] + '</span></div>').join('');
+    const hist = k.hist.map(h => '<div class="team-row"><span class="num" style="min-width:52px">' + h.y + '</span><span class="name">' + escapeHtml(h.t) + '</span></div>').join('');
+    return '<div class="panel"><h2>Instituciones</h2><p class="hint">Presidentes, dueños, deuda y crisis de cada club. Todo se actualiza al cerrar cada temporada.</p>' +
+      '<div class="field"><label>Club</label><select data-inst-sel="1">' + opts + '</select></div>' +
+      '<h3>' + escapeHtml(sel.name) + ' — ' + st[k.state] + '</h3>' +
+      '<div class="team-row"><span class="name">Presidente</span><span>' + escapeHtml(k.pres.name) + ' (desde ' + k.pres.since + ')</span></div>' +
+      '<div class="team-row"><span class="name">Filosofía</span><span>' + INST_FILO[k.pres.filo] + '</span></div>' +
+      '<div class="team-row"><span class="name">Mandato hasta</span><span class="num">' + k.pres.term + '</span></div>' +
+      '<div class="team-row"><span class="name">Propietario</span><span>' + (k.owner ? escapeHtml(k.owner.name) + ' (desde ' + k.owner.since + ')' : 'Socios / asociación civil') + '</span></div>' +
+      '<div class="team-row"><span class="name">Deuda</span><span class="num">US$ ' + k.debt + ' M</span></div></div>' +
+      (function(){ const e = instEst(k); return '<div class="panel"><h2>Estadio</h2>' +
+        '<div class="team-row"><span class="name">Estadio</span><span>' + escapeHtml(e.stadium || '—') + '</span></div>' +
+        '<div class="team-row"><span class="name">Capacidad</span><span class="num">' + instFmtN(e.cap) + '</span></div>' +
+        '<div class="team-row"><span class="name">Estado general</span><span class="num">' + instCondLabel(e.cond) + ' (' + e.cond + '%)</span></div>' +
+        '<div class="team-row"><span class="name">Valor histórico</span><span class="num">' + (e.hist >= 80 ? 'Patrimonio del club' : e.hist + '/100') + '</span></div>' +
+        '<div class="team-row"><span class="name">Obra en curso</span><span>' + (e.obra ? (e.obra.kind === 'nuevo' ? 'Estadio nuevo' : 'Ampliación') + ' a ' + instFmtN(e.obra.cap) + ' (listo en ' + e.obra.y + ')' : 'Ninguna') + '</span></div>' +
+        '<div class="team-row"><span class="name">Seguro / fondo de emergencia</span><span class="num">' + Math.round((k.ins != null ? k.ins : 0.7) * 100) + '% / US$ ' + (k.fund != null ? k.fund : '—') + ' M</span></div>' +
+        '<div class="team-row"><span class="name">Reconstrucción</span><span>' + (e.rebuild ? 'US$ ' + e.rebuild.cost + ' M, hasta ' + e.rebuild.until : 'Ninguna') + '</span></div>' +
+        '<div class="team-row"><span class="name">Asistencia media / récord</span><span class="num">' + (e.avg ? instFmtN(e.avg) : '—') + ' / ' + (e.rec ? instFmtN(e.rec) : '—') + '</span></div>' +
+        '<div class="team-row"><span class="name">Incidentes registrados</span><span class="num">' + e.inc + '</span></div></div>'; })() +
+      (function(){ const f = instFans(k), lv = f.inc >= 3 ? 'Alto riesgo' : f.inc >= 1 ? 'Con antecedentes' : 'Sin antecedentes';
+        return '<div class="panel"><h2>Hinchada</h2><div class="team-row"><span class="name">Reincidencia</span><span class="num">' + lv + ' (' + f.inc + ')</span></div>' +
+        '<div class="team-row"><span class="name">Incidentes históricos</span><span class="num">' + f.tot + '</span></div>' +
+        '<div class="team-row"><span class="name">Multas pendientes</span><span class="num">US$ ' + f.fines + ' mil</span></div>' +
+        '<div class="team-row"><span class="name">Entrenador</span><span>' + escapeHtml(instDt(k).name) + (k.dt.heat >= 3 ? ' (cuestionado)' : '') + '</span></div>' +
+        '<div class="team-row"><span class="name">Ídolos</span><span>' + (Object.keys(k.ten || {}).map(id => k.ten[id]).filter(z => z.idol).map(z => escapeHtml(z.n)).join(', ') || '—') + '</span></div>' +
+        '<div class="team-row"><span class="name">Protesta</span><span>' + (k.protest ? 'Pide la renuncia del presidente' : 'Sin protestas') + '</span></div>' +
+        k.fh.slice(0, 10).map(h => '<div class="team-row"><span class="num" style="min-width:52px">' + h.y + '</span><span class="name">' + escapeHtml(h.t) + '</span></div>').join('') + '</div>'; })() +
+      '<div class="panel"><h2>Historia institucional</h2>' + hist + '</div>' +
+      '<div class="panel"><h2>Clubes más endeudados</h2>' + rows + '</div>';
+  }
   crestLoadAll().then(function(){ render(); });
 })();
 </script>
