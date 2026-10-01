@@ -1180,7 +1180,7 @@ window.FIREBASE_CONFIG = {
       varEl.hidden = true;
     }
     const varRoll = (key, p) => awardHash(String(m.id) + 'var' + key) < p;
-    const refK = careerRefK(m);
+    const refK = careerRefK(m), hasVar = careerCompHasVar(m);
 
     function setScore(h, a, bump){
       const sh = q('.fs-sh'), sa = q('.fs-sa');
@@ -1288,7 +1288,7 @@ window.FIREBASE_CONFIG = {
         // Revisiones del VAR sin consecuencias (no es roja, no es penal...). Con un árbitro más severo hay más.
         const XK = ['nored', 'nopen', 'nohand'];
         for(let xi = 0; xi < 2; xi++){
-          if(varRoll('x' + xi, (xi ? 0.15 : 0.35) * refK)) evs.push({ min: 6 + Math.floor(awardHash(String(m.id) + 'xm' + xi) * 80), side: awardHash(String(m.id) + 'xs' + xi) < 0.5 ? 'h' : 'a', k: 'xvar', kind: XK[Math.floor(awardHash(String(m.id) + 'xk' + xi) * 3)] });
+          if(hasVar && varRoll('x' + xi, (xi ? 0.15 : 0.35) * refK)) evs.push({ min: 6 + Math.floor(awardHash(String(m.id) + 'xm' + xi) * 80), side: awardHash(String(m.id) + 'xs' + xi) < 0.5 ? 'h' : 'a', k: 'xvar', kind: XK[Math.floor(awardHash(String(m.id) + 'xk' + xi) * 3)] });
         }
         evs.sort((x, y) => x.min - y.min);
         let ei = 0;
@@ -1297,7 +1297,7 @@ window.FIREBASE_CONFIG = {
           curMin = min; refreshLu();
           while(gi < goals.length && goals[gi].min === min){
             const g = goals[gi++];
-            if(varRoll('g' + gi, 0.14 * Math.min(refK, 1.6))){
+            if(hasVar && varRoll('g' + gi, 0.14 * Math.min(refK, 1.6))){
               const gt = g.side === 'h' ? home : away, why = ['posible fuera de juego', 'posible mano previa', 'posible falta en ataque'][Math.floor(awardHash(String(m.id) + 'gw' + gi) * 3)];
               setEvent('⚽ ¿Gol de ' + gt.name + '? El árbitro frena todo…');
               await wait(900);
@@ -1332,10 +1332,11 @@ window.FIREBASE_CONFIG = {
             const txt = e.k === 'var' ? careerExtraEventText({ k: e.kk, w: e.w }, nm, tm, pc) : e.k === 'pk' ? careerExtraEventText(e, nm, tm, pc) : e.k === 'death' ? '🕯️ Tragedia: fallece ' + nm + ' (' + tm.name + ')' + (e.w ? ' a causa de ' + e.w : '') : e.k === 'amp' ? '🦾 Drama: ' + nm + ' (' + tm.name + ') sufre ' + (e.w || 'una lesión gravísima') + ' y deberán amputarle ' + (e.part || 'una extremidad') : e.k === 'hurt' ? '🩹 Se lesiona ' + nm + ' (' + tm.name + ')' + (e.w ? ': ' + e.w : '') + (e.r ? ' · ¡podría ser el final de su carrera!' : ' · baja de ' + e.n + (e.n === 1 ? ' partido' : ' partidos'))
               : e.k === 'yr' ? '🟥 Doble amarilla: expulsado ' + nm + ' (' + tm.name + ')' + whyTxt + susTxt : '🟥 ¡Expulsado ' + nm + ' (' + tm.name + ')!' + whyTxt + susTxt;
             let vr = null;
-            if(e.k === 'var' && e.kk === 'ga') vr = { pre: '⚽ ¿Gol de ' + nm + ' (' + tm.name + ')?', subject: 'Posible gol de ' + nm + ' (' + tm.name + ')', tone: 'no', verdict: '❌ GOL ANULADO', detail: e.w ? e.w.charAt(0).toUpperCase() + e.w.slice(1) : '' };
+            if(!hasVar) vr = null;
+            else if(e.k === 'var' && e.kk === 'ga') vr = { pre: '⚽ ¿Gol de ' + nm + ' (' + tm.name + ')?', subject: 'Posible gol de ' + nm + ' (' + tm.name + ')', tone: 'no', verdict: '❌ GOL ANULADO', detail: e.w ? e.w.charAt(0).toUpperCase() + e.w.slice(1) : '' };
             else if(e.k === 'var') vr = { pre: '🖥️ Penal para ' + tm.name + '…', subject: 'Penal para ' + tm.name + ': revisan la jugada', tone: 'no', verdict: '❌ PENAL ANULADO', detail: e.w ? e.w.charAt(0).toUpperCase() + e.w.slice(1) : '' };
             else if(e.k === 'pk' && e.v) vr = { pre: '🖥️ Posible penal para ' + tm.name + '…', subject: 'Posible penal para ' + tm.name + ' sobre ' + nm, tone: 'ok', verdict: '✅ PENAL CONFIRMADO', detail: 'Se cobra desde el punto penal' };
-            else if(e.k === 'r' && varRoll('r' + e.min + e.id, 0.4)) vr = { pre: '🖥️ Revisión por posible roja…', subject: 'Posible roja directa para ' + nm + ' (' + tm.name + ')', tone: 'no', verdict: '🟥 ROJA CONFIRMADA', detail: e.w || '' };
+            else if(hasVar && e.k === 'r' && varRoll('r' + e.min + e.id, 0.4)) vr = { pre: '🖥️ Revisión por posible roja…', subject: 'Posible roja directa para ' + nm + ' (' + tm.name + ')', tone: 'no', verdict: '🟥 ROJA CONFIRMADA', detail: e.w || '' };
             if(vr){ setEvent(vr.pre); await wait(900); await varReview(vr); }
             setEvent(txt);
             const fl = document.createElement('div'); fl.textContent = e.min + "' " + txt; q('.fs-feed').appendChild(fl);
@@ -5947,8 +5948,12 @@ window.FIREBASE_CONFIG = {
   const PK_P_MISS = 0.03, VAR_P_GOAL = 0.06, VAR_P_PEN = 0.025;
   const VAR_GOAL_WHY = ['fuera de juego milimétrico', 'mano previa en la jugada', 'falta en ataque', 'posición adelantada del asistidor', 'infracción previa al centro', 'el balón había salido antes del centro'];
   const VAR_PEN_WHY = ['no hubo infracción dentro del área', 'el contacto fue previo al área', 'la mano no era punible', 'el defensor jugó claramente el balón', 'simulación del atacante'];
+  // El VAR solo existe en Primera División (Copa de la Liga: Apertura y Clausura) y en Copa Argentina, Libertadores, Sudamericana y Recopa.
+  // En el resto de las divisiones y torneos no hay VAR (los penales errados sí pueden pasar).
+  const CAREER_VAR_COMPS = ['apertura', 'clausura', 'copa-argentina', 'libertadores', 'sudamericana', 'recopa'];
+  function careerCompHasVar(m){ return !!m && CAREER_VAR_COMPS.indexOf(m.comp) >= 0; }
   function careerRollMatchPkVar(m, luH, luA, byId, rk){
-    const pk = [], vr = [], lus = { h: luH, a: luA };
+    const pk = [], vr = [], lus = { h: luH, a: luA }, hasVar = careerCompHasVar(m);
     ['h', 'a'].forEach(sd => {
       const own = lus[sd], opp = lus[sd === 'h' ? 'a' : 'h'];
       if(!own) return;
@@ -5958,15 +5963,15 @@ window.FIREBASE_CONFIG = {
           const gk = opp ? playerOnField(opp, byId, min).find(x => x.p === 'ARQ') : null, r = Math.random();
           const kind = (gk && r < 0.55) ? 'sv' : r < 0.85 ? 'of' : 'po', e = { s: sd, p: taker.id, m: min, r: kind };
           if(kind === 'sv') e.g = gk.id;
-          if(Math.random() < 0.3) e.v = 1;
+          if(hasVar && Math.random() < 0.3) e.v = 1;
           pk.push(e);
         }
       }
-      if(Math.random() < VAR_P_GOAL * rk){
+      if(hasVar && Math.random() < VAR_P_GOAL * rk){
         const min = 2 + Math.floor(Math.random() * 88), onf = playerOnField(own, byId, min), sc = onf.length ? playerPickScorer(onf) : null;
         if(sc) vr.push({ s: sd, p: sc.id, m: min, k: 'ga', w: VAR_GOAL_WHY[Math.floor(Math.random() * VAR_GOAL_WHY.length)], c: Math.random() < 0.35 ? 1 : 0 });
       }
-      if(Math.random() < VAR_P_PEN * rk){
+      if(hasVar && Math.random() < VAR_P_PEN * rk){
         vr.push({ s: sd, m: 2 + Math.floor(Math.random() * 88), k: 'pa', w: VAR_PEN_WHY[Math.floor(Math.random() * VAR_PEN_WHY.length)], c: Math.random() < 0.4 ? 1 : 0 });
       }
     });
@@ -6063,7 +6068,7 @@ window.FIREBASE_CONFIG = {
         if(!p) p = playerPickScorer(own);
         if(!p) break;
         const g = { s: side, p: p.id, m: min };
-        if(type){ g.t = type; if(type === 'pen' && bk && Math.random() < 0.4) g.v = 1; }
+        if(type){ g.t = type; if(type === 'pen' && bk && careerCompHasVar(m) && Math.random() < 0.4) g.v = 1; }
         else if(Math.random() < GOAL_P_ASSIST){
           const a = playerPickByWeights(own, GOAL_W_ASSIST, p.id);
           if(a) g.a = a.id;
