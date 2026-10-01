@@ -174,6 +174,10 @@
   .cs-hero .matchup > span{ display:flex; align-items:center; gap:10px; }
   .cs-hero .vs-sep{ color:var(--ink-dim); font-size:13px; }
   .cs-hero .meta{ color:var(--ink-dim); font-size:13px; margin-bottom:14px; }
+  .death-warning{ border:2px solid #E0594A; background:linear-gradient(180deg,#3A1512,#240C0A); color:#FBE9E6; border-radius:10px; padding:16px 18px; margin:0 0 16px; box-shadow:0 0 0 4px rgba(224,89,74,.2); }
+  .death-warning .dw-tag{ font-family:'Oswald',sans-serif; font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:#FF8A7A; margin-bottom:6px; }
+  .death-warning .dw-main{ font-family:'Oswald',sans-serif; font-size:22px; line-height:1.25; margin-bottom:6px; }
+  .death-warning .dw-body{ margin:0 0 12px; font-size:13.5px; color:#E9CFCB; }
   .cs-cards-row{ display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); gap:10px; margin-bottom:24px; }
   .cs-stat-card{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:13px 14px 11px; }
   .cs-stat-card .label{ font-size:10.5px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
@@ -1167,6 +1171,7 @@ window.FIREBASE_CONFIG = {
         const pc = playersCache(), evs = [];
         (m.cards || []).forEach(x => { if(x.t !== 'y') evs.push({ min: Math.max(1, Math.min(90, x.m)), side: x.s, id: x.p, k: x.t, b: x.b }); });
         (m.hurt || []).forEach(x => evs.push({ min: Math.max(1, Math.min(90, x.m)), side: x.s, id: x.p, k: 'hurt', n: x.n, w: x.w }));
+        if(m.death) evs.push({ min: Math.max(1, Math.min(90, m.death.m)), side: m.death.s, id: m.death.p, k: 'death', w: m.death.w });
         evs.sort((x, y) => x.min - y.min);
         let ei = 0;
         for(let min = 1; min <= 90; min++){
@@ -1185,12 +1190,12 @@ window.FIREBASE_CONFIG = {
           while(ei < evs.length && evs[ei].min <= min){
             const e = evs[ei++], tm = e.side === 'h' ? home : away, pl = pc && pc.byId[e.id], nm = pl ? pl.n : 'un jugador';
             const susTxt = e.b ? ' · ' + e.b + (e.b === 1 ? ' partido' : ' partidos') + ' de suspensión' : '';
-            const txt = e.k === 'hurt' ? '🩹 Se lesiona ' + nm + ' (' + tm.name + ')' + (e.w ? ': ' + e.w : '') + ' · baja de ' + e.n + (e.n === 1 ? ' partido' : ' partidos')
+            const txt = e.k === 'death' ? '🕯️ Tragedia: fallece ' + nm + ' (' + tm.name + ')' + (e.w ? ' a causa de ' + e.w : '') : e.k === 'hurt' ? '🩹 Se lesiona ' + nm + ' (' + tm.name + ')' + (e.w ? ': ' + e.w : '') + ' · baja de ' + e.n + (e.n === 1 ? ' partido' : ' partidos')
               : e.k === 'yr' ? '🟥 Doble amarilla: expulsado ' + nm + ' (' + tm.name + ')' + susTxt : '🟥 ¡Expulsado ' + nm + ' (' + tm.name + ')!' + susTxt;
             setEvent(txt);
             const fl = document.createElement('div'); fl.textContent = e.min + "' " + txt; q('.fs-feed').appendChild(fl);
             refreshLu();
-            await wait(1500);
+            await wait(e.k === 'death' ? 4500 : 1500);
             setEvent('');
           }
           if(min === 1) setEvent('');
@@ -3110,6 +3115,7 @@ window.FIREBASE_CONFIG = {
     else if(action === 'career-news-more'){ nwUi.limit += 40; render(); return; }
     else if(action === 'career-lineup-toggle'){ const lid = btn.getAttribute('data-id'); lineupUi.open[lid] = !lineupUi.open[lid]; render(); return; }
     else if(action === 'career-pl-player'){ playersUi.player = btn.getAttribute('data-id') || ''; render(); return; }
+    else if(action === 'career-ack-death'){ const did = btn.getAttribute('data-id'); ((state.career && state.career.deaths) || []).forEach(d => { if(String(d.id) === did) d.ack = true; }); render(); return; }
     else if(action === 'career-pl-nav'){
       if(btn.hasAttribute('data-tab')){ const tb = btn.getAttribute('data-tab'); if(tb) playersUi.tab = tb; }
       playersUi.player = '';
@@ -4954,7 +4960,7 @@ window.FIREBASE_CONFIG = {
     if(!home || !away) return null;
     const sq = { h: cache.byTeam[playerNormKey(home.name)], a: cache.byTeam[playerNormKey(away.name)] };
     const ab = { h: playerAbsences(sq.h, m), a: playerAbsences(sq.a, m) };
-    const sig = ['h', 'a'].map(sd => ab[sd].sus.join(',') + ';' + ab[sd].inj.join(',')).join('|');
+    const sig = ['h', 'a'].map(sd => ab[sd].sus.join(',') + ';' + ab[sd].inj.join(',')).join('|') + (state.career.deaths && state.career.deaths.length ? '|d' + state.career.deaths.length : '');
     if(m.pre && m.pre.sig === sig) return m.pre;
     const pre = { sig, sus: {}, inj: {} };
     ['h', 'a'].forEach(sd => {
@@ -5073,6 +5079,103 @@ window.FIREBASE_CONFIG = {
     });
     return out;
   }
+  // ---------- Fallecimientos ----------
+  // Evento rarísimo y ficticio. Dos fuentes, ajustables acá:
+  //  * DEATH_P_MATCH: chance por partido oficial (con plantel cargado) de que un jugador de la alineación muera DURANTE el partido
+  //    (paro cardíaco, golpe, rayo, etc.). Se sortea en careerAssignScorers; queda en m.death = {s, p, m, w}. Si pasa, el jugador sale
+  //    de la cancha en ese minuto y no puede convertir ni asistir después.
+  //  * DEATH_P_OFF: chance por fecha del calendario (careerNewsTick) de que muera un jugador de un equipo al azar FUERA de la cancha
+  //    (accidente, robo, enfermedad...).
+  // Efecto real: el jugador queda como retirado (p.r) con p.d = {y, date, k, w}, desaparece de todos los planteles, de las alineaciones
+  // ya armadas, del mercado y de los retiros, y su ficha dice "Fallecido". Se anota en c.deaths (con ack:false hasta que el usuario
+  // toca "Entendido") y el Calendario muestra una advertencia roja arriba de todo mientras haya alguno sin reconocer.
+  const DEATH_P_MATCH = 0.00002, DEATH_P_OFF = 0.00025;
+  const DEATH_MATCH_CAUSES = [
+    'un paro cardíaco en plena cancha', 'una arritmia fulminante durante el partido', 'un golpe en la cabeza tras un choque fortuito',
+    'un infarto repentino', 'un pelotazo en el pecho que le frenó el corazón', 'una descarga eléctrica: lo alcanzó un rayo',
+    'una descompensación súbita por el calor extremo', 'una lesión cervical tras una mala caída'
+  ];
+  const DEATH_OFF_CAUSES = [
+    'un accidente de tránsito', 'un accidente de moto', 'un asalto cuando volvía a su casa', 'un robo que terminó en tragedia',
+    'una enfermedad repentina', 'una muerte súbita mientras descansaba', 'un accidente doméstico', 'un incendio en su casa',
+    'una complicación de salud', 'un accidente en la ruta'
+  ];
+  function careerTeamIdByClub(club){
+    const k = playerNormKey(club);
+    let id = null;
+    careerAllRosterTeams().forEach(g => g.teams.forEach(t => { if(id === null && playerNormKey(t.name) === k) id = t.id; }));
+    return id;
+  }
+  function careerPlayerDeath(p, info){
+    const c = state.career;
+    if(!c || !p || p.r) return null;
+    const by = playerBirthYear(p.b), age = by === null ? null : c.year - by;
+    const date = info.date || c.calendarDate || null, club = p.t;
+    p.r = true; p.ry = c.year; p.ra = age;
+    p.d = { y: c.year, date, k: info.k, w: info.w };
+    if(c.inj) delete c.inj[p.id];
+    if(c.news && c.news.ban) delete c.news.ban[p.id];
+    playersInvalidateCache();
+    if(!c.deaths) c.deaths = [];
+    const rec = { id: p.id, n: p.n, p: p.p, t: club, age, date, year: c.year, k: info.k, w: info.w, ack: false };
+    c.deaths.push(rec);
+    try{
+      const tid = info.tid != null ? info.tid : careerTeamIdByClub(club);
+      const pos = (typeof AWARD_POS_LABEL !== 'undefined' && AWARD_POS_LABEL[p.p]) || p.p;
+      const edad = age === null ? '' : ', de ' + age + ' años,';
+      let h, b, cmp;
+      if(info.k === 'partido'){
+        let res = '';
+        const mm = info.m, ht = mm && careerTeamById(mm.home), at = mm && careerTeamById(mm.away);
+        if(ht && at) res = ' ' + ht.name + ' ' + mm.homeScore + '-' + mm.awayScore + ' ' + at.name;
+        cmp = mm ? nwCmp(mm) : undefined;
+        h = '🕯️ Tragedia: murió ' + p.n + ' (' + club + ') durante un partido';
+        b = p.n + ' (' + pos + edad + ' de ' + club + ') falleció durante el partido' + (info.min ? ' en el minuto ' + info.min : '') + ' a causa de ' + info.w + '.' + (res ? ' Era el partido' + res + '.' : '') + ' Conmoción en el fútbol argentino.';
+      }else{
+        h = '🕯️ Luto en ' + club + ': murió ' + p.n;
+        b = p.n + ' (' + pos + edad + ' de ' + club + ') falleció a causa de ' + info.w + '. El club y el mundo del fútbol expresaron su dolor.';
+      }
+      nwAdd({ k: 'fallecimiento', ic: '🕯️', h, b, tag: '🕯️ Fallecimiento', tids: tid != null ? [tid] : [], date, cmp });
+    }catch(e){}
+    return rec;
+  }
+  // Sortea una muerte dentro del partido sobre las alineaciones ya armadas. Devuelve m.death o null.
+  function careerRollMatchDeath(m, luH, luA, byId){
+    if(Math.random() >= DEATH_P_MATCH) return null;
+    const side = Math.random() < 0.5 ? 'h' : 'a', lu = side === 'h' ? luH : luA;
+    if(!lu || !lu.length) return null;
+    const r = lu[Math.floor(Math.random() * lu.length)], p = byId[r[0]], span = r[2] - r[1];
+    if(!p || p.r || span <= 0) return null;
+    const t = r[1] + 1 + Math.floor(Math.random() * span);
+    r[2] = t;
+    const w = DEATH_MATCH_CAUSES[Math.floor(Math.random() * DEATH_MATCH_CAUSES.length)];
+    m.death = { s: side, p: p.id, m: t, w };
+    careerPlayerDeath(p, { k: 'partido', w, date: m.date, m, tid: side === 'h' ? m.home : m.away, min: t });
+    return m.death;
+  }
+  function nwEvDeathOff(t){
+    const pool = nwSquad(t.id).filter(p => !p.r);
+    if(!pool.length) return;
+    const p = nwPick(pool);
+    careerPlayerDeath(p, { k: 'fuera', w: nwPick(DEATH_OFF_CAUSES), date: nwClock, tid: t.id });
+  }
+  // Advertencia del Calendario: una por cada fallecimiento que todavía no se marcó como visto.
+  function careerDeathWarningHtml(){
+    const c = state.career, list = (c && c.deaths || []).filter(d => !d.ack);
+    if(!list.length) return '';
+    return list.map(d => {
+      const where = d.k === 'partido' ? 'Ocurrió durante un partido.' : 'Ocurrió fuera de la cancha.';
+      const when = d.date ? ' &middot; ' + formatCareerDate(d.date) : '';
+      const edad = d.age === null || d.age === undefined ? '' : ', ' + d.age + ' años';
+      return `<div class="death-warning" role="alert">
+        <div class="dw-tag">&#9888;&#65039; Advertencia &middot; Fallecimiento${when}</div>
+        <div class="dw-main">&#128367;&#65039; Murió ${escapeHtml(d.n)} (${escapeHtml(d.t)}${edad})</div>
+        <p class="dw-body">Causa: ${escapeHtml(d.w)}. ${where} El jugador quedó fuera de todos los planteles y su ficha figura como fallecido. Es un evento ficticio de la simulación, de muy baja probabilidad.</p>
+        <button class="btn small" data-action="career-ack-death" data-id="${escapeHtml(String(d.id))}">Entendido</button>
+      </div>`;
+    }).join('');
+  }
+
   // Reparte los goles ya definidos del partido entre los jugadores que estaban en la cancha (solo si el equipo tiene plantel cargado).
   function careerAssignScorers(m){
     if(!m || m.bye || m.goals !== undefined || m.lu !== undefined) return;
@@ -5101,6 +5204,8 @@ window.FIREBASE_CONFIG = {
       const cards = [].concat(luH ? playerRollCards(luH, cache.byId, bk, 'h') : [], luA ? playerRollCards(luA, cache.byId, bk, 'a') : []).sort((x, y) => x.m - y.m);
       if(cards.length) m.cards = cards;
       const reds = {}; cards.forEach(cd => { if(cd.t !== 'y') reds[cd.p] = true; });
+      const dth = careerRollMatchDeath(m, luH, luA, cache.byId);
+      if(dth) reds[dth.p] = true;
       const hurt = [].concat(luH ? playerRollInjuries(luH, cache.byId, 'h', reds) : [], luA ? playerRollInjuries(luA, cache.byId, 'a', reds) : []).sort((x, y) => x.m - y.m);
       if(hurt.length) m.hurt = hurt;
     }
@@ -5198,7 +5303,8 @@ window.FIREBASE_CONFIG = {
         + gl.filter(g => g.s !== side && g.t === 'ec' && g.p === id).map(g => `<span class="lu-tag">&#9917; ${g.m}' (en contra)</span>`).join('')
         + gl.filter(g => g.s === side && g.t !== 'ec' && g.a === id).map(g => `<span class="lu-tag">&#128095; asist. ${g.m}'</span>`).join('');
       const tags = id => goalTags(id) + cards.filter(x => x.p === id).map(x => `<span class="lu-tag">${x.t === 'y' ? '🟨' : '🟥'} ${x.m}'${x.b ? ' · ' + x.b + (x.b === 1 ? ' partido' : ' partidos') + ' de suspensión' : ''}</span>`).join('')
-        + hurt.filter(x => x.p === id).map(x => `<span class="lu-tag">🩹 ${x.m}'${x.w ? ' · ' + escapeHtml(x.w) : ''} · baja de ${x.n} ${x.n === 1 ? 'partido' : 'partidos'}</span>`).join('');
+        + hurt.filter(x => x.p === id).map(x => `<span class="lu-tag">🩹 ${x.m}'${x.w ? ' · ' + escapeHtml(x.w) : ''} · baja de ${x.n} ${x.n === 1 ? 'partido' : 'partidos'}</span>`).join('')
+        + ((m.death && m.death.s === side && m.death.m <= done && m.death.p === id) ? `<span class="lu-tag">🕯️ ${m.death.m}' · falleció</span>` : '');
       const row = (id, extra, cls) => {
         const p = cache.byId[id];
         return p ? `<div class="lu-row ${cls || ''}"><span class="lu-pos lu-${p.p}">${p.p}</span><span class="lu-name">${escapeHtml(p.n)}${extra && extra.by ? ` <span class="lu-by">por ${escapeHtml(extra.by)}</span>` : ''}</span>${tags(id)}${extra ? extra.html : ''}</div>` : '';
@@ -5707,7 +5813,7 @@ window.FIREBASE_CONFIG = {
     });
     const th = h => `<th>${h}</th>`;
     const tbl = (head, body) => `<div class="table-scroll"><table><thead><tr>${head.map(th).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
-    const status = p.r ? `Retirado${p.ry ? ' en ' + p.ry : ''}` : (inj ? `&#129657; Lesionado: le ${inj.n === 1 ? 'falta 1 partido' : 'faltan ' + inj.n + ' partidos'}` : (careerNewsBan(p.id) ? `&#128683; Suspendido (${escapeHtml(careerNewsBan(p.id).w)}): le ${careerNewsBan(p.id).n === 1 ? 'falta 1 partido' : 'faltan ' + careerNewsBan(p.id).n + ' partidos'}` : 'En actividad'));
+    const status = p.d ? `&#128367;&#65039; Fallecido${p.ry ? ' en ' + p.ry : ''}` : p.r ? `Retirado${p.ry ? ' en ' + p.ry : ''}` : (inj ? `&#129657; Lesionado: le ${inj.n === 1 ? 'falta 1 partido' : 'faltan ' + inj.n + ' partidos'}` : (careerNewsBan(p.id) ? `&#128683; Suspendido (${escapeHtml(careerNewsBan(p.id).w)}): le ${careerNewsBan(p.id).n === 1 ? 'falta 1 partido' : 'faltan ' + careerNewsBan(p.id).n + ' partidos'}` : 'En actividad'));
     let html = `<div class="btn-row"><button class="btn small" data-action="career-pl-player" data-id="">&larr; Volver al plantel</button></div>`;
     html += `<div class="panel"><h2>${escapeHtml(p.n)}</h2><p class="hint" style="margin:0 0 8px;">${AWARD_POS_LABEL[p.p] || p.p} &middot; ${age === null ? 'edad desconocida' : age + ' años'} &middot; ${status}</p>${awardTeamCell(p.t, 24)}</div>`;
     html += `<div class="panel"><h3>Totales y r&eacute;cords</h3>` + tbl(['Concepto', 'Valor'],
@@ -6722,6 +6828,7 @@ window.FIREBASE_CONFIG = {
     const run = fn => { try{ fn(); }catch(e){} };
     if(Math.random() < 0.15) run(() => nwEvTrainingInjury(pick()));
     if(Math.random() < 0.2) run(() => nwEvLife(pick()));
+    if(Math.random() < DEATH_P_OFF) run(() => nwEvDeathOff(pick()));
     if(Math.random() < 0.07) run(() => nwEvIndiscipline(pick()));
     if(Math.random() < 0.012) run(() => nwEvNoBuy(pick()));
     if(Math.random() < 0.015) run(() => nwEvDeduct(pick()));
@@ -6741,7 +6848,7 @@ window.FIREBASE_CONFIG = {
   }
 
   // ---- Vista Noticias ----
-  const NW_FILTERS = [['all', 'Todas'], ['sanc', 'Sanciones'], ['mine', 'Mi equipo'], ['lesion', 'Lesiones'], ['insolita', 'Insólitas'], ['hinchas', 'Hinchadas'], ['dopaje', 'Dopaje'], ['conducta', 'Conducta'], ['partido', 'Partidos'], ['club', 'Clubes']];
+  const NW_FILTERS = [['all', 'Todas'], ['sanc', 'Sanciones'], ['mine', 'Mi equipo'], ['lesion', 'Lesiones'], ['insolita', 'Insólitas'], ['fallecimiento', 'Fallecimientos'], ['hinchas', 'Hinchadas'], ['dopaje', 'Dopaje'], ['conducta', 'Conducta'], ['partido', 'Partidos'], ['club', 'Clubes']];
   function nwUnreadBadge(){
     const nw = state.career.news;
     if(!nw) return '';
@@ -8867,7 +8974,7 @@ window.FIREBASE_CONFIG = {
       if(c.seasonLog[r.id].length > 3) c.seasonLog[r.id].shift();
     });
     careerArchiveTournament();
-    (c.history || []).forEach(h => { if(h && h.year === c.year) [h.matches, h.knockout].forEach(l => (l || []).forEach(mm => { if(mm){ delete mm.lu; delete mm.cards; delete mm.sus; delete mm.hurt; delete mm.inj; delete mm.pre; delete mm.absInfo; delete mm.nwx; } })); });
+    (c.history || []).forEach(h => { if(h && h.year === c.year) [h.matches, h.knockout].forEach(l => (l || []).forEach(mm => { if(mm){ delete mm.lu; delete mm.cards; delete mm.sus; delete mm.hurt; delete mm.inj; delete mm.pre; delete mm.absInfo; delete mm.nwx; delete mm.death; } })); });
     c.disc = {};
     try{ careerRunRetirements(c.year); }catch(e){}
     careerApplyPromotionsRelegations();
@@ -10015,7 +10122,7 @@ window.FIREBASE_CONFIG = {
     const allPending = careerAllUnplayedDatedMatches();
     const pendingTotal = allPending.length;
 
-    let html = `<div class="cs-hero">
+    let html = careerDeathWarningHtml() + `<div class="cs-hero">
       <div class="season-tag">Calendario &middot; Temporada ${c.year}</div>
       <div class="matchup" style="font-size:16px;">${formatCareerDate(c.calendarDate)}</div>
       <div class="meta">${todays.length ? `${todays.length} partido${todays.length===1?'':'s'} programado${todays.length===1?'':'s'} &middot; ${pendingToday.length ? pendingToday.length+' sin jugar' : 'ya se jugaron todos'}.` : 'Sin partidos programados para hoy.'}</div>
