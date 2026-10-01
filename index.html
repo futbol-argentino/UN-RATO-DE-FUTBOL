@@ -11998,7 +11998,9 @@ window.FIREBASE_CONFIG = {
     const allPending = careerAllUnplayedDatedMatches();
     const pendingTotal = allPending.length;
 
-    let html = careerDayNewsHtml() + careerDeathWarningHtml() + careerAmpWarningHtml() + careerAccWarningHtml() + careerRetInjWarningHtml() + careerAdminWarningHtml() + careerColectaHtml() + `<div class="cs-hero">
+    // El panel con los botones de simular/avanzar va SIEMPRE primero: las noticias y avisos van abajo para no empujarlo.
+    const calAlertsHtml = careerDayNewsHtml() + careerDeathWarningHtml() + careerAmpWarningHtml() + careerAccWarningHtml() + careerRetInjWarningHtml() + careerAdminWarningHtml() + careerColectaHtml();
+    let html = `<div class="cs-hero">
       <div class="season-tag">Calendario &middot; Temporada ${c.year}</div>
       <div class="matchup" style="font-size:16px;">${formatCareerDate(c.calendarDate)}</div>
       <div class="meta">${todays.length ? `${todays.length} partido${todays.length===1?'':'s'} programado${todays.length===1?'':'s'} &middot; ${pendingToday.length ? pendingToday.length+' sin jugar' : 'ya se jugaron todos'}.` : 'Sin partidos programados para hoy.'}</div>
@@ -12006,7 +12008,7 @@ window.FIREBASE_CONFIG = {
         ${pendingToday.length ? `<button class="btn" data-action="career-simulate-day">Simular los ${pendingToday.length} partidos que faltan hoy</button>` : ''}
         <button class="btn primary" data-action="career-advance-calendar" ${(pendingTotal>0 || careerSeasonFinished() || careerAperturaFinalDone())?'':'disabled'}>${(pendingTotal===0 && careerSeasonFinished()) ? `&#9654; Pasar a la temporada ${c.year+1}` : (pendingTotal===0 && careerAperturaFinalDone()) ? `&#9654; Empezar el Clausura ${c.year}` : '&#9654; Avanzar calendario'}</button>
       </div>
-    </div>`;
+    </div>` + calAlertsHtml;
 
     const pendingDraws = careerContPendingDraws();
     if(pendingDraws.length){
