@@ -22556,6 +22556,10 @@ window.FIREBASE_CONFIG = {
   })();
   firebaseInit();
   playersLoadCsv();
+  // La página abre directo en el Modo Carrera (menú de carreras). El generador de torneos sigue disponible con el botón "Generador de Torneos".
+  state.mode = 'carrera';
+  state.career = defaultCareer();
+  try{ careerMigrateLegacy(); }catch(e){}
   render();
   // Los escudos guardados se leen de IndexedDB de forma asíncrona: cuando llegan se redibuja.
   // ================= PUNTO 5: VIDA INSTITUCIONAL DE LOS CLUBES =================
