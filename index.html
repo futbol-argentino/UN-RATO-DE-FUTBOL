@@ -6686,7 +6686,7 @@ window.FIREBASE_CONFIG = {
     });
     const th = h => `<th>${h}</th>`;
     const tbl = (head, body) => `<div class="table-scroll"><table><thead><tr>${head.map(th).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
-    const status = p.d ? `&#128367;&#65039; Fallecido${p.ry ? ' en ' + p.ry : ''}` : p.am ? `&#129470; Retirado por amputaci&oacute;n${p.ry ? ' en ' + p.ry : ''}` : p.ri ? `&#129657; Retirado por lesi&oacute;n grave${p.ry ? ' en ' + p.ry : ''}` : p.r ? `Retirado${p.ry ? ' en ' + p.ry : ''}` : (inj ? `&#129657; Lesionado: le ${inj.n === 1 ? 'falta 1 partido' : 'faltan ' + inj.n + ' partidos'}` : (careerNewsBan(p.id) ? `&#128683; Suspendido (${escapeHtml(careerNewsBan(p.id).w)}): le ${careerNewsBan(p.id).n === 1 ? 'falta 1 partido' : 'faltan ' + careerNewsBan(p.id).n + ' partidos'}` : 'En actividad'));
+    const status = p.d ? `&#128367;&#65039; Fallecido${p.ry ? ' en ' + p.ry : ''}` : p.am ? `&#129470; Retirado por amputaci&oacute;n${p.ry ? ' en ' + p.ry : ''}` : p.pr ? `&#9939;&#65039; ${p.pr.k === 'exp' ? 'Expulsado del f&uacute;tbol' : 'Preso'}${p.ry ? ' desde ' + p.ry : ''}` : p.ri ? `&#129657; Retirado por lesi&oacute;n grave${p.ry ? ' en ' + p.ry : ''}` : p.r ? `Retirado${p.ry ? ' en ' + p.ry : ''}` : (inj ? `&#129657; Lesionado: le ${inj.n === 1 ? 'falta 1 partido' : 'faltan ' + inj.n + ' partidos'}` : (careerNewsBan(p.id) ? `&#128683; Suspendido (${escapeHtml(careerNewsBan(p.id).w)}): le ${careerNewsBan(p.id).n === 1 ? 'falta 1 partido' : 'faltan ' + careerNewsBan(p.id).n + ' partidos'}` : 'En actividad'));
     let html = `<div class="btn-row"><button class="btn small" data-action="career-pl-player" data-id="">&larr; Volver al plantel</button></div>`;
     html += `<div class="panel"><h2>${escapeHtml(p.n)}</h2><p class="hint" style="margin:0 0 8px;">${AWARD_POS_LABEL[p.p] || p.p} &middot; ${age === null ? 'edad desconocida' : age + ' años'} &middot; ${status}</p>${awardTeamCell(p.t, 24)}</div>`;
     html += `<div class="panel"><h3>Totales y r&eacute;cords</h3>` + tbl(['Concepto', 'Valor'],
@@ -7241,6 +7241,9 @@ window.FIREBASE_CONFIG = {
         else if(p.k === 'bet') nwResolveBet(p.d);
         else if(p.k === 'refsanc') nwResolveRefSanc(p.d);
         else if(p.k === 'discsanc') nwResolveDiscSanc(p.d);
+        else if(p.k === 'dprobe') nwResolveDeductProbe(p.d);
+        else if(p.k === 'dappeal') nwResolveDeductAppeal(p.d);
+        else if(p.k === 'crime') nwResolveCrime(p.d);
       }catch(e){}
     });
     nwClock = saved;
@@ -7881,7 +7884,78 @@ window.FIREBASE_CONFIG = {
     if(Math.random() < 0.25){ const pr2 = s.users.filter(u => u.k === 'press'); if(pr2.length) mk(nwPick(pr2), nwFmt(nwPick(SOC.refPress), vr), 102); }
     if(Math.random() < 0.4){ const ex = s.users.filter(u => u.k === 'ex'); if(ex.length) mk(nwPick(ex), nwPick(['Gran partido, de lo mejor de la fecha.', 'Hay equipos que no se animan a competir. Así no se gana.', 'Cuando hay hambre en el vestuario, se nota en la cancha.']), 101); }
     if(Math.random() < 0.3){ const pr = s.users.filter(u => u.k === 'press'); if(pr.length) mk(nwPick(pr), nwPick(['Mucho para analizar tras ' + H.name + '-' + A.name + '. Se viene una semana intensa.', 'Me cuentan que en el vestuario hay opiniones divididas. Mañana más información.']), 102); }
+    try{ socPressLines(m, H, A, mk, byId); }catch(e){}
     try{ socDiscrimEvent(m, H, A, refN, refZ, mk); }catch(e){}
+  }
+  // Frases de los periodistas (editables). Variables: {T} equipo, {S} estadio, {X} resultado, {P} jugador, {C} club.
+  const SOC_PL = {
+    finW: ['FINAL. {T} se queda con los tres puntos tras un partido que tuvo de todo.', 'Ganó {T} y suma tres puntos importantísimos pensando en la próxima fecha.', 'Se terminó. {T} fue superior durante gran parte del encuentro y terminó encontrando el premio.'],
+    finD: ['Empate en {S}. Un resultado que deja sensaciones diferentes en ambos equipos.'],
+    flow: ['Partido muy trabado. Pocas situaciones y mucha disputa en el mediocampo.', 'El partido está completamente abierto. Cualquiera puede llevárselo.', 'Primer tiempo intenso. Mucho ritmo y varias situaciones de gol.'],
+    late: ['Últimos minutos y {T} se viene con todo.'],
+    htLead: ['Descanso en {S}. {T} gana por {X}.'],
+    htAny: ['Se viene un segundo tiempo que promete muchísimo.', 'Primer tiempo intenso. Mucho ritmo y varias situaciones de gol.'],
+    goal: ['GOOOOOOL. {P} aparece cuando más lo necesitaba su equipo.', '¡GOLAZO! Remate espectacular de {P}. Imposible para el arquero.', 'Gol de {T}. Error defensivo y {P} no perdonó.', 'APARECIÓ ÉL. {P} pone el {X} y desata la locura.', 'Qué definición de {P}. Clase pura.'],
+    goalFirst: ['Cuando parecía que no pasaba nada, apareció {P}.'],
+    goalLate: ['Gol sobre la hora. Locura absoluta en {S}.'],
+    goalBack: ['GOL Y PARTIDO NUEVO. {T} vuelve a meterse en el encuentro.'],
+    varGa: ['El VAR está revisando la jugada. Hay dudas sobre una posible mano.', 'El árbitro fue llamado al monitor. Se viene una decisión importante.', 'Decisión polémica en {S}. Las repeticiones seguramente van a generar debate.', 'El árbitro está teniendo muchísimo trabajo en estos minutos.'],
+    varPa: ['El árbitro fue llamado al monitor. Se viene una decisión importante.', 'No hay penal. El juego continúa.', 'El árbitro mantiene su decisión después de revisar la jugada.', 'Decisión polémica en {S}. Las repeticiones seguramente van a generar debate.'],
+    varPen: ['PENAL para {T}. Muchísima discusión alrededor de la jugada.'],
+    hot: ['El partido se está calentando. Muchas protestas contra el árbitro.', 'El árbitro está teniendo muchísimo trabajo en estos minutos.'],
+    red: ['Roja directa para {P}. El equipo queda con diez.'],
+    mkt: ['INFORMACIÓN: {C} preguntó condiciones por {P}. Todavía no hay oferta formal.', 'Atención porque {P} aparece en el radar de {C}.', 'Hay conversaciones. Las próximas horas pueden ser importantes.', 'Por ahora no hay acuerdo, pero las negociaciones continúan.', 'EXCLUSIVO: {C} avanzó por {P}. Se espera una definición próximamente.', 'El jugador fue informado del interés y analiza su futuro.', 'Mercado de pases en movimiento. {C} podría cerrar una incorporación en las próximas horas.'],
+    opP: ['No fue el mejor partido de {P}. Estuvo lejos de su nivel habitual.', 'Partido para olvidar de {P}. Perdió demasiadas pelotas y nunca logró entrar en juego.'],
+    opT: ['Hay algo que preocupa: {T} vuelve a cometer el mismo error.'],
+    opAny: ['El cambio del entrenador sorprendió a todos. ¿Decisión correcta?', 'Hay mucho para analizar después de este partido. El resultado no cuenta toda la historia.'],
+    opW: ['Una victoria que puede cambiar el ánimo de todo el vestuario.']
+  };
+  function socPressLines(m, H, A, mk, byId){
+    const s = socState(), pr = s.users.filter(u => u.k === 'press'); if(!pr.length) return;
+    const say = (arr, v, mn, p, o) => { if(arr.length && (p == null || Math.random() < p)) mk(nwPick(pr), nwFmt(nwPick(arr), v), mn, o); };
+    const tm = sd => sd === 'h' ? H : A, gm = g => g.m != null ? g.m : (g.min || 1);
+    const S = m.neutral ? 'el estadio' : 'el estadio de ' + H.name, base = { S: S, T: '', X: '', P: '', C: '' };
+    const V = o => Object.assign({}, base, o);
+    // Goles (sin repetir el mismo texto en el partido)
+    let sh = 0, sa = 0;
+    (m.goals || []).slice().sort((a, b) => gm(a) - gm(b)).forEach(g => {
+      const before = g.side === 'h' ? sh - sa : sa - sh;
+      if(g.side === 'h') sh++; else sa++;
+      const t = tm(g.side), v = V({ T: t.name, P: g.name || 'el goleador', X: sh + '-' + sa });
+      let pool = SOC_PL.goal.slice();
+      if(sh + sa === 1) pool = pool.concat(SOC_PL.goalFirst);
+      if(before < 0) pool = pool.concat(SOC_PL.goalBack, SOC_PL.goalBack);
+      if(gm(g) >= 88) pool = SOC_PL.goalLate.concat(SOC_PL.goalLate, pool);
+      say(pool, v, gm(g), 0.5);
+      if(g.v) say(SOC_PL.varPen, v, Math.max(1, gm(g) - 1), 0.7);
+    });
+    // VAR y expulsiones
+    (m.var || []).forEach(x => say(x.k === 'pa' ? SOC_PL.varPa : SOC_PL.varGa, V({ T: tm(x.s).name }), x.m || x.min || 60, 0.6));
+    const reds = (m.cards || []).filter(x => x.t !== 'y');
+    reds.forEach(x => { const pl = byId[x.p]; if(pl) say(SOC_PL.red, V({ T: tm(x.s).name, P: pl.n }), x.m || 50, 0.7); });
+    if(reds.length || (m.var || []).length) say(SOC_PL.hot, V({}), 75, 0.4);
+    // Descanso y tramo final
+    const gh = (m.goals || []).filter(g => g.side === 'h' && gm(g) <= 45).length, ga = (m.goals || []).filter(g => g.side === 'a' && gm(g) <= 45).length;
+    if(gh !== ga) say(SOC_PL.htLead, V({ T: (gh > ga ? H : A).name, X: Math.max(gh, ga) + '-' + Math.min(gh, ga) }), 46, 0.6);
+    else say(SOC_PL.htAny, V({}), 46, 0.4);
+    say(SOC_PL.flow, V({}), 30, 0.4);
+    say(SOC_PL.late, V({ T: (m.homeScore > m.awayScore ? A : m.homeScore < m.awayScore ? H : (Math.random() < 0.5 ? H : A)).name }), 88, 0.35);
+    // Final
+    const w = m.homeScore > m.awayScore ? H : m.homeScore < m.awayScore ? A : null, l = w ? (w === H ? A : H) : null;
+    say(w ? SOC_PL.finW : SOC_PL.finD, V({ T: w ? w.name : H.name }), 98, 0.6);
+    // Opinión
+    if(w){
+      say(SOC_PL.opW, V({ T: w.name }), 101, 0.2);
+      say(SOC_PL.opT, V({ T: l.name }), 101, 0.2);
+      const pl = nwPlayerOf(m, l === H ? 'h' : 'a'); if(pl) say(SOC_PL.opP, V({ P: pl.n, T: l.name }), 101, 0.2);
+    }
+    say(SOC_PL.opAny, V({}), 102, 0.2);
+    // Mercado de pases: un jugador de uno de los dos equipos y otro club cualquiera
+    if(Math.random() < 0.3){
+      const sd = Math.random() < 0.5 ? 'h' : 'a', pl = nwPlayerOf(m, sd), own = tm(sd);
+      const all = careerAllRosterTeams().reduce((a, g) => a.concat(g.teams), []).filter(t => t.id !== own.id);
+      if(pl && all.length) say(SOC_PL.mkt, V({ P: pl.n, C: nwPick(all).name, T: own.name }), 103);
+    }
   }
   // Mensajes discriminatorios contra el árbitro: el juego NO escribe esos mensajes. Solo muestra la reacción institucional:
   // post eliminado por la red, cuenta suspendida, repudio del Comité de Árbitros y del club, noticia y, a veces, sanción posterior.
@@ -8032,13 +8106,194 @@ window.FIREBASE_CONFIG = {
     nw.noBuy[k] = { n: 1, w: nwPick(NW_NOBUY), name: t.name };
     nwAdd({ k: 'club', ic: '🚫', h: '🚫 Inhibieron a ' + t.name + ' para fichar', b: 'FIFA inhibió a ' + t.name + ' para incorporar jugadores por ' + nw.noBuy[k].w + '. No podrá comprar en el próximo mercado de pases hasta regularizar la situación.', tag: '🚫 Sin compras en el próximo mercado', sanc: true, tids: [t.id] });
   }
-  const NW_DEDUCT = ['incumplimientos financieros ante la AFA', 'haber incluido a un jugador sin habilitación', 'deudas salariales con el plantel', 'irregularidades en la documentación de inscripción', 'no cumplir con los requisitos de seguridad del estadio'];
+  // Quitas de puntos por tipo de infracción (de menor a mayor gravedad). w = peso relativo: cuanto más grave, más rara.
+  const NW_DEDUCT_TIERS = [
+    { pts: 1, w: 45, mot: ['un incumplimiento administrativo menor', 'la presentación tardía de documentación obligatoria', 'un incumplimiento aislado de la normativa de inscripción', 'una demora injustificada en entregar la documentación de un jugador', 'un incumplimiento menor de requisitos de infraestructura', 'la reiteración de pequeñas infracciones disciplinarias', 'un incumplimiento menor de normas de organización de un partido', 'el uso incorrecto de documentación del plantel sin consecuencias deportivas', 'un incumplimiento menor de una obligación económica con la liga', 'una falta administrativa detectada durante una auditoría'] },
+    { pts: 3, w: 30, mot: ['alinear a un jugador suspendido', 'alinear a un jugador cuya inscripción todavía no estaba completamente habilitada', 'el incumplimiento reiterado de obligaciones administrativas', 'una deuda importante con la organización del campeonato', 'no cumplir determinadas condiciones de seguridad del estadio', 'reincidir después de haber recibido una sanción menor', 'la manipulación incorrecta de la documentación de un jugador', 'un incumplimiento grave de normas de competición', 'negarse reiteradamente a cumplir una resolución de la liga', 'una conducta institucional grave durante un partido'] },
+    { pts: 6, w: 15, mot: ['la utilización deliberada de un jugador no habilitado', 'la falsificación de documentación deportiva', 'el incumplimiento grave y reiterado de obligaciones económicas', 'la manipulación de información presentada a la competición', 'la reincidencia en la utilización de jugadores suspendidos', 'el incumplimiento grave de una sanción anterior', 'la alteración deliberada de documentación para inscribir futbolistas', 'incidentes de seguridad extremadamente graves provocados por el club', 'el ocultamiento de información relevante durante una investigación', 'incumplimientos múltiples que afectan directamente la competencia deportiva'] },
+    { pts: 9, w: 7, mot: ['la manipulación deliberada de un partido', 'un intento probado de amaño', 'un caso de corrupción deportiva grave', 'la falsificación sistemática de documentación', 'la utilización deliberada de múltiples jugadores no habilitados', 'reincidir después de una sanción de 6 puntos', 'el ocultamiento deliberado de irregularidades graves', 'el incumplimiento masivo de las reglas de competición', 'la interferencia deliberada con una investigación oficial', 'una conducta institucional destinada a obtener una ventaja deportiva ilegítima'] },
+    { pts: 12, w: 3, mot: ['el amaño sistemático de varios partidos', 'corrupción institucional a gran escala', 'la manipulación de una competición completa', 'la falsificación masiva de registros deportivos', 'la utilización sistemática de jugadores no habilitados', 'un fraude deportivo organizado durante varias temporadas', 'el incumplimiento extremo y reiterado de sanciones', 'un intento comprobado de alterar deliberadamente los resultados de la competición', 'el ocultamiento de una infracción extremadamente grave durante un período prolongado', 'la reincidencia en múltiples infracciones graves después de sanciones anteriores'] }
+  ];
+  const NW_DEDUCT_P_DAY = 0.0045;      // por día de calendario: ~1,6 quitas por año (con reclamos, hinchas y arreglos, ronda 2-3 por año en total)
+  const NW_DEDUCT_APPEAL_P = 0.4;      // probabilidad de que el club apele
+  const NW_DEDUCT_APPEAL_WIN = { annul: 0.2, reduce: 0.3 };   // si apela: anulada / reducida / se mantiene
+  function nwDeductTier(){
+    const tot = NW_DEDUCT_TIERS.reduce((a, t) => a + t.w, 0);
+    let r = Math.random() * tot;
+    for(let i = 0; i < NW_DEDUCT_TIERS.length; i++){ r -= NW_DEDUCT_TIERS[i].w; if(r < 0) return NW_DEDUCT_TIERS[i]; }
+    return NW_DEDUCT_TIERS[0];
+  }
+  // Paso 1: la liga abre una investigación (todavía no hay quita).
   function nwEvDeduct(t){
     const comp = nwTeamComp(t.id);
     if(!comp) return;
-    const pts = nwInt(1, 6), mot = nwPick(NW_DEDUCT);
-    nwDeduct(t.id, comp, pts, mot);
-    nwAdd({ k: 'club', ic: '⛔', h: '⛔ Le quitaron ' + pts + (pts === 1 ? ' punto' : ' puntos') + ' a ' + t.name, b: 'La AFA le descontó ' + pts + (pts === 1 ? ' punto' : ' puntos') + ' a ' + t.name + ' en ' + NW_COMP_LABEL[comp] + ' por ' + mot + '. El descuento ya se refleja en la tabla de posiciones.', tag: '⛔ -' + pts + (pts === 1 ? ' pt' : ' pts'), sanc: true, tids: [t.id] });
+    const nw = careerNews();
+    if(nw.pending.some(p => (p.k === 'dprobe' || p.k === 'dappeal') && p.d.t === t.id)) return;
+    const tier = nwDeductTier(), mot = nwPick(tier.mot);
+    nwAdd({ k: 'club', ic: '🔎', h: '🔎 La liga abre una investigación sobre ' + t.name, b: 'La AFA abrió una investigación sobre ' + t.name + ' por ' + mot + '. El club deberá presentar su defensa ante la comisión disciplinaria.', tids: [t.id] });
+    nwSchedule(nwInt(8, 14), 'dprobe', { t: t.id, pts: tier.pts, mot });
+  }
+  // Paso 2: resolución. Puede no haber sanción, o quita de puntos (con posible apelación).
+  function nwResolveDeductProbe(d){
+    const t = careerTeamById(d.t);
+    if(!t) return;
+    const comp = nwTeamComp(d.t);
+    if(!comp) return;
+    if(Math.random() < 0.15){
+      nwAdd({ k: 'club', ic: '📁', h: '📁 Sin sanción para ' + t.name, b: 'La comisión disciplinaria cerró la investigación sobre ' + t.name + ' sin comprobar la infracción. No hay quita de puntos.', tids: [t.id] });
+      return;
+    }
+    const nw = careerNews();
+    const uid = ++nw.seq;
+    nw.deduct.push({ teamId: d.t, comp, year: state.career.year, pts: d.pts, w: d.mot, uid });
+    nwAdd({ k: 'club', ic: '⛔', h: '⛔ Le quitaron ' + d.pts + (d.pts === 1 ? ' punto' : ' puntos') + ' a ' + t.name, b: 'RESOLUCIÓN: la comisión disciplinaria sancionó a ' + t.name + ' con la quita de ' + d.pts + (d.pts === 1 ? ' punto' : ' puntos') + ' en ' + NW_COMP_LABEL[comp] + ' por ' + d.mot + '. El descuento ya se refleja en la tabla de posiciones.', tag: '⛔ -' + d.pts + (d.pts === 1 ? ' pt' : ' pts'), sanc: true, tids: [t.id] });
+    if(Math.random() < NW_DEDUCT_APPEAL_P){
+      nwAdd({ k: 'club', ic: '📑', h: '📑 ' + t.name + ' apelará la sanción', b: t.name + ' anunció que apelará la quita de puntos ante el Tribunal de Apelaciones.', tids: [t.id] });
+      nwSchedule(nwInt(7, 15), 'dappeal', { t: d.t, uid, pts: d.pts, comp });
+    }
+  }
+  // Paso 3: apelación (anulada, reducida o ratificada).
+  function nwResolveDeductAppeal(d){
+    const t = careerTeamById(d.t), nw = careerNews();
+    if(!t) return;
+    const e = nw.deduct.find(x => x.uid === d.uid);
+    if(!e) return;
+    const r = Math.random();
+    if(r < NW_DEDUCT_APPEAL_WIN.annul){
+      nw.deduct = nw.deduct.filter(x => x.uid !== d.uid);
+      nwAdd({ k: 'club', ic: '✅', h: '✅ Anularon la sanción a ' + t.name, b: 'El Tribunal de Apelaciones hizo lugar al recurso de ' + t.name + ' y anuló la quita de ' + d.pts + (d.pts === 1 ? ' punto' : ' puntos') + '. Recupera los puntos en la tabla.', tag: '✅ +' + d.pts + (d.pts === 1 ? ' pt' : ' pts'), sanc: true, tids: [t.id] });
+    } else if(r < NW_DEDUCT_APPEAL_WIN.annul + NW_DEDUCT_APPEAL_WIN.reduce && d.pts > 1){
+      const np = Math.max(1, Math.round(d.pts / 2));
+      e.pts = np;
+      nwAdd({ k: 'club', ic: '⚖️', h: '⚖️ Redujeron la sanción a ' + t.name, b: 'El Tribunal de Apelaciones redujo la quita de puntos de ' + t.name + ': pasó de ' + d.pts + ' a ' + np + (np === 1 ? ' punto' : ' puntos') + '.', tag: '⚖️ ' + d.pts + ' → ' + np + ' pts', sanc: true, tids: [t.id] });
+    } else {
+      nwAdd({ k: 'club', ic: '⚖️', h: '⚖️ Rechazaron la apelación de ' + t.name, b: 'El Tribunal de Apelaciones ratificó la quita de ' + d.pts + (d.pts === 1 ? ' punto' : ' puntos') + ' a ' + t.name + '. La sanción queda firme.', tids: [t.id] });
+    }
+  }
+  // ---- Sistema judicial (separado del deportivo): investigación -> cargos -> juicio -> sentencia ----
+  // Las penas son valores de diseño del juego (en meses). m = [mín, máx] de pena si hay condena; s = prob. de condena en suspenso
+  // (solo si la pena es de hasta 36 meses); exp = además lo expulsan del fútbol; perp = el máximo puede ser prisión perpetua.
+  // w = peso para sortear el delito (nivel 1 ≈ 55%, 2 ≈ 28%, 3 ≈ 13%, 4 ≈ 3,5%, 5 ≈ 0,5%).
+  const NW_CRIMES = [
+    { lvl: 1, w: 18.3, d: 'conducción temeraria con múltiples infracciones', m: [1, 3], s: 0.9 },
+    { lvl: 1, w: 18.3, d: 'conducir bajo los efectos del alcohol', m: [1, 12], s: 0.8 },
+    { lvl: 1, w: 18.3, d: 'resistencia grave a la autoridad', m: [1, 6], s: 0.6 },
+    { lvl: 2, w: 9.3, d: 'una pelea fuera de la cancha con un herido hospitalizado', m: [3, 24], s: 0.5 },
+    { lvl: 2, w: 9.3, d: 'agresión grave con lesiones importantes', m: [12, 60], s: 0.25 },
+    { lvl: 2, w: 9.3, d: 'daños graves a la propiedad', m: [1, 36], s: 0.5 },
+    { lvl: 3, w: 3.2, d: 'un accidente de tránsito con heridos por conducción extremadamente imprudente', m: [12, 60], s: 0.2 },
+    { lvl: 3, w: 1.1, d: 'un accidente de tránsito con una víctima fatal', m: [36, 120], s: 0.05 },
+    { lvl: 3, w: 3.2, d: 'falsificación de documentos', m: [6, 36], s: 0.35 },
+    { lvl: 3, w: 3.2, d: 'fraude económico', m: [12, 60], s: 0.2 },
+    { lvl: 4, w: 1.17, d: 'corrupción y sobornos para alterar su actuación en un partido', m: [12, 60], s: 0, exp: true },
+    { lvl: 4, w: 1.17, d: 'participación en una red de amaño de partidos', m: [24, 96], s: 0, exp: true },
+    { lvl: 4, w: 1.16, d: 'asociación criminal', m: [24, 120], s: 0 },
+    { lvl: 5, w: 0.125, d: 'secuestro', m: [60, 240], s: 0 },
+    { lvl: 5, w: 0.125, d: 'robo agravado con violencia', m: [36, 120], s: 0 },
+    { lvl: 5, w: 0.125, d: 'lesiones gravísimas intencionales', m: [60, 180], s: 0 },
+    { lvl: 5, w: 0.0625, d: 'homicidio', m: [120, 300], s: 0 },
+    { lvl: 5, w: 0.0625, d: 'homicidio agravado', m: [240, 420], s: 0, perp: true }
+  ];
+  const NW_CRIME_ABS = { 1: 0.25, 2: 0.3, 3: 0.3, 4: 0.35, 5: 0.35 };   // probabilidad de absolución si llega a juicio
+  const NW_CRIME_P_DAY = 0.0015;     // por día de calendario: ~0,5 causas por año en todo el universo (la cárcel efectiva es mucho más rara)
+  const NW_MATCHES_PER_MONTH = 3.3;  // para convertir meses de prisión en partidos oficiales perdidos
+  function nwSentenceTxt(m){
+    if(m >= 999) return 'prisión perpetua';
+    if(m < 12) return m + (m === 1 ? ' mes' : ' meses');
+    const y = Math.floor(m / 12), r = m % 12;
+    return y + (y === 1 ? ' año' : ' años') + (r ? ' y ' + r + (r === 1 ? ' mes' : ' meses') : '');
+  }
+  function nwCrimeActive(pid){
+    return careerNews().pending.some(x => x.k === 'crime' && x.d.pid === pid);
+  }
+  function nwCrimeTids(p){ const id = nwFindTeamId(p.t); return id != null ? [id] : []; }
+  function nwEvCrime(t){
+    const nw = careerNews();
+    if(nw.pending.filter(x => x.k === 'crime').length >= 3) return;
+    const pool = nwSquad(t.id).filter(p => !p.r && !nwCrimeActive(p.id));
+    if(!pool.length) return;
+    const p = nwPick(pool);
+    const tot = NW_CRIMES.reduce((a, c) => a + c.w, 0);
+    let r = Math.random() * tot, ci = 0;
+    for(let i = 0; i < NW_CRIMES.length; i++){ r -= NW_CRIMES[i].w; if(r < 0){ ci = i; break; } }
+    const cr = NW_CRIMES[ci];
+    nwAdd({ k: 'conducta', ic: '🚨', h: '🚨 ÚLTIMO MOMENTO: la policía investiga a ' + p.n, b: 'La policía investiga a ' + p.n + ' (' + p.t + ') por un presunto delito (' + cr.d + '). El club todavía no emitió un comunicado.', tids: nwCrimeTids(p) });
+    nwSchedule(3, 'crime', { pid: p.id, ci, stage: 1 });
+  }
+  function nwCrimeEnd(p, txt, hd, tag){
+    const prov = careerNews().ban[p.id];
+    if(prov && prov.w.indexOf('proceso judicial') >= 0) delete careerNews().ban[p.id];
+    nwAdd({ k: 'conducta', ic: '⚖️', h: hd, b: txt, tag: tag || null, sanc: !!tag, tids: nwCrimeTids(p) });
+  }
+  // Retiro forzoso por condena larga o expulsión del fútbol.
+  function nwCrimeRetire(p, kind, months){
+    const c = state.career, by = playerBirthYear(p.b), age = by === null ? null : c.year - by;
+    p.r = true; p.ry = c.year; p.ra = age;
+    p.pr = { y: c.year, k: kind, m: months };
+    if(c.inj) delete c.inj[p.id];
+    if(c.news && c.news.ban) delete c.news.ban[p.id];
+    playersInvalidateCache();
+  }
+  function nwResolveCrime(d){
+    const cache = playersCache(), p = cache && cache.byId[d.pid], cr = NW_CRIMES[d.ci];
+    if(!p || p.r || !cr) return;
+    const nw = careerNews(), tids = nwCrimeTids(p), N = p.n + ' (' + p.t + ')';
+    const next = (days, stage) => nwSchedule(days, 'crime', { pid: d.pid, ci: d.ci, stage });
+    if(d.stage === 1){
+      nwAdd({ k: 'conducta', ic: '🔎', h: '🔎 La fiscalía recopila pruebas contra ' + p.n, b: 'La fiscalía comenzó a recopilar pruebas en la causa que involucra a ' + N + '.', tids });
+      if(Math.random() < 0.12){
+        nwSchedule(4, 'crime', { pid: d.pid, ci: d.ci, stage: 9 });
+      } else next(7, 2);
+    } else if(d.stage === 2){
+      nwAdd({ k: 'conducta', ic: '⚖️', h: '⚖️ ' + p.n + ' fue citado a declarar', b: N + ' fue citado a declarar ante la fiscalía en el marco de la investigación.', tids });
+      if(Math.random() < 0.15) nwSchedule(2, 'crime', { pid: d.pid, ci: d.ci, stage: 9 });
+      else next(7, 3);
+    } else if(d.stage === 3){
+      nwAdd({ k: 'conducta', ic: '📰', h: '📰 La fiscalía presentó cargos contra ' + p.n, b: 'La fiscalía presentó cargos contra el futbolista ' + N + ' por ' + cr.d + '.', tids });
+      if(!careerNewsBan(p.id) && Math.random() < 0.4){
+        nw.ban[p.id] = { n: 8, t: 8, w: 'Separado por su club (proceso judicial)' };
+        nwAdd({ k: 'club', ic: '🚷', h: '🚷 ' + p.t + ' separó a ' + p.n + ' mientras dure el proceso', b: p.t + ' decidió apartar a ' + p.n + ' del plantel hasta que se resuelva su situación judicial.', tag: '🚫 Apartado por el club', sanc: true, tids });
+      }
+      next(8, 4);
+    } else if(d.stage === 4){
+      nwAdd({ k: 'conducta', ic: '⚖️', h: '⚖️ Comienza el juicio contra ' + p.n, b: 'Comenzó el juicio oral contra ' + N + '. La sentencia se conocerá en las próximas semanas.', tids });
+      next(nwInt(10, 30), 5);
+    } else if(d.stage === 9){
+      nwCrimeEnd(p, 'La causa contra ' + N + ' fue archivada: el futbolista recuperó la libertad sin cargos y puede seguir con su carrera.', '📁 ' + p.n + ' quedó libre sin cargos');
+    } else if(d.stage === 5){
+      if(Math.random() < NW_CRIME_ABS[cr.lvl]){
+        nwCrimeEnd(p, 'El tribunal declaró inocente a ' + N + ' por falta de pruebas. No hay condena y el futbolista queda en libertad.', '✅ ' + p.n + ' fue absuelto', '✅ Absuelto');
+        return;
+      }
+      let months = nwInt(cr.m[0], cr.m[1]);
+      if(cr.perp && Math.random() < 0.12) months = 999;
+      const parts = [];
+      const prison = !(months <= 36 && Math.random() < cr.s);
+      let tag, hd;
+      if(!prison){
+        hd = '⚖️ Condena en suspenso para ' + p.n;
+        parts.push(N + ' fue declarado culpable por ' + cr.d + ', pero recibió una condena en suspenso de ' + nwSentenceTxt(months) + '. No irá preso, deberá pagar una multa y podrá seguir jugando.');
+        tag = '⚖️ Condena en suspenso';
+        const prov = nw.ban[p.id]; if(prov && prov.w.indexOf('proceso judicial') >= 0) delete nw.ban[p.id];
+      } else {
+        const by = playerBirthYear(p.b), age = by === null ? null : state.career.year - by;
+        const out = age === null || months >= 999 ? '' : ' Saldría en libertad a los ' + Math.round(age + months / 12) + ' años (hoy tiene ' + age + ').';
+        hd = '⚖️ ' + p.n + ' fue condenado a ' + nwSentenceTxt(months);
+        parts.push('El tribunal declaró culpable a ' + N + ' por ' + cr.d + ' y lo condenó a ' + nwSentenceTxt(months) + (months >= 999 ? '.' : ' de prisión.') + out);
+        tag = '⛓️ ' + nwSentenceTxt(months);
+        if(months >= 120){ nwCrimeRetire(p, 'preso', months); parts.push('Su carrera deportiva queda prácticamente destruida.'); }
+        else {
+          const n = Math.max(1, Math.round(months * NW_MATCHES_PER_MONTH));
+          nw.ban[p.id] = { n, t: n, w: 'Prisión (' + nwSentenceTxt(months) + ')' };
+          if(months >= 36) parts.push('Pasará varias temporadas fuera de actividad.');
+        }
+      }
+      if(cr.exp && !p.r){
+        nwCrimeRetire(p, 'exp', months);
+        parts.push('Además, fue expulsado del fútbol de forma definitiva.'); tag += ' · 🚫 Expulsado del fútbol';
+      } else if(cr.exp && p.r && p.pr){ p.pr.k = 'exp'; parts.push('Además, fue expulsado del fútbol de forma definitiva.'); tag += ' · 🚫 Expulsado del fútbol'; }
+      nwAdd({ k: 'conducta', ic: prison ? '⛓️' : '⚖️', h: hd, b: parts.join(' '), tag, sanc: true, tids });
+    }
   }
   const NW_FLAVOR = [
     ['📣 Banderazo en {A}', 'Miles de hinchas de {A} alentaron al plantel con un banderazo multitudinario en la previa del próximo partido.'],
@@ -8103,7 +8358,8 @@ window.FIREBASE_CONFIG = {
     else if(Math.random() < ADMIN_P_DAY) run(() => nwEvAdminSanction());
     if(Math.random() < 0.07) run(() => nwEvIndiscipline(pick()));
     if(Math.random() < 0.012) run(() => nwEvNoBuy(pick()));
-    if(Math.random() < 0.015) run(() => nwEvDeduct(pick()));
+    if(Math.random() < NW_DEDUCT_P_DAY) run(() => nwEvDeduct(pick()));
+    if(Math.random() < NW_CRIME_P_DAY) run(() => nwEvCrime(pick()));
     if(Math.random() < 0.2) run(() => nwEvFlavor(pick()));
     nw.deduct = nw.deduct.filter(d => d.year >= c.year - 1);
   }
