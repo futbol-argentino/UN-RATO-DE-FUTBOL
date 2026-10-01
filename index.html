@@ -6104,7 +6104,8 @@ window.FIREBASE_CONFIG = {
   //  * c.news.noBuy[clave del club] = {n, w, name}: inhibición, el club no puede comprar en el próximo mercado de pases (careerRunTransfers).
   //  * Lesiones fuera de los partidos: se anotan en c.inj igual que las de partido (aparecen en Lesiones y el club no puede alinearlos).
   // Las probabilidades se ajustan acá.
-  const NW_P = { riot: 0.007, conduct: 0.004, doping: 0.0025, claim: 0.0012, stadium: 0.001 };   // por partido oficial
+  const NW_P = { riot: 0.005, conduct: 0.003, doping: 0.0025, claim: 0.001, stadium: 0.001, fixing: 0.0004, betting: 0.0006 };   // fixing/betting: muy raros
+  const NW_COCAINE_SHARE = 0.08;   // fracción de los dopajes que es cocaína (muy baja)   // por partido oficial
   const NW_ADV = { puertas: 0.35, tribuna: 0.75, clausura: 0.2, sinvisita: 1.25 };               // multiplicador de la ventaja de local
   const NW_COMP_LABEL = { apertura: 'Copa de la Liga — Apertura', clausura: 'Copa de la Liga — Clausura', nacional: 'Primera Nacional', bmetro: 'Primera B Metropolitana', federal: 'Torneo Federal A', primerac: 'Primera C', promocional: 'Torneo Promocional' };
   const NW_KIND_LABEL = { puertas: 'Puertas cerradas', tribuna: 'Tribuna clausurada', clausura: 'Estadio clausurado' };
@@ -6253,6 +6254,8 @@ window.FIREBASE_CONFIG = {
         else if(p.k === 'doping') nwResolveDoping(p.d);
         else if(p.k === 'claim') nwResolveClaim(p.d);
         else if(p.k === 'appeal') nwResolveAppeal(p.d);
+        else if(p.k === 'probe') nwResolveProbe(p.d);
+        else if(p.k === 'bet') nwResolveBet(p.d);
       }catch(e){}
     });
     nwClock = saved;
@@ -6379,7 +6382,7 @@ window.FIREBASE_CONFIG = {
     { s: 'eritropoyetina (EPO)', c: 'hor' }, { s: 'hormona de crecimiento', c: 'hor' },
     { s: 'salbutamol en exceso', c: 'ter' }, { s: 'un corticoide sin autorización médica', c: 'ter' }
   ];
-  const NW_DOPING_RANGE = { ana: [45, 90], est: [20, 40], diu: [25, 45], hor: [60, 100], ter: [5, 12] };
+  const NW_DOPING_RANGE = { ana: [45, 90], est: [20, 40], diu: [25, 45], hor: [60, 100], ter: [5, 12], coc: [15, 35] };
   const NW_DOPING_TXT = [
     '{P} ({T}) dio positivo de {S} en el control antidoping realizado tras el partido ante {R}. Quedó suspendido de manera provisional hasta que se conozca el resultado de la muestra B.',
     'Se conoció el resultado de un control antidoping: {P} ({T}) arrojó positivo por {S}. El jugador fue apartado provisionalmente y puede pedir el análisis de la contramuestra.',
@@ -6392,7 +6395,7 @@ window.FIREBASE_CONFIG = {
     if(!p) return;
     const nw = careerNews();
     if(careerNewsBan(p.id) || nw.pending.some(x => x.k === 'doping' && x.d.pid === p.id)) return;
-    const sub = nwPick(NW_DOPING), rid = side === 'h' ? m.away : m.home, tid = side === 'h' ? m.home : m.away, prov = nwInt(4, 8);
+    const sub = Math.random() < NW_COCAINE_SHARE ? { s: 'benzoilecgonina (metabolito de la cocaína)', c: 'coc' } : nwPick(NW_DOPING), rid = side === 'h' ? m.away : m.home, tid = side === 'h' ? m.home : m.away, prov = nwInt(4, 8);
     const v = { P: p.n, T: p.t, S: sub.s, R: nwTeamName(rid) };
     nwBanPlayer(p, prov, 'Suspensión provisional por dopaje');
     nwAdd({ k: 'dopaje', ic: '🧪', h: nwPick(['🧪 Doping positivo: ' + p.n + ' (' + p.t + ')', '🧪 Escándalo: control antidoping positivo en ' + p.t, '🧪 ' + p.n + ' dio positivo en un control']), b: nwFmt(nwPick(NW_DOPING_TXT), v), tag: '🚫 Suspensión provisional', sanc: true, tids: [tid, rid], cmp: nwCmp(m) });
@@ -6414,7 +6417,7 @@ window.FIREBASE_CONFIG = {
     total = Math.max(total, served + 1);
     const remaining = Math.max(1, total - served);
     nw.ban[d.pid] = { n: remaining, t: total, w: 'Dopaje (' + d.s + ')' };
-    nwAdd({ k: 'dopaje', ic: '⚖️', h: '⚖️ ' + p.n + ' fue sancionado por doping', b: 'La muestra B confirmó el positivo de ' + p.n + ' (' + p.t + ') por ' + d.s + '. Recibió una sanción de ' + nwGames(total) + ' (ya cumplió ' + served + ' de forma provisional).' + mot, tag: '🚫 ' + nwGames(total) + ' · quedan ' + remaining, sanc: true, tids });
+    nwAdd({ k: 'dopaje', ic: '⚖️', h: '⚖️ ' + p.n + ' fue sancionado por doping', b: 'La muestra B confirmó el positivo de ' + p.n + ' (' + p.t + ') por ' + d.s + '. Recibió una sanción de ' + nwGames(total) + (served > 0 ? ' (ya cumplió ' + served + ' de forma provisional).' : '.') + mot, tag: '🚫 ' + nwGames(total) + ' · quedan ' + remaining, sanc: true, tids });
     if(total >= 20 && Math.random() < 0.3) nwSchedule(nwInt(6, 14), 'appeal', { pid: d.pid });
   }
 
@@ -6449,6 +6452,116 @@ window.FIREBASE_CONFIG = {
     nwAdd({ k: 'club', ic: '🏟️', h: nwPick(['🏟️ Clausuraron el estadio de ' + A, '🏟️ Golpe para ' + A + ': su cancha fue clausurada']), b: 'El estadio de ' + A + ' fue clausurado ' + nwPick(NW_STADIUM_CAUSE) + '. El club deberá jugar de local en otra cancha durante ' + nwGames(n) + '.', tag: '🚫 Estadio clausurado ' + nwGames(n), sanc: true, tids: [m.home] });
   }
 
+
+  // ---- Arreglo de partidos y apuestas deportivas (muy raros) ----
+  function nwEvFixing(m){
+    if(typeof m.homeScore !== 'number' || !careerTeamById(m.home) || !careerTeamById(m.away)) return;
+    const nw = careerNews(), cache = playersCache();
+    if(!cache || nw.pending.some(p => p.k === 'probe')) return;
+    const loser = m.homeScore === m.awayScore ? (Math.random() < 0.5 ? 'h' : 'a') : (m.homeScore < m.awayScore ? 'h' : 'a');
+    const sid = loser === 'h' ? m.home : m.away, oid = loser === 'h' ? m.away : m.home;
+    const pool = ((m.lu && m.lu[loser]) || []).map(r => cache.byId[r[0]]).filter(p => p && !p.r);
+    if(pool.length < 2) return;
+    const k = nwInt(2, 3), pids = [];
+    while(pids.length < k && pool.length) pids.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0].id);
+    const S = nwTeamName(sid), O = nwTeamName(oid), res = nwTeamName(m.home) + ' ' + m.homeScore + '-' + m.awayScore + ' ' + nwTeamName(m.away);
+    nwAdd({ k: 'conducta', ic: '🕵️', h: nwPick(['🕵️ Investigan un posible arreglo de partido', '🕵️ Sospechas de arreglo: ' + S + ' bajo la lupa', '🕵️ Alerta por apuestas en ' + res]),
+      b: nwPick(['La Justicia y la AFA investigan movimientos sospechosos en las apuestas del partido ' + res + '. El foco está puesto en el rendimiento de ' + S + '.', 'Una casa de apuestas detectó montos inusuales en el ' + res + ' y dio aviso a las autoridades. Se investiga si hubo un arreglo que involucre a jugadores de ' + S + '.']),
+      tids: [sid, oid], cmp: nwCmp(m) });
+    nwSchedule(nwInt(20, 45), 'probe', { t: sid, o: oid, pids, comp: m.comp, league: !m.stage && !!NW_COMP_LABEL[m.comp] });
+  }
+  function nwResolveProbe(d){
+    const cache = playersCache(), S = nwTeamName(d.t);
+    const ps = d.pids.map(id => cache && cache.byId[id]).filter(p => p && !p.r);
+    if(Math.random() < 0.55 || !ps.length){
+      nwAdd({ k: 'conducta', ic: '📁', h: '📁 Archivaron la causa por el supuesto arreglo', b: 'La investigación sobre el partido de ' + S + ' no encontró pruebas suficientes de un arreglo y la causa fue archivada. No hay sanciones.', tids: [d.t, d.o] });
+      return;
+    }
+    const tags = [];
+    ps.forEach(p => { const n = nwInt(40, 100); nwBanPlayer(p, n, 'Arreglo de partido'); tags.push(p.n + ' (' + n + ')'); });
+    let extra = '', tag = '🚫 ' + ps.length + (ps.length === 1 ? ' jugador' : ' jugadores') + ' suspendidos';
+    const comp = d.league ? nwTeamComp(d.t) : null;
+    if(comp && Math.random() < 0.25){
+      const pts = nwInt(3, 6);
+      nwDeduct(d.t, d.comp, pts, 'Arreglo de partido');
+      extra = ' Además, ' + S + ' perdió ' + pts + ' puntos en ' + NW_COMP_LABEL[d.comp] + '.'; tag += ' · ⛔ -' + pts + ' pts';
+    }
+    nwAdd({ k: 'conducta', ic: '⚖️', h: '⚖️ Sancionaron a jugadores de ' + S + ' por arreglo de partido', b: 'Tras la investigación, el Tribunal suspendió por arreglo de partido a: ' + tags.join(', ') + ' (partidos de suspensión).' + extra, tag, sanc: true, tids: [d.t, d.o] });
+  }
+  function nwEvBetting(m){
+    const side = Math.random() < 0.5 ? 'h' : 'a', p = nwPlayerOf(m, side), nw = careerNews();
+    if(!p || careerNewsBan(p.id) || nw.pending.some(x => x.k === 'bet' && x.d.pid === p.id)) return;
+    const tid = side === 'h' ? m.home : m.away;
+    nwAdd({ k: 'conducta', ic: '🎰', h: nwPick(['🎰 Investigan a ' + p.n + ' por apuestas', '🎰 Apuestas deportivas: la AFA investiga a ' + p.n + ' (' + p.t + ')']),
+      b: 'La AFA abrió una investigación a ' + p.n + ' (' + p.t + ') por presuntas apuestas deportivas en partidos de fútbol, una práctica prohibida para los futbolistas.', tids: [tid], cmp: nwCmp(m) });
+    nwSchedule(nwInt(7, 20), 'bet', { pid: p.id });
+  }
+  function nwResolveBet(d){
+    const cache = playersCache(), p = cache && cache.byId[d.pid];
+    if(!p || p.r) return;
+    const tid = nwFindTeamId(p.t), tids = tid ? [tid] : [];
+    if(Math.random() < 0.65){
+      const n = nwInt(8, 30);
+      nwBanPlayer(p, n, 'Apuestas deportivas');
+      nwAdd({ k: 'conducta', ic: '⚖️', h: '⚖️ Suspendieron a ' + p.n + ' por apuestas', b: 'Se comprobó que ' + p.n + ' (' + p.t + ') apostó en partidos de fútbol. El Tribunal lo suspendió por ' + nwGames(n) + '.', tag: '🚫 ' + nwGames(n), sanc: true, tids });
+      if(n >= 10 && Math.random() < 0.25) nwSchedule(nwInt(5, 12), 'appeal', { pid: p.id });
+    } else {
+      nwAdd({ k: 'conducta', ic: '📁', h: '📁 Sin sanción para ' + p.n + ' por las apuestas', b: 'La AFA no pudo comprobar que ' + p.n + ' (' + p.t + ') haya apostado en partidos de fútbol y cerró la investigación sin sanciones.', tids });
+    }
+  }
+
+  // ---- Bajas de 1 partido por motivos de la vida cotidiana (quedan como baja en Lesiones, igual que una lesión) ----
+  const NW_LIFE = [
+    ['Diarrea', '🚽', '{P} ({A}) amaneció con un fuerte cuadro de diarrea y no podrá estar en el próximo partido.'],
+    ['Gastroenteritis', '🤢', 'Intoxicación en {A}: {P} comió algo en mal estado y quedó descartado para el próximo partido.'],
+    ['Pelea matrimonial', '💔', '{P} ({A}) tuvo una fuerte discusión con su pareja y el cuerpo técnico decidió dejarlo afuera del próximo partido.'],
+    ['Divorcio', '💔', '{P} ({A}) atraviesa un momento personal complicado por su separación y no será tenido en cuenta para el próximo partido.'],
+    ['Casamiento', '💍', '{P} ({A}) se casa esta semana y pidió permiso al club: no jugará el próximo partido.'],
+    ['Bautismo de su hijo', '👶', '{P} ({A}) viajó para el bautismo de su hijo y se perderá el próximo partido.'],
+    ['Nacimiento de su hijo', '🍼', 'Llegó el hijo de {P} ({A}): el jugador tiene licencia y no estará en el próximo partido.'],
+    ['Cumpleaños de 15 de su hija', '🎂', '{P} ({A}) pidió permiso para estar en los 15 años de su hija y no jugará el próximo partido.'],
+    ['Mudanza', '📦', '{P} ({A}) se está mudando y el club le dio el día: se pierde el próximo partido.'],
+    ['Se quedó dormido', '😴', '{P} ({A}) se quedó dormido, llegó tarde a la concentración y el técnico lo dejó afuera del próximo partido.'],
+    ['Perdió el micro', '🚌', '{P} perdió el micro del plantel de {A} y no viajó con el equipo: no estará en el próximo partido.'],
+    ['Gripe', '🤧', '{P} ({A}) tiene un cuadro gripal con fiebre y no podrá jugar el próximo partido.'],
+    ['Conjuntivitis', '👁️', '{P} ({A}) contrajo una conjuntivitis y quedó descartado para el próximo partido.'],
+    ['Dolor de muelas', '🦷', 'Un dolor de muelas insoportable dejó afuera a {P} ({A}) del próximo partido.'],
+    ['Se golpeó con un mueble', '🪑', '{P} ({A}) se golpeó el pie contra un mueble en su casa y no llega al próximo partido.'],
+    ['Se cortó cocinando un asado', '🥩', '{P} ({A}) se cortó un dedo mientras preparaba un asado y será baja en el próximo partido.'],
+    ['Quemadura con el asado', '🔥', 'Un asado con final inesperado: {P} ({A}) sufrió una quemadura en la mano y no jugará el próximo partido.'],
+    ['Torcedura jugando con sus hijos', '🤸', '{P} ({A}) se torció el tobillo jugando con sus hijos en el jardín y se pierde el próximo partido.'],
+    ['Picadura de avispa', '🐝', 'Una avispa lo dejó afuera: {P} ({A}) tuvo una reacción alérgica y no estará en el próximo partido.'],
+    ['Tortícolis', '😖', '{P} ({A}) durmió mal y amaneció con tortícolis: será baja en el próximo partido.'],
+    ['Choque leve con el auto', '🚗', '{P} ({A}) chocó levemente su auto camino al entrenamiento. Está bien, pero descansará en el próximo partido.'],
+    ['Se le escapó el perro', '🐕', '{P} ({A}) pasó la noche buscando a su perro, que se escapó, y el técnico lo dejó descansar en el próximo partido.'],
+    ['Motivos familiares', '🏠', '{P} ({A}) viajó por motivos familiares y no estará en el próximo partido.'],
+    ['Trámite personal', '📄', '{P} ({A}) debe hacer un trámite personal urgente y se pierde el próximo partido.'],
+    ['Pelea con la suegra', '🗣️', 'Escándalo familiar: {P} ({A}) tuvo una fuerte pelea con su suegra y llegó con la cabeza en otro lado. Queda afuera del próximo partido.'],
+    ['Insolación', '☀️', '{P} ({A}) pasó el día en la pileta bajo el sol, sufrió una insolación y no jugará el próximo partido.'],
+    ['Se cayó de la bicicleta', '🚲', '{P} ({A}) se cayó de la bicicleta en un paseo y se pierde el próximo partido por los golpes.'],
+    ['Fiebre', '🌡️', '{P} ({A}) tuvo fiebre después de vacunarse y no estará en el próximo partido.'],
+    ['Dolor de oído', '👂', 'Un dolor de oído lo tiene mal: {P} ({A}) no jugará el próximo partido.'],
+    ['Acto escolar de su hijo', '🎒', '{P} ({A}) pidió permiso para ir al acto escolar de su hijo y se pierde el próximo partido.'],
+    ['Casamiento de su hermano', '🥂', '{P} ({A}) viajó al casamiento de su hermano y no estará en el próximo partido.'],
+    ['Bautismo de su ahijado', '⛪', '{P} ({A}) es el padrino de un bautismo este fin de semana y no jugará el próximo partido.'],
+    ['Mareos', '😵', '{P} ({A}) sufrió mareos por el calor durante el entrenamiento y descansará en el próximo partido.'],
+    ['Se lastimó levantando a su hijo', '🧒', '{P} ({A}) se lastimó la espalda al levantar a su hijo y será baja en el próximo partido.'],
+    ['Lumbalgia por el colchón', '🛏️', 'Un colchón nuevo y un dolor de espalda: {P} ({A}) no llega al próximo partido.'],
+    ['Alergia', '🤧', '{P} ({A}) tuvo una reacción alérgica a un alimento y queda afuera del próximo partido.'],
+    ['Cólico', '😣', '{P} ({A}) sufrió un fuerte cólico y no estará en el próximo partido.'],
+    ['Hipo persistente', '😮', 'Insólito: {P} ({A}) tiene un hipo que no se le va hace horas y el cuerpo médico lo dejó afuera del próximo partido.']
+  ];
+  const NW_LIFE_HEAD = ['🙃 Insólita baja en {A}: {P}', '🙃 {P} no juega en {A} y el motivo sorprende', '🙃 Baja sorpresiva en {A}', '🙃 Cosas del fútbol: {P} se pierde un partido'];
+  function nwEvLife(t){
+    const c = state.career;
+    if(!c.inj) c.inj = {};
+    const pool = nwSquad(t.id).filter(p => !p.r && !(c.inj[p.id] && c.inj[p.id].n > 0));
+    if(!pool.length) return;
+    const p = nwPick(pool), e = nwPick(NW_LIFE), v = { P: p.n, A: t.name };
+    c.inj[p.id] = { n: 1, t: 1, y: c.year, w: e[0] };
+    nwAdd({ k: 'insolita', ic: e[1], h: nwFmt(nwPick(NW_LIFE_HEAD), v), b: nwFmt(e[2], v), tag: '🩹 1 partido de baja', tids: [t.id] });
+  }
+
   // ---- Noticias con datos reales del partido (no cambian nada, solo cuentan lo que pasó) ----
   function nwFactual(m){
     const cache = playersCache(), hT = careerTeamById(m.home), aT = careerTeamById(m.away);
@@ -6478,7 +6591,7 @@ window.FIREBASE_CONFIG = {
     if(cache && m.hurt){
       m.hurt.forEach(h => {
         const p = cache.byId[h.p];
-        if(!p || h.n < 7 || (h.n < 16 && Math.random() > 0.6)) return;
+        if(!p || h.n < 7 || (h.n < 16 && Math.random() > 0.3)) return;
         nwAdd({ k: 'lesion', ic: '🩹', h: '🩹 ' + (h.n >= 16 ? 'Lesión gravísima' : 'Lesión importante') + ': ' + p.n + ' (' + p.t + ')', b: p.n + ' sufrió ' + h.w.toLowerCase() + ' en el partido ' + res + '. Se perderá ' + nwGames(h.n) + '.', tids, cmp });
       });
     }
@@ -6519,6 +6632,8 @@ window.FIREBASE_CONFIG = {
     if(Math.random() < NW_P.doping) tryRun(() => nwEvDoping(m));
     if(Math.random() < NW_P.claim) tryRun(() => nwEvClaim(m));
     if(Math.random() < NW_P.stadium) tryRun(() => nwEvStadium(m));
+    if(Math.random() < NW_P.fixing) tryRun(() => nwEvFixing(m));
+    if(Math.random() < NW_P.betting) tryRun(() => nwEvBetting(m));
   }
 
   // ---- Noticias fuera de la cancha: una tanda por cada fecha del calendario que avanza ----
@@ -6601,11 +6716,12 @@ window.FIREBASE_CONFIG = {
     const mine = c.myTeamId && pool.find(t => t.id === c.myTeamId);
     const pick = () => (mine && Math.random() < 0.1) ? mine : nwPick(pool);
     const run = fn => { try{ fn(); }catch(e){} };
-    if(Math.random() < 0.3) run(() => nwEvTrainingInjury(pick()));
-    if(Math.random() < 0.12) run(() => nwEvIndiscipline(pick()));
+    if(Math.random() < 0.15) run(() => nwEvTrainingInjury(pick()));
+    if(Math.random() < 0.2) run(() => nwEvLife(pick()));
+    if(Math.random() < 0.07) run(() => nwEvIndiscipline(pick()));
     if(Math.random() < 0.012) run(() => nwEvNoBuy(pick()));
     if(Math.random() < 0.015) run(() => nwEvDeduct(pick()));
-    if(Math.random() < 0.4) run(() => nwEvFlavor(pick()));
+    if(Math.random() < 0.2) run(() => nwEvFlavor(pick()));
     nw.deduct = nw.deduct.filter(d => d.year >= c.year - 1);
   }
   // Tras el mercado de pases: se gasta la inhibición y se avisa qué clubes no pudieron comprar.
@@ -6621,7 +6737,7 @@ window.FIREBASE_CONFIG = {
   }
 
   // ---- Vista Noticias ----
-  const NW_FILTERS = [['all', 'Todas'], ['sanc', 'Sanciones'], ['mine', 'Mi equipo'], ['lesion', 'Lesiones'], ['hinchas', 'Hinchadas'], ['dopaje', 'Dopaje'], ['conducta', 'Conducta'], ['partido', 'Partidos'], ['club', 'Clubes']];
+  const NW_FILTERS = [['all', 'Todas'], ['sanc', 'Sanciones'], ['mine', 'Mi equipo'], ['lesion', 'Lesiones'], ['insolita', 'Insólitas'], ['hinchas', 'Hinchadas'], ['dopaje', 'Dopaje'], ['conducta', 'Conducta'], ['partido', 'Partidos'], ['club', 'Clubes']];
   function nwUnreadBadge(){
     const nw = state.career.news;
     if(!nw) return '';
