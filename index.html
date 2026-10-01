@@ -5828,9 +5828,9 @@ window.FIREBASE_CONFIG = {
     const x = careerMatchWx(m);
     return x ? x.k : 0;
   }
-  // ÁRBITROS (ficticios): cada partido tiene uno (m.ref). Cada árbitro tiene un carácter fijo: más permisivo o más severo
+  // ÁRBITROS: cada partido tiene uno (m.ref). Cada árbitro tiene un carácter fijo: más permisivo o más severo
   // (multiplica tarjetas, penales y VAR). La AFA puede dejar a uno sin designaciones unas fechas (c.refOut[nombre] = fecha hasta la que no dirige).
-  const CAREER_REFEREES = ['Ramiro Echeverría', 'Octavio Belmonte', 'Cristian Lanzillotta', 'Maximiliano Roldán', 'Adrián Cuenca', 'Leonel Paredes Sosa', 'Germán Olivieri', 'Matías Castelán', 'Esteban Villagra', 'Rodrigo Montiel', 'Santiago Arrieta', 'Gabriel Sorrentino', 'Federico Alcaraz Ruiz', 'Joaquín Tognetti', 'Ezequiel Barrionuevo', 'Damián Escalada', 'Nahuel Ceballos', 'Lucas Ferrante', 'Ariel Mansilla', 'Tomás Bordenave', 'Julián Sarmiento', 'Franco Ledesma', 'Horacio Quintela', 'Marcos Villafañe', 'Bruno Aguilera Paz', 'Iván Salcedo'];
+  const CAREER_REFEREES = ['Andres Gariano', 'Andres Merlos', 'Ariel Penel', 'Brian Ferreyra', 'Bruno Amiconi', 'Daniel Zamora', 'Dario Herrera', 'Facundo Tello', 'Felipe Viola', 'Fernando Echenique', 'Fernando Espinoza', 'Hernán Mastrangelo', 'Jorge Baliño', 'Juan Pafundi', 'Leandro Fedele', 'Leandro Rey Hilfer', 'Luis Lobo Medina', 'Nazareno Arasa', 'Nicolás Lamolina', 'Nicolás Ramirez', 'Pablo Dóvalo', 'Pablo Echavarría', 'Pablo Gimenez', 'Sebastián Martinez', 'Sebastian Zunino', 'Silvio Trucco', 'Yael Falcon Perez'];
   function careerRefK(m){
     const n = m && m.ref;
     return n ? 0.75 + awardHash(n + 'k') * 0.7 : 1;
