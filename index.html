@@ -621,6 +621,7 @@
   .lu-on{ color:#3ddc84; font-weight:700; font-size:11.5px; white-space:nowrap; }
   .lu-by{ color:var(--ink-dim); font-size:11px; font-weight:400; }
   .lu-empty{ color:var(--ink-dim); font-size:12px; margin:4px 0; }
+  .lu-dt{ margin-top:12px; padding-top:8px; border-top:1px solid rgba(128,128,128,.3); font-size:12.5px; font-weight:600; }
   @media (max-width:760px){ .lu-grid{ grid-template-columns:1fr; } }
 </style>
 </head>
@@ -5290,6 +5291,7 @@ window.FIREBASE_CONFIG = {
     const sq = { h: cache.byTeam[playerNormKey(home.name)], a: cache.byTeam[playerNormKey(away.name)] };
     const ab = { h: playerAbsences(sq.h, m), a: playerAbsences(sq.a, m) };
     const sig = ['h', 'a'].map(sd => ab[sd].sus.join(',') + ';' + ab[sd].inj.join(',')).join('|') + (state.career.deaths && state.career.deaths.length ? '|d' + state.career.deaths.length : '') + (state.career.amps && state.career.amps.length ? '|a' + state.career.amps.length : '') + (state.career.retInj && state.career.retInj.length ? '|r' + state.career.retInj.length : '');
+    if(!m.played){ const dh = careerDtName(m.home), da = careerDtName(m.away); if(dh || da) m.dtn = { h: dh, a: da }; }
     if(m.pre && m.pre.sig === sig) return m.pre;
     const pre = { sig, sus: {}, inj: {} };
     ['h', 'a'].forEach(sd => {
@@ -5700,7 +5702,7 @@ window.FIREBASE_CONFIG = {
     const staff = [], roles = shuffleArr(ACC_STAFF.slice()).slice(0, nwInt(1, 4));
     roles.forEach(r => staff.push({ n: nwPick(fn) + ' ' + nwPick(SOC_LN), r, o: roll() }));
     let dtName = null, dtO = null, newDt = null;
-    try{ const k = instClub(t), d = instDt(k); if(Math.random() < 0.7){ dtName = d.name; dtO = roll(); if(dtO === 'dead'){ newDt = nwPick(INST_NAMES); k.dt = { name: newDt, since: c.year, heat: 0 }; } } }catch(e){}
+    try{ const k = instClub(t), d = instDt(k); if(Math.random() < 0.7){ dtName = d.name; dtO = roll(); if(dtO === 'dead'){ newDt = instDtHire(t, k, { quiet: true }); } } }catch(e){}
     const sDead = staff.filter(x => x.o === 'dead'), sHurt = staff.filter(x => x.o === 'grave');
     if(dtO === 'dead') sDead.push({ n: dtName, r: 'director técnico' }); else if(dtO === 'grave') sHurt.push({ n: dtName, r: 'director técnico' });
     // Aviso único + noticias + redes
@@ -6427,6 +6429,7 @@ window.FIREBASE_CONFIG = {
         if(r && r[1] <= done){ const o = cache.byId[r[3]]; return row(id, { html: `<span class="lu-on">&#9650; ${r[1]}'</span>`, by: o ? o.n : '' }); }
         return row(id, null, 'lu-unused');
       }).join('');
+      const dtLine = (sd, tm) => { const n = (m.dtn && m.dtn[sd]) || careerDtName(tm.id); return n ? `<div class="lu-dt">DT: ${escapeHtml(n)}</div>` : ''; };
       const susIds = (m.sus && m.sus[side]) || (pre.sus && pre.sus[side]) || [], injIds = (m.inj && m.inj[side]) || (pre.inj && pre.inj[side]) || [];
       const abTxt = (id, kind) => {
         const i = careerAbsInfo(m, id, kind);
@@ -6435,7 +6438,7 @@ window.FIREBASE_CONFIG = {
         return kind === 'i' ? '🩹 ' + escapeHtml(i.w) + ' · baja de ' + games + at : '🟥 Suspendido ' + games + ' · ' + escapeHtml(i.w) + at;
       };
       const out = susIds.map(id => row(id, { html: '<span class="lu-tag">' + abTxt(id, 's') + '</span>' })).join('') + injIds.map(id => row(id, { html: '<span class="lu-tag">' + abTxt(id, 'i') + '</span>' })).join('');
-      return `<div class="lu-col">${head}<h5>Titulares</h5>${starters}<h5>Suplentes</h5>${bench || '<p class="lu-empty">Sin suplentes.</p>'}${out ? `<h5>Bajas</h5>${out}` : ''}</div>`;
+      return `<div class="lu-col">${head}<h5>Titulares</h5>${starters}<h5>Suplentes</h5>${bench || '<p class="lu-empty">Sin suplentes.</p>'}${out ? `<h5>Bajas</h5>${out}` : ''}${dtLine(side, team)}</div>`;
     };
     return `<div class="lu-wrap"><div class="lu-grid">${col('h', home)}${col('a', away)}</div></div>`;
   }
@@ -7814,10 +7817,6 @@ window.FIREBASE_CONFIG = {
       nwAdd({ k: 'arbitral', ic: '📢', h: '📢 ' + t.name + ' apuntó contra el arbitraje de ' + ref, b: 'Dirigentes de ' + t.name + ' cuestionaron la actuación de ' + ref + ' en el ' + res + ' y pidieron explicaciones a la AFA.', tids: [hot[0].s === 'h' ? m.home : m.away], cmp });
       if(Math.random() < 0.4) nwSchedule(nwInt(3, 6), 'refsanc', { ref, n: nwInt(1, 3), tids, res });
     }
-    const wx = m.wx;
-    if(wx && (wx.w === 'tormenta' || wx.p === 'embarrada' || wx.p === 'anegada') && Math.random() < 0.3){
-      nwAdd({ k: 'clima', ic: WX_INFO[wx.w].i, h: WX_INFO[wx.w].i + ' Partido en el barro: ' + res, b: 'Con ' + WX_INFO[wx.w].t.toLowerCase() + ' y la cancha ' + wx.p + ', el ' + res + ' se jugó en condiciones muy complicadas. Hubo quejas por el estado del campo.', tids, cmp });
-    }
   }
   function nwFactual(m){
     const cache = playersCache(), hT = careerTeamById(m.home), aT = careerTeamById(m.away);
@@ -8601,6 +8600,7 @@ window.FIREBASE_CONFIG = {
     const run = fn => { try{ fn(); }catch(e){} };
     if(Math.random() < 0.15) run(() => nwEvTrainingInjury(pick()));
     if(Math.random() < NW_LIFE_P_DAY) run(() => nwEvLife(pick()));
+    if(Math.random() < 0.004) run(() => { const ar = pool.filter(x => c.teams.some(y => y.id === x.id)); if(ar.length) instDtMove(nwPick(ar)); });
     if(Math.random() < DEATH_P_OFF) run(() => nwEvDeathOff(pick()));
     else if(Math.random() < AMP_P_OFF) run(() => nwEvAmputOff(pick()));
     else if(Math.random() < ACC_P_OFF) run(() => nwEvAccident(pick()));
@@ -22862,10 +22862,77 @@ window.FIREBASE_CONFIG = {
   // ---- Asistencia, seguridad, entrenador, redes, periodistas e ídolos ----
   function instSoc(tid, text, press){ try{ socPost(press ? socPage(3) : socFan(tid), text, { boost: 1 }); }catch(e){} }
   function instClubSoc(tid, text){ try{ socPost(socClub(tid), text, {}); }catch(e){} }
-  function instDt(k){ if(!k.dt) k.dt = { name: nwPick(INST_NAMES), since: state.career.year, heat: 0 }; if(k.form == null) k.form = 0; return k.dt; }
+  function instDt(k){ if(!k.dt){ k.dt = { name: instDtNewName(), since: state.career.year, heat: 0 }; } if(k.form == null) k.form = 0; return k.dt; }
+
+  // ---- Mercado de entrenadores: los DT que se van o los echan quedan libres (c.inst.dtFree) y otro club puede contratarlos ----
+  function instDtFreeList(){
+    const S = instState();
+    if(!S.dtFree){
+      S.dtFree = [];
+      const used = {}; Object.keys(S.clubs).forEach(id => { if(S.clubs[id].dt) used[S.clubs[id].dt.name] = 1; });
+      shuffleArr(INST_NAMES.slice()).filter(n => !used[n]).slice(0, 6).forEach(n => S.dtFree.push({ name: n, y: state.career.year, prev: null, why: 'sin club' }));
+    }
+    return S.dtFree;
+  }
+  function instDtInUse(name){
+    const S = instState(); return Object.keys(S.clubs).some(id => S.clubs[id].dt && S.clubs[id].dt.name === name);
+  }
+  // Nombre nuevo para un DT que no está en uso ni en el mercado de libres (primero la lista fija; si se agota, nombre + apellido al azar).
+  function instDtNewName(){
+    const list = instDtFreeList(), taken = n => instDtInUse(n) || list.some(x => x.name === n);
+    const pool = INST_NAMES.filter(n => !taken(n));
+    if(pool.length) return nwPick(pool);
+    const fn = SOC_FN.filter(x => ['Valentina', 'Camila', 'Lucía', 'Sofía', 'Florencia'].indexOf(x) < 0);
+    for(let i = 0; i < 60; i++){ const n = nwPick(fn) + ' ' + nwPick(SOC_LN); if(!taken(n)) return n; }
+    return nwPick(fn) + ' ' + nwPick(SOC_LN) + ' ' + (state.career.year % 100);
+  }
+  // Un DT deja el club (despido, renuncia): queda libre y puede ser fichado después.
+  function instDtRelease(name, clubName, why){
+    if(!name) return;
+    const list = instDtFreeList();
+    if(list.some(x => x.name === name)) return;
+    list.push({ name, y: state.career.year, prev: clubName || null, why: why || 'se fue del club' });
+    if(list.length > 60) list.shift();
+  }
+  // El club necesita DT: 70% sale del mercado de libres (si hay), si no aparece uno nuevo. Devuelve el nombre y lo asigna.
+  function instDtHire(t, k, opt){
+    opt = opt || {};
+    const list = instDtFreeList();
+    const cand = list.filter(x => !instDtInUse(x.name));
+    let name, from = null;
+    if(cand.length && Math.random() < 0.7){
+      const x = nwPick(cand); name = x.name; from = x;
+      list.splice(list.indexOf(x), 1);
+    }else{
+      name = instDtNewName();
+    }
+    k.dt = { name, since: state.career.year, heat: 0 }; k.form = 0;
+    if(!opt.quiet){
+      const prev = from && from.prev && from.prev !== t.name ? ' (último club: ' + from.prev + ')' : '';
+      try{ nwAdd({ k: 'club', ic: '🧢', h: '🧢 ' + name + ' es el nuevo entrenador de ' + t.name, b: (from ? name + ' estaba libre' + prev + ' y fue contratado por ' + t.name + '.' : t.name + ' presentó a ' + name + ' como nuevo director técnico.') + (opt.extra ? ' ' + opt.extra : ''), tids: [t.id] }); }catch(e){}
+    }
+    return name;
+  }
+  // Una vez en un rato, un DT renuncia por su cuenta (o un club lo reemplaza) y el mercado se mueve.
+  function instDtMove(t){
+    const k = instClub(t), d = instDt(k);
+    nwAdd({ k: 'club', ic: '🚪', h: '🚪 ' + d.name + ' renunció como entrenador de ' + t.name, b: 'El DT presentó su renuncia y queda libre para dirigir a otro club.', tids: [t.id] });
+    instFanLog(k, d.name + ' renunció como entrenador.');
+    instDtRelease(d.name, t.name, 'renuncia');
+    instDtHire(t, k);
+  }
+  // Nombre del DT de un equipo argentino (null si no es de los que tienen institución).
+  function careerDtName(teamId){
+    try{
+      const c = state.career, t = c.teams.find(x => x.id === teamId);
+      if(!t) return null;
+      return instDt(instClub(t)).name;
+    }catch(e){ return null; }
+  }
   // Se llama antes de procesar las noticias de cada partido (antes de descontar clausuras).
   function instPreAttend(m){
-    const c = state.career; if(!m || m.bye || m.neutral || m.comp === 'amistoso' || typeof m.homeScore !== 'number') return;
+    const c = state.career; if(m && !m.bye && !m.dtn && typeof m.homeScore === 'number'){ const dh = careerDtName(m.home), da = careerDtName(m.away); if(dh || da) m.dtn = { h: dh, a: da }; }
+    if(!m || m.bye || m.neutral || m.comp === 'amistoso' || typeof m.homeScore !== 'number') return;
     const H = c.teams.find(t => t.id === m.home), A = c.teams.find(t => t.id === m.away); if(!H || !A) return;
     const kh = instClub(H), ka = instClub(A), e = instEst(kh), f = instFans(kh), nw = careerNews(), cl = instIsClasico(H.name, A.name);
     // Asistencia: depende de la importancia, la racha, la protesta y las sanciones vigentes
@@ -22882,7 +22949,7 @@ window.FIREBASE_CONFIG = {
     const r = m.homeScore > m.awayScore ? 1 : m.homeScore < m.awayScore ? -1 : 0;
     [[H, kh, r], [A, ka, -r]].forEach(x => { const t = x[0], k = x[1], d = instDt(k); k.form = Math.max(-3, Math.min(3, k.form * 0.8 + x[2]));
       if(k.form <= -2.2){ d.heat++; if(d.heat === 3 && Math.random() < 0.5){ nwAdd({ k: 'club', ic: '😤', h: '😤 Silbidos y cánticos contra el DT de ' + t.name, b: 'La hinchada le reclamó a ' + d.name + ' tras la última derrota.', tids: [t.id] }); instSoc(t.id, '#RenunciaYa ' + d.name + ' no da para más, así no se puede.'); }
-        if(d.heat >= 5 && Math.random() < 0.4){ nwAdd({ k: 'club', ic: '✂️', h: '✂️ ' + d.name + ' dejó de ser el entrenador de ' + t.name, b: 'Tras la pérdida de apoyo de la hinchada, el club buscó un reemplazante.', tids: [t.id] }); instFanLog(k, d.name + ' deja el cargo tras el pedido de renuncia.'); k.dt = { name: nwPick(INST_NAMES), since: c.year, heat: 0 }; k.form = 0; } }
+        if(d.heat >= 5 && Math.random() < 0.4){ nwAdd({ k: 'club', ic: '✂️', h: '✂️ ' + d.name + ' dejó de ser el entrenador de ' + t.name, b: 'Tras la pérdida de apoyo de la hinchada, el club lo dejó libre y buscó un reemplazante.', tids: [t.id] }); instFanLog(k, d.name + ' deja el cargo tras el pedido de renuncia.'); instDtRelease(d.name, t.name, 'despedido'); instDtHire(t, k); } }
       else if(k.form >= 2) d.heat = Math.max(0, d.heat - 1); });
     // Operativos y rutas separadas en clásicos de seguridad Alta/Máxima
     if(m.sec === 'Máxima' && Math.random() < 0.3) nwAdd({ k: 'club', ic: '🚓', h: '🚓 Seguridad máxima en ' + H.name + ' - ' + A.name, b: 'Con antecedentes recientes, el partido se jugó con rutas separadas, horarios escalonados de llegada y escolta policial para el micro visitante.', tids: [H.id, A.id] });
