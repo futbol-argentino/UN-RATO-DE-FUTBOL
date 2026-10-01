@@ -530,6 +530,26 @@
   .fs-stage.fs-done .fs-clock, .fs-stage.fs-done .fs-event, .fs-stage.fs-done .fs-pens, .fs-stage.fs-done .fs-trophy, .fs-stage.fs-done .fs-kicker{ display:none; }
   .fs-stage.fs-done .fs-board{ transform:scale(.62); margin:-14px 0 -6px; }
   .fs-actions{ margin-top:22px; display:flex; justify-content:center; }
+
+  .fs-speed{ display:inline-flex; gap:4px; align-items:center; margin-right:10px; font-size:12px; color:var(--ink-dim); }
+  .fs-speed button{ background:transparent; border:1px solid rgba(255,255,255,.25); color:inherit; border-radius:6px; padding:3px 8px; cursor:pointer; font:inherit; }
+  .fs-speed button.on{ background:var(--fs-accent); color:#111; border-color:var(--fs-accent); }
+  .fs-actions{ flex-wrap:wrap; align-items:center; }
+  .fs-var{ position:absolute; inset:0; z-index:6; display:flex; align-items:center; justify-content:center; background:rgba(4,10,22,.93); animation:fsFade .25s ease; }
+  .fs-var[hidden]{ display:none; }
+  .fs-var-card{ width:min(92vw,520px); text-align:center; }
+  .fs-var-logo{ width:min(60vw,260px); background:#ECE7DA; border-radius:14px; padding:12px; animation:fsVarPulse 1.2s ease-in-out infinite; }
+  .fs-var-kick{ margin-top:14px; font-family:'Oswald',sans-serif; letter-spacing:.2em; font-size:14px; color:#9db8d6; }
+  .fs-var-subj{ margin:8px 0 12px; font-size:clamp(16px,2.8vw,21px); line-height:1.35; }
+  .fs-var-step{ min-height:24px; font-size:14px; color:var(--ink-dim); }
+  .fs-var-bar{ height:6px; border-radius:4px; background:rgba(255,255,255,.12); margin:12px 0; overflow:hidden; }
+  .fs-var-bar i{ display:block; height:100%; width:0; background:#4f8fd6; transition:width linear; }
+  .fs-var-verdict{ font-family:'Oswald',sans-serif; font-size:clamp(24px,5vw,38px); letter-spacing:.04em; padding:10px 14px; border-radius:10px; animation:fsPop .5s ease; }
+  .fs-var-verdict.ok{ background:rgba(60,160,90,.22); color:#6fd18b; }
+  .fs-var-verdict.no{ background:rgba(200,60,50,.25); color:#ff7f72; }
+  .fs-var-verdict.neu{ background:rgba(220,180,70,.2); color:#f0cd6e; }
+  .fs-var-det{ margin-top:8px; font-size:14px; color:var(--ink-dim); }
+  @keyframes fsVarPulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(79,143,214,.55) } 50%{ box-shadow:0 0 28px 8px rgba(79,143,214,.55) } }
   @keyframes fsFade{ from{opacity:0} to{opacity:1} }
   @keyframes fsSpin{ to{ transform:rotate(360deg) } }
   @keyframes fsTrophy{ 0%,100%{ transform:translateY(0) scale(1) } 50%{ transform:translateY(-8px) scale(1.06) } }
@@ -1039,6 +1059,11 @@ window.FIREBASE_CONFIG = {
     return { kicks, h, a };
   }
 
+  const VAR_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAWgAAADsBAMAAACrnSGcAAAAHlBMVEUAAAADLU8AVVUDLE4AGl4DLE0AAP8AfwAAAAAAAADDZRpRAAAACHRSTlMA/gOgEFcBArvqwdoAAArGSURBVHja7Z07cxvJEcdnh0MlpiiwHBo2VxAzK6BfyRUED3W89EpXTi+4D+DAH8WBP8CVy6EC+hFCqjEMO7Hoosu+jGbtydAlok57TlwlDQcO+MD07PS8lndFlXsjgVgMftvb0//unsGq2mLv3sEZQRM0QRM0QRM0QRM0QRM0QRM0QX8Nh7D46xtNahof9HcPbzT02qYPmo1uNPTnXvewb8ANnHwVRQ+CJmiCJmiCJmiCJmiCJmiCJmiCJmiCJmiCJmiCJmj/Ib6GMfftF1r5T3rYdP82wk52jmq1xW279YwjhguNXK60XjTH13XFO8hIvNpMgz4n3k+8fu/VoJb+YND507JlU8Y41zFo3D3EkDUN2986OdyOOwGbWjcPrN2sCS+DfOYddGtn+7F5+LTMp4WuL4gZYwvvKbeVfxhhoP/prNt0fPztvcd8okqgNWv2t44Pry6he0YNfGm5OkXvHYGRbr3Jc2rz5CffmpVYWsg7J4dhYzVf2a+GG6trcJz1PaYy5+Ixn8xMNrSEbukzFl+Ddj+4+ucnv4VntkfZEcT8YxK8Ui+0qgYxY5kKkq0G/M1teOaiIO6Zz15KlauIzqUMPANMwCgrJ9RLVwlKRFf/eJYr48L54kZ2PQgdxfVGU6Qx/5rkQuuPnTs873pQC4LHiqx2L9BMiqg/y06YPpWxWCtAxBt63dsfTVIdRNa5WR78ZiNiTr+6yEUngfE4V8rxz0UmNIfTwIw7doDBQ61matUZbKGKoM+kzBMXsx67w5olibj/MtKO0zbTPdzwUQejx3JFrbvTzhTm7C+eZ0IPIWXXUYHth+PQTTHjMqfWk9xyqw7fYZgu1ZbXehx4UObUbFDnZXnNXWgs7rjq4itExH2DzQuden6aaelZWCCqVBHvU4hWme4hquCdgobnWEpyOU91GbTOLQKcvzdwJhqQ6Nsi7g2gMbq1XcYY2zp2p7tsmqwWgoapoaNOEgaP04CIM8bYo6MmTH1RYb7/N0eXmzyflm3o4lSTLOKMMdYkdUvq+skP01JxzNLK2nDYdUuYLqnY3FmcJkBPGZNPPlJOfZ1laecNU+NXGhbxHCFX4vdJlTwK7cQukCbDwGa9GPtFzKQWL3q8mzKD0eEcIYeqBtiGq+tR/tw5vQ6Yz1KcF4V2ciSF11p+EedFdYDeAxeb6x5O8BL2RUODtt6TKvuiVXLKNK1x6yRAzwJzQiEibs04bX+7SE4/oAIg1Hj0gO/oW5ircb/w1m2RkCclhCi0ccLHexIJYUglXs/K2giAetBkuodGwwdMl6xKvLGs24KRA6W1I3a8j6Vd77KiCYxglohbes3VkrFISpKQXOVa+i/QvRZfIBHMinjr9rgfh+u1PgcO/QZG9uqNv9YSn3rdZilAw6e6TuZQUbF0auqrCABa01Y73c6yh/eBSxiRGD+cbmzd5FmajWt/w4avJ1TitVLhdg86lcBUqDPdg6na3zQwJqESbyVUp0EJMxa2QxGmRcLHJC7iTClehds9iKUGCVIT8Gk+2/Rm8hKrxNfBsDAfXSQGvX2QIXCTbWn43lVHH7SmERFfckedUlfm/ogX/UnQjpCvXNme0W9X49pdTm0Yq2tQKKdBgwm7FNnQTh1gfK5r9wxsEa+d13ia6XjrESxk8qFrJ02UnfwTiLjdpKhrt8ndJuRvXD6A36jyoZ2PXH6tRk5adzsWPKUdYOdK5s/A0OyA5UM7ncPGc5+FP/fjs86ciK/MafPBRlpkCw3lrMxdOvPAP1Xs3I9350QwpZaj0Y7Y/5mzM+GtLIDW0BEuyo9f2MFj+HOv6J0XBkBQQhX52d9fv351+/BpWB0T3QN+zJy/+pUNXf9ydW7TiTttUUV+hfY7VQTdeq6hQkR83rjJGQwfqUK+mgWTIkuLWbfiAiqFVOKsld3GUnYdcL8kn4bZxGV0A61pm2q4sjqf625GnlsHrOF7PsLu4QkfQHGsStwuXS+3ToGMXGcuYowNK4OGQl5pR/fsStxOoy4DIczI81bmxAErhIbLEUYwpzVtLcXYf7+MlbAzn7cy931WCg1zHjPuzIErUpDyy6tKANfXyHFPFUM7Db2B05q2RBwoXiu90zxjiw1/JouhnZW5RkI4RMSvLAzzgGVGc+wBK7e0I+QLBTJ9rBLn/szfpE/Ee38obNZ4hLxyCk+rErdFfHV7puDjg1RNvPdsXNqs6c5/ww24bbaI2xvb9v15QLIkPot0fCPQ8+UmyNSUfT6f+7XzDHm6SdLKHGPxxdKIe2j4/qCukGI5pYOULOTzSJkTgb4FhbwB6ZIt4iksyStzsTgTGecNFPLFySQu4jj0JDF+mA97QTtCXoFUHhFx/EgW8rnoMxGdLTYGRAArd0pzV4x5bZctwQaEM90LGjb0zI4FbVmXp4mdwLrUUybgXuBHB73co0KdBRPxwATDDei0zcL+EYN2VnrvxEU8NBg+ETmcyWeTXpaGM/FpXMSDMxEVcv4n+Hqzj08zWcVLdSjioWmNu4ezvDIPLdJEod2t9t5KfD0xlAWEnMOvOTO93AO7rFwRj0VGp7D5sBf0Mv735DZMQMjNWzjKnPeBHiNIQ6yUDAp5aJZC/5B9oBUCbbXTRZNq6kBo5I5/fNkHGl2MV95KPBI+cPuZ7ziTVvSA5v5fnGCVeCR8BPoI9W6qfyRY2n9KvohfNamwO+dY57Q8Tjuryqt5eF95PbXz+EvwvEMd+nXTHizTFmgaltIV9G4FsH5iBoTugZufrW/EB/Ne0Zl8Wg7tF3JLxAH0f9wv2H4FPhYINLNqMy1+JPi0iol4FZq2GlKGSlY3Cr3g5dDeziEm4t1f9cINXKGVOT2EAUM/LHcPsQyLuIRBRQe9Kxgdn38+SIofCZbW2qOJVpUOKnGtw94VDI/Oz0lR/0hqRdTBdB6IuEcRZqlCzrSzlRjzjxToTzxC3iAi3naonf2fwZW5xSBJX1Li9K+rTvFjW9eEQ42Tjga32Jj5huMfptTSniwYE3HfcJ7VJjxpcv1DFvv00jM5/V7KeWxKhNswjesfTTH0sOOHlgFAJe5rHbo7bCRLT6r9P+9La2QOQpV4E7y8jkgGt9h0/GNSDN2kirg3HXKmRJNlH+8eyLS139kmLuI6WuU4i9XBxl/zwokfr0ot7f5mDoi4jFY50GeW4e9yHibi9Y8k6I42Y+10vxGhnkTqHNCJ5Dvvs2L3cDebDazXTdyK9nWN7oaXi57/+9IV+eiOVn/tAd2iSRDcl7zRBKfE6O6pijzYn8vDC+LpKyb8z92JPR3oMjsFM1G8tBJ3+52fHng/fl5x7WyfKsbkxQYW+0E7y8d2APqB4g9fTxkT2iZOfjoQVuittSsnX39kvfHSH4PFbT7aPlWM1YuEfbJCThnjxvHIAmjxEYuz4cf5U5HArbYfHtX5Dwo8T9opgA7Y5XvWixP0LL2T/HgpMVbeAjIfeoS2MpIsPWV9j7SHR8HjpNc39mcuSJhu2EHQBE3QBE3QBE3QBE3QBE3QBE3QBE3QBE3QBE3QBE3Q9mH/L9j8Rv/nzNWXPmhzcqPNu+Zdvnh3/r9xC5omIkETNEETNEETNEETNEETNEET9P97C+FHZZ87O7q+Mns3u5tQ+E171wh9+g25h7zWu00TkaAJmqAJmqAJmqAJmqDfUei1so99wf57bQgj+3l2Scf/AMKQWjBI6kEYAAAAAElFTkSuQmCC';
+  let careerShowSpeed = 1;
+  try{ const sv = parseFloat(localStorage.getItem('careerShowSpeed')); if(sv > 0) careerShowSpeed = sv; }catch(e){}
+  const CAREER_SPEEDS = [0.5, 1, 2, 4, 8];
+
   function careerRunFinalShow(m, done){
     const c = state.career;
     const home = careerTeamById(m.home), away = careerTeamById(m.away);
@@ -1091,7 +1116,7 @@ window.FIREBASE_CONFIG = {
           <div class="fs-pen-total num">0 - 0</div>
         </div>
         <div class="fs-champ" hidden></div>
-        <div class="fs-actions"><button class="btn ghost small fs-lu" type="button">&#128203; Alineaciones</button> <button class="btn ghost small fs-skip" type="button">Saltar animación</button></div>
+        <div class="fs-actions"><span class="fs-speed">Velocidad: ${CAREER_SPEEDS.map(v => `<button type="button" data-sp="${v}" class="${v === careerShowSpeed ? 'on' : ''}">${v}×</button>`).join('')}</span><button class="btn ghost small fs-lu" type="button">&#128203; Alineaciones</button> <button class="btn ghost small fs-skip" type="button">Saltar animación</button></div>
       </div>`;
     document.body.appendChild(root);
     const q = sel => root.querySelector(sel);
@@ -1100,7 +1125,7 @@ window.FIREBASE_CONFIG = {
     const SKIP = {};
     const wait = ms => new Promise(r => {
       wakeFn = r;
-      setTimeout(r, skipped ? 0 : (reduce ? Math.min(ms, 120) : ms));
+      setTimeout(r, skipped ? 0 : (reduce ? Math.min(ms, 120) : ms / careerShowSpeed));
     }).then(() => { if(skipped) throw SKIP; });
 
     function close(){
@@ -1120,6 +1145,42 @@ window.FIREBASE_CONFIG = {
     const luBox = q('.fs-lineups'), luBtn = q('.fs-lu');
     const refreshLu = () => { if(!luBox.hidden) luBox.innerHTML = careerLineupPanelHtml(m, curMin); };
     if(luBtn) luBtn.addEventListener('click', () => { luBox.hidden = !luBox.hidden; refreshLu(); });
+    root.querySelectorAll('.fs-speed button').forEach(b => b.addEventListener('click', () => {
+      careerShowSpeed = parseFloat(b.getAttribute('data-sp')) || 1;
+      try{ localStorage.setItem('careerShowSpeed', String(careerShowSpeed)); }catch(e){}
+      root.querySelectorAll('.fs-speed button').forEach(x => x.classList.toggle('on', x === b));
+    }));
+    // ---------- Revisión del VAR ----------
+    const varEl = document.createElement('div');
+    varEl.className = 'fs-var'; varEl.hidden = true;
+    root.appendChild(varEl);
+    const refName = m.ref || careerMatchRef(m) || 'El árbitro';
+    const refSlow = refName === 'Fernando Espinoza' ? 1.7 : 1;   // Espinoza se toma su tiempo en el monitor
+    // o: { subject, tone: 'ok'|'no'|'neu', verdict, detail, feed }
+    async function varReview(o){
+      varEl.innerHTML = '<div class="fs-var-card"><img class="fs-var-logo" src="' + VAR_LOGO + '" alt="VAR"><div class="fs-var-kick">REVISIÓN DEL VAR</div><div class="fs-var-subj"></div><div class="fs-var-step"></div><div class="fs-var-bar"><i></i></div><div class="fs-var-out"></div></div>';
+      varEl.hidden = false;
+      const subj = varEl.querySelector('.fs-var-subj'), step = varEl.querySelector('.fs-var-step'), bar = varEl.querySelector('.fs-var-bar i'), out = varEl.querySelector('.fs-var-out');
+      subj.textContent = o.subject;
+      step.textContent = '🎧 El VAR se comunica con ' + refName + '…';
+      await wait(1100);
+      void bar.offsetWidth;
+      bar.style.transitionDuration = (2800 * refSlow / careerShowSpeed) + 'ms';
+      bar.style.width = '100%';
+      step.textContent = '🔎 Revisando las imágenes desde distintos ángulos…';
+      await wait(1500 * refSlow);
+      step.textContent = '📺 ' + refName + ' se acerca al monitor…';
+      await wait(1300 * refSlow);
+      out.innerHTML = '<div class="fs-var-verdict ' + (o.tone || 'neu') + '"></div>' + (o.detail ? '<div class="fs-var-det"></div>' : '');
+      out.firstChild.textContent = o.verdict;
+      if(o.detail) out.lastChild.textContent = o.detail;
+      step.textContent = '';
+      if(o.feed){ const fl = document.createElement('div'); fl.textContent = curMin + "' 🖥️ VAR: " + o.verdict + (o.detail ? ' · ' + o.detail : ''); q('.fs-feed').appendChild(fl); }
+      await wait(2400);
+      varEl.hidden = true;
+    }
+    const varRoll = (key, p) => awardHash(String(m.id) + 'var' + key) < p;
+    const refK = careerRefK(m);
 
     function setScore(h, a, bump){
       const sh = q('.fs-sh'), sa = q('.fs-sa');
@@ -1166,6 +1227,7 @@ window.FIREBASE_CONFIG = {
     }
     function showResult(){
       finished = true;
+      varEl.hidden = true;
       setScore(m.homeScore, m.awayScore);
       if(shoot) renderPens(shoot.kicks.length);
       q('.fs-feed').hidden = true;
@@ -1223,6 +1285,11 @@ window.FIREBASE_CONFIG = {
         (m.pk || []).forEach(x => evs.push({ min: Math.max(1, Math.min(90, x.m)), side: x.s, id: x.p, k: 'pk', r: x.r, g: x.g, v: x.v }));
         (m.var || []).forEach(x => evs.push({ min: Math.max(1, Math.min(90, x.m)), side: x.s, id: x.p, k: 'var', kk: x.k, w: x.w }));
         if(m.amp) evs.push({ min: Math.max(1, Math.min(90, m.amp.m)), side: m.amp.s, id: m.amp.p, k: 'amp', w: m.amp.w, part: m.amp.part });
+        // Revisiones del VAR sin consecuencias (no es roja, no es penal...). Con un árbitro más severo hay más.
+        const XK = ['nored', 'nopen', 'nohand'];
+        for(let xi = 0; xi < 2; xi++){
+          if(varRoll('x' + xi, (xi ? 0.15 : 0.35) * refK)) evs.push({ min: 6 + Math.floor(awardHash(String(m.id) + 'xm' + xi) * 80), side: awardHash(String(m.id) + 'xs' + xi) < 0.5 ? 'h' : 'a', k: 'xvar', kind: XK[Math.floor(awardHash(String(m.id) + 'xk' + xi) * 3)] });
+        }
         evs.sort((x, y) => x.min - y.min);
         let ei = 0;
         for(let min = 1; min <= 90; min++){
@@ -1230,6 +1297,13 @@ window.FIREBASE_CONFIG = {
           curMin = min; refreshLu();
           while(gi < goals.length && goals[gi].min === min){
             const g = goals[gi++];
+            if(varRoll('g' + gi, 0.14 * Math.min(refK, 1.6))){
+              const gt = g.side === 'h' ? home : away, why = ['posible fuera de juego', 'posible mano previa', 'posible falta en ataque'][Math.floor(awardHash(String(m.id) + 'gw' + gi) * 3)];
+              setEvent('⚽ ¿Gol de ' + gt.name + '? El árbitro frena todo…');
+              await wait(900);
+              await varReview({ subject: 'Revisan ' + why + ' en el gol de ' + careerGoalDesc(g, gt), tone: 'ok', verdict: '✅ GOL VALIDADO', detail: 'Se mantiene la decisión: el gol es legítimo', feed: true });
+              setEvent('');
+            }
             if(g.side === 'h') sh++; else sa++;
             setScore(sh, sa, g.side);
             const tm = g.side === 'h' ? home : away;
@@ -1239,11 +1313,30 @@ window.FIREBASE_CONFIG = {
             setEvent('');
           }
           while(ei < evs.length && evs[ei].min <= min){
+            if(evs[ei].k === 'xvar'){
+              const xe = evs[ei++], xt = xe.side === 'h' ? home : away;
+              const X = {
+                nored: { s: 'Entrada fuerte de un jugador de ' + xt.name + ': posible roja directa', v: '🟨 NO ES ROJA', d: 'Sigue el juego', t: 'neu' },
+                nopen: { s: 'Contacto dentro del área: posible penal para ' + xt.name, v: '🚫 NO HAY PENAL', d: 'Sigue el juego', t: 'neu' },
+                nohand: { s: 'Posible mano en el área de ' + (xt === home ? away.name : home.name), v: '🚫 NO ES PENAL', d: 'La mano no era punible', t: 'neu' }
+              }[xe.kind];
+              setEvent('🖥️ El VAR llama al árbitro…');
+              await wait(900);
+              await varReview({ subject: X.s, tone: X.t, verdict: X.v, detail: X.d, feed: true });
+              setEvent('');
+              continue;
+            }
             const e = evs[ei++], tm = e.side === 'h' ? home : away, pl = pc && pc.byId[e.id], nm = pl ? pl.n : 'un jugador';
             const susTxt = e.b ? ' · ' + e.b + (e.b === 1 ? ' partido' : ' partidos') + ' de suspensión' : '';
             const whyTxt = (e.k === 'yr' || e.k === 'r') && e.w ? ' · ' + (e.k === 'yr' ? '2ª amarilla por ' + e.w.charAt(0).toLowerCase() + e.w.slice(1) : e.w) : '';
             const txt = e.k === 'var' ? careerExtraEventText({ k: e.kk, w: e.w }, nm, tm, pc) : e.k === 'pk' ? careerExtraEventText(e, nm, tm, pc) : e.k === 'death' ? '🕯️ Tragedia: fallece ' + nm + ' (' + tm.name + ')' + (e.w ? ' a causa de ' + e.w : '') : e.k === 'amp' ? '🦾 Drama: ' + nm + ' (' + tm.name + ') sufre ' + (e.w || 'una lesión gravísima') + ' y deberán amputarle ' + (e.part || 'una extremidad') : e.k === 'hurt' ? '🩹 Se lesiona ' + nm + ' (' + tm.name + ')' + (e.w ? ': ' + e.w : '') + (e.r ? ' · ¡podría ser el final de su carrera!' : ' · baja de ' + e.n + (e.n === 1 ? ' partido' : ' partidos'))
               : e.k === 'yr' ? '🟥 Doble amarilla: expulsado ' + nm + ' (' + tm.name + ')' + whyTxt + susTxt : '🟥 ¡Expulsado ' + nm + ' (' + tm.name + ')!' + whyTxt + susTxt;
+            let vr = null;
+            if(e.k === 'var' && e.kk === 'ga') vr = { pre: '⚽ ¿Gol de ' + nm + ' (' + tm.name + ')?', subject: 'Posible gol de ' + nm + ' (' + tm.name + ')', tone: 'no', verdict: '❌ GOL ANULADO', detail: e.w ? e.w.charAt(0).toUpperCase() + e.w.slice(1) : '' };
+            else if(e.k === 'var') vr = { pre: '🖥️ Penal para ' + tm.name + '…', subject: 'Penal para ' + tm.name + ': revisan la jugada', tone: 'no', verdict: '❌ PENAL ANULADO', detail: e.w ? e.w.charAt(0).toUpperCase() + e.w.slice(1) : '' };
+            else if(e.k === 'pk' && e.v) vr = { pre: '🖥️ Posible penal para ' + tm.name + '…', subject: 'Posible penal para ' + tm.name + ' sobre ' + nm, tone: 'ok', verdict: '✅ PENAL CONFIRMADO', detail: 'Se cobra desde el punto penal' };
+            else if(e.k === 'r' && varRoll('r' + e.min + e.id, 0.4)) vr = { pre: '🖥️ Revisión por posible roja…', subject: 'Posible roja directa para ' + nm + ' (' + tm.name + ')', tone: 'no', verdict: '🟥 ROJA CONFIRMADA', detail: e.w || '' };
+            if(vr){ setEvent(vr.pre); await wait(900); await varReview(vr); }
             setEvent(txt);
             const fl = document.createElement('div'); fl.textContent = e.min + "' " + txt; q('.fs-feed').appendChild(fl);
             refreshLu();
@@ -5833,11 +5926,12 @@ window.FIREBASE_CONFIG = {
   const CAREER_REFEREES = ['Andres Gariano', 'Andres Merlos', 'Ariel Penel', 'Brian Ferreyra', 'Bruno Amiconi', 'Daniel Zamora', 'Dario Herrera', 'Facundo Tello', 'Felipe Viola', 'Fernando Echenique', 'Fernando Espinoza', 'Hernán Mastrangelo', 'Jorge Baliño', 'Juan Pafundi', 'Leandro Fedele', 'Leandro Rey Hilfer', 'Luis Lobo Medina', 'Nazareno Arasa', 'Nicolás Lamolina', 'Nicolás Ramirez', 'Pablo Dóvalo', 'Pablo Echavarría', 'Pablo Gimenez', 'Sebastián Martinez', 'Sebastian Zunino', 'Silvio Trucco', 'Yael Falcon Perez'];
   function careerRefK(m){
     const n = m && m.ref;
+    if(n === 'Fernando Espinoza') return 2.1;   // el peor de todos: mucho más severo y polémico (el resto va de 0.75 a 1.45)
     return n ? 0.75 + awardHash(n + 'k') * 0.7 : 1;
   }
   function careerRefStyle(m){
     const k = careerRefK(m);
-    return k < 0.95 ? 'permisivo' : k > 1.25 ? 'severo' : 'parejo';
+    return k > 1.8 ? 'el peor de todos: severísimo y polémico' : k < 0.95 ? 'permisivo' : k > 1.25 ? 'severo' : 'parejo';
   }
   function careerMatchRef(m){
     if(!m || m.bye) return null;
