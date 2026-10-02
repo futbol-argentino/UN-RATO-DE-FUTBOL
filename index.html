@@ -261,6 +261,13 @@
   .cs-stage-pip{ padding:5px 11px; border-radius:20px; border:1px solid var(--line); background:var(--panel); font-size:11px; color:var(--ink-dim); }
   .cs-stage-pip.active{ color:var(--gold-bright); border-color:var(--gold); background:var(--panel-alt); }
   .cs-stage-pip.done{ color:var(--ink); }
+  button.cs-stage-pip{ font-family:inherit; }
+  button.cs-stage-pip.go{ cursor:pointer; }
+  button.cs-stage-pip.go:hover{ border-color:var(--gold); color:var(--gold-bright); }
+  button.cs-stage-pip:disabled{ opacity:.45; cursor:not-allowed; }
+  .cs-stage-target{ scroll-margin-top:90px; }
+  .cs-stage-flash{ animation:csStageFlash 1.4s ease; }
+  @keyframes csStageFlash{ 0%,100%{ box-shadow:none } 30%{ box-shadow:0 0 0 2px var(--gold), 0 0 22px rgba(201,162,39,.35) } }
   .cs-stage-sep{ color:var(--ink-dim); font-size:11px; }
   .cs-team-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-bottom:6px; }
   .cs-team-card{
@@ -1420,6 +1427,7 @@ window.FIREBASE_CONFIG = {
         (m.pk || []).forEach(x => evs.push({ min: Math.max(1, Math.min(90, x.m)), side: x.s, id: x.p, k: 'pk', r: x.r, g: x.g, v: x.v }));
         (m.var || []).forEach(x => evs.push({ min: Math.max(1, Math.min(90, x.m)), side: x.s, id: x.p, k: 'var', kk: x.k, w: x.w }));
         if(m.amp) evs.push({ min: Math.max(1, Math.min(90, m.amp.m)), side: m.amp.s, id: m.amp.p, k: 'amp', w: m.amp.w, part: m.amp.part });
+        (m.gkev || []).forEach(x => evs.push({ min: Math.max(1, Math.min(89, x.m)) + 0.5, side: x.s, id: x.p, k: 'gk', gk: x.k, o: x.o }));
         // Revisiones del VAR sin consecuencias (no es roja, no es penal...). Con un árbitro más severo hay más.
         const XK = ['nored', 'nopen', 'nohand'];
         for(let xi = 0; xi < 2; xi++){
@@ -1470,7 +1478,8 @@ window.FIREBASE_CONFIG = {
             const e = evs[ei++], tm = e.side === 'h' ? home : away, pl = pc && pc.byId[e.id], nm = pl ? pl.n : 'un jugador';
             const susTxt = e.b ? ' · ' + e.b + (e.b === 1 ? ' partido' : ' partidos') + ' de suspensión' : '';
             const whyTxt = (e.k === 'yr' || e.k === 'r') && e.w ? ' · ' + (e.k === 'yr' ? '2ª amarilla por ' + e.w.charAt(0).toLowerCase() + e.w.slice(1) : e.w) : '';
-            const txt = e.k === 'var' ? careerExtraEventText({ k: e.kk, w: e.w }, nm, tm, pc) : e.k === 'pk' ? careerExtraEventText(e, nm, tm, pc) : e.k === 'death' ? '🕯️ Tragedia: fallece ' + nm + ' (' + tm.name + ')' + (e.w ? ' a causa de ' + e.w : '') : e.k === 'amp' ? '🦾 Drama: ' + nm + ' (' + tm.name + ') sufre ' + (e.w || 'una lesión gravísima') + ' y deberán amputarle ' + (e.part || 'una extremidad') : e.k === 'hurt' ? '🩹 Se lesiona ' + nm + ' (' + tm.name + ')' + (e.w ? ': ' + e.w : '') + (e.r ? ' · ¡podría ser el final de su carrera!' : ' · baja de ' + e.n + (e.n === 1 ? ' partido' : ' partidos'))
+            const gkOut = e.k === 'gk' && pc && pc.byId[e.o] ? pc.byId[e.o].n : 'el arquero';
+            const txt = e.k === 'gk' ? (e.gk === 'sub' ? '🧤 Cambio de arquero en ' + tm.name + ': ingresa ' + nm + ' por ' + gkOut : e.gk === 'sac' ? '🧤 ' + tm.name + ' se quedó sin arquero: ingresa ' + nm + ' en lugar de un jugador de campo' : '🧤 ¡' + tm.name + ' no tiene arqueros para ingresar! ' + nm + ' se pone los guantes') : e.k === 'var' ? careerExtraEventText({ k: e.kk, w: e.w }, nm, tm, pc) : e.k === 'pk' ? careerExtraEventText(e, nm, tm, pc) : e.k === 'death' ? '🕯️ Tragedia: fallece ' + nm + ' (' + tm.name + ')' + (e.w ? ' a causa de ' + e.w : '') : e.k === 'amp' ? '🦾 Drama: ' + nm + ' (' + tm.name + ') sufre ' + (e.w || 'una lesión gravísima') + ' y deberán amputarle ' + (e.part || 'una extremidad') : e.k === 'hurt' ? '🩹 Se lesiona ' + nm + ' (' + tm.name + ')' + (e.w ? ': ' + e.w : '') + (e.r ? ' · ¡podría ser el final de su carrera!' : ' · baja de ' + e.n + (e.n === 1 ? ' partido' : ' partidos'))
               : e.k === 'yr' ? '🟥 Doble amarilla: expulsado ' + nm + ' (' + tm.name + ')' + whyTxt + susTxt : '🟥 ¡Expulsado ' + nm + ' (' + tm.name + ')!' + whyTxt + susTxt;
             let vr = null;
             if(!hasVar) vr = null;
@@ -1485,7 +1494,7 @@ window.FIREBASE_CONFIG = {
               await penaltyKick({ side: e.side, name: pl ? pl.n : null, outcome: e.r === 'sv' || e.r === 'po' || e.r === 'of' ? e.r : 'of', key: 'p' + e.min + String(e.id), min: e.min, gkName: pc && pc.byId[e.g] ? pc.byId[e.g].n : null, tag: e.v ? 'Tras revisión del VAR' : '' });
             }
             setEvent(txt);
-            const fl = document.createElement('div'); fl.textContent = e.min + "' " + txt; q('.fs-feed').appendChild(fl);
+            const fl = document.createElement('div'); fl.textContent = Math.floor(e.min) + "' " + txt; q('.fs-feed').appendChild(fl);
             refreshLu();
             await wait(e.k === 'death' || e.k === 'amp' ? 4500 : 1500);
             setEvent('');
@@ -3443,6 +3452,7 @@ window.FIREBASE_CONFIG = {
     else if(action === 'career-ack-admin'){ const did = btn.getAttribute('data-id'); ((state.career && state.career.admin) || []).forEach(d => { if(String(d.id) === did) d.ack = true; }); render(); return; }
     else if(action === 'career-colecta-close'){ const did = btn.getAttribute('data-id'); ((state.career && state.career.colectas) || []).forEach(d => { if(String(d.id) === did && d.status !== 'active') d.hidden = true; }); render(); return; }
     else if(action === 'career-ack-amp'){ const did = btn.getAttribute('data-id'); ((state.career && state.career.amps) || []).forEach(d => { if(String(d.id) === did) d.ack = true; }); render(); return; }
+    else if(action === 'career-ack-refdead'){ const did = btn.getAttribute('data-id'); ((state.career && state.career.refKilled) || []).forEach(d => { if(String(d.id) === did) d.ack = true; }); render(); return; }
     else if(action === 'career-ack-acc'){ const did = btn.getAttribute('data-id'); ((state.career && state.career.accidents) || []).forEach(d => { if(String(d.id) === did) d.ack = true; }); render(); return; }
     else if(action === 'career-ack-death'){ const did = btn.getAttribute('data-id'); ((state.career && state.career.deaths) || []).forEach(d => { if(String(d.id) === did) d.ack = true; }); render(); return; }
     else if(action === 'career-pl-nav'){
@@ -3527,6 +3537,7 @@ window.FIREBASE_CONFIG = {
       render();
       return;
     }
+    else if(action === 'career-stage-jump'){ const el = document.getElementById(btn.getAttribute('data-target') || ''); if(el){ el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.remove('cs-stage-flash'); void el.offsetWidth; el.classList.add('cs-stage-flash'); } return; }
     else if(action === 'career-intl-tab'){ state.career.intlTab = btn.getAttribute('data-tab') || 'libertadores'; render(); return; }
     else if(action === 'career-simulate-continental'){
       const cup = btn.getAttribute('data-cup');
@@ -5281,6 +5292,38 @@ window.FIREBASE_CONFIG = {
     const bn = (gk ? [gk] : []).concat(rest.filter(p => p !== gk)).slice(0, LINEUP_BENCH);
     return { st: st.map(p => p.id), bn: bn.map(p => p.id) };
   }
+  // Un equipo nunca se queda sin arquero: si el arquero titular sale del partido (expulsión, lesión, tragedia...) se repone en el mismo minuto.
+  //  - Lesión (o cualquier salida sin roja) y quedan cambios + hay arquero suplente: cambio directo (entra el suplente por el arquero).
+  //  - Roja y quedan cambios + hay arquero suplente: el DT sacrifica a un jugador de campo (prefiere delantero/mediocampista) y entra el arquero.
+  //  - Sin cambios disponibles (ya hizo los 5) o sin arquero en el banco: un jugador de campo que sigue hasta el final se pone los guantes.
+  // Todo queda en m.gkev = [{s, m, k: 'sub'|'sac'|'field', p: quién entra al arco, o: quién sale}].
+  function playerFixGoalkeeper(m, lu, side, ps, byId){
+    if(!lu || !ps) return;
+    const isGk = id => byId[id] && byId[id].p === 'ARQ';
+    const gkRow = lu.find(r => isGk(r[0]) && r[1] === 0);
+    if(!gkRow || gkRow[2] >= 90) return;
+    const tg = gkRow[2];
+    const usedSubs = lu.filter(r => r.length >= 4).length;
+    const inLu = {}; lu.forEach(r => inLu[r[0]] = true);
+    const benchGk = (ps.bn || []).find(id => isGk(id) && !inLu[id]);
+    const red = (m.cards || []).some(cd => cd.s === side && cd.p === gkRow[0] && cd.t !== 'y' && cd.m === tg);
+    const ev = (k, pid, oid) => { (m.gkev = m.gkev || []).push({ s: side, m: tg, k, p: pid, o: oid }); };
+    const onField = lu.filter(r => r !== gkRow && r[1] <= tg && r[2] === 90 && byId[r[0]] && byId[r[0]].p !== 'ARQ');
+    if(benchGk && usedSubs < 5){
+      if(!red){ lu.push([benchGk, tg, 90, gkRow[0]]); ev('sub', benchGk, gkRow[0]); return; }
+      if(onField.length){
+        const w = { DEL: 3, MED: 3, DEF: 1 }, tot = onField.reduce((a, r) => a + (w[byId[r[0]].p] || 1), 0);
+        let x = Math.random() * tot, sac = onField[0];
+        for(const r of onField){ x -= (w[byId[r[0]].p] || 1); if(x < 0){ sac = r; break; } }
+        sac[2] = tg; lu.push([benchGk, tg, 90, sac[0]]); ev('sac', benchGk, sac[0]); return;
+      }
+    }
+    if(!onField.length) return;
+    const w2 = { DEF: 3, MED: 2, DEL: 1 }, tot2 = onField.reduce((a, r) => a + (w2[byId[r[0]].p] || 1), 0);
+    let y = Math.random() * tot2, pick = onField[0];
+    for(const r of onField){ y -= (w2[byId[r[0]].p] || 1); if(y < 0){ pick = r; break; } }
+    ev('field', pick[0], gkRow[0]);
+  }
   function careerPrepareMatch(m){
     if(!m || m.bye) return null;
     careerEnsurePlayers();
@@ -5745,6 +5788,148 @@ window.FIREBASE_CONFIG = {
     }).join('');
   }
 
+  // ---------- La barra aprieta: equipos de Primera en zona de descenso ----------
+  // Solo en el tramo final del Clausura (a partir de la mitad de las fechas) y para los clubes que están entre los últimos 4 de la Tabla Anual
+  // o de la de Promedios. Es poco frecuente (BARRA_P_DAY_FIGHT por día); si el descenso ya es un hecho (terminó la fase regular y el club está entre
+  // los que bajan), sube (BARRA_P_DAY_RELEGATED). Tipos de apriete: irrumpir en un entrenamiento, ir a la casa de un jugador, incendiar autos o
+  // citar al plantel en el predio. Casi nulo: que maten a un jugador (BARRA_P_KILL por apriete, el doble si ya descendió) o a un árbitro
+  // (BARRA_P_REF_KILL por partido de un club en zona; más si fue el partido del descenso). Además, en el último partido de un club que desciende
+  // puede haber incidentes en la cancha: piedrazos que impiden que los jugadores se retiren (BARRA_P_STONES).
+  const BARRA_P_DAY_FIGHT = 0.02, BARRA_P_DAY_RELEGATED = 0.07;
+  const BARRA_P_KILL = 0.004, BARRA_P_KILL_REL = 0.008;
+  const BARRA_P_REF_KILL = 0.00002, BARRA_P_REF_KILL_REL = 0.0002, BARRA_P_REF_HIT = 0.006;
+  const BARRA_P_STONES = 0.4;
+  let nwBarraCache = null;
+  function nwBarraState(){
+    const c = state.career;
+    if(c.tournament !== 'clausura' || !c.matches || !c.matches.length) return null;
+    const key = nwClock + '|' + c.matches.length + '|' + c.matches.filter(x => x.played).length;
+    if(nwBarraCache && nwBarraCache.key === key) return nwBarraCache.v;
+    const ms = c.matches.filter(x => !x.bye), played = ms.filter(x => x.played).length;
+    let v = null;
+    if(ms.length){
+      const desc = careerComputeDescensos();
+      const bottom = (rows, n) => rows.slice(Math.max(0, rows.length - n)).map(r => r.id);
+      const zone = bottom(desc.annual, 4).concat(bottom(desc.promedios, 4)).filter((id, i, a) => a.indexOf(id) === i);
+      const done = played === ms.length;
+      v = { late: played / ms.length >= 0.5, done, zoneIds: zone, relegIds: done ? desc.relegated.slice() : [], desc };
+    }
+    nwBarraCache = { key, v };
+    return v;
+  }
+  const BARRA_DEMAND_FIGHT = ['que se pelee el descenso hasta el final', 'más actitud en los partidos que quedan', 'que no se regale ni un punto más', 'compromiso con la camiseta'];
+  const BARRA_DEMAND_REL = ['que den la cara por el descenso', 'que devuelvan lo que cobraron', 'que se vayan del club', 'explicaciones por haber bajado de categoría'];
+  function nwEvBarra(t, relegated){
+    if(!t) return;
+    const squad = nwSquad(t.id).filter(p => !p.r);
+    if(squad.length < 6) return;
+    const c = state.career;
+    if(!c.inj) c.inj = {};
+    const demand = nwPick(relegated ? BARRA_DEMAND_REL : BARRA_DEMAND_FIGHT);
+    const why = relegated ? 'tras el descenso' : 'por la pelea por el descenso';
+    const tids = [t.id];
+    // Casi nulo: un jugador muere a manos de la barra
+    if(Math.random() < (relegated ? BARRA_P_KILL_REL : BARRA_P_KILL)){
+      const p = nwPick(squad);
+      careerPlayerDeath(p, { k: 'barra', w: 'un ataque de la barra brava de ' + t.name + ' ' + why, date: nwClock, tid: t.id });
+      nwAdd({ k: 'hinchas', ic: '🕯️', h: '🕯️ Conmoción: asesinaron a ' + p.n + ' (' + t.name + ')', b: 'La Justicia investiga el crimen de ' + p.n + ', jugador de ' + t.name + ', y apunta a integrantes de la barra del club ' + why + '. La AFA expresó su repudio, el club suspendió toda actividad y el fútbol argentino guarda luto.', tag: '🕯️ Crimen', tids, date: nwClock });
+      try{ instClubSoc(t.id, '🖤 Con inmenso dolor despedimos a ' + p.n + '. Exigimos justicia. Hoy no hay fútbol, hay luto.'); }catch(e){}
+      return;
+    }
+    const kind = nwPickW([['training', 30], ['house', 24], ['cars', 22], ['predio', 18]]);
+    const ps = shuffleArr(squad.slice()), P = ps[0], names = ps.slice(0, nwInt(2, 4)).map(x => x.n);
+    let h, b, hit = null;
+    if(kind === 'training'){
+      h = '😡 La barra de ' + t.name + ' irrumpió en el entrenamiento';
+      b = 'Un grupo de barras de ' + t.name + ' ingresó al predio en pleno entrenamiento ' + why + ', increpó a jugadores y cuerpo técnico y exigió ' + demand + '. La práctica se suspendió y el plantel quedó en estado de shock.';
+      if(Math.random() < 0.3) hit = P;
+    }else if(kind === 'house'){
+      h = '🏠 Barras de ' + t.name + ' fueron a buscar a ' + P.n + ' a su casa';
+      b = 'Integrantes de la barra de ' + t.name + ' se presentaron en el domicilio de ' + P.n + ' ' + why + ' para pedirle explicaciones. ' + nwPick(['El jugador no estaba y los vecinos llamaron a la policía.', 'Hubo amenazas y la policía debió custodiar la casa.', 'La familia quedó muy asustada y presentó una denuncia.']) + ' El club ofreció custodia al plantel.';
+      if(Math.random() < 0.2) hit = P;
+    }else if(kind === 'cars'){
+      const n = nwInt(1, Math.min(4, names.length));
+      h = '🔥 Quemaron los autos de jugadores de ' + t.name;
+      b = 'Desconocidos prendieron fuego ' + (n === 1 ? 'el auto de ' + names[0] : 'los autos de ' + names.slice(0, n).join(', ')) + ' en la puerta del predio de ' + t.name + ' ' + why + '. Todas las miradas apuntan a la barra. La Justicia abrió una causa y el club reforzó la seguridad.';
+    }else{
+      h = '🗣️ La barra de ' + t.name + ' apretó al plantel';
+      b = 'Barras de ' + t.name + ' citaron al plantel a una reunión en el predio ' + why + ' y, en un clima muy tenso, exigieron ' + demand + '. El DT y los dirigentes miraron desde lejos.';
+    }
+    if(hit && !(c.inj[hit.id] && c.inj[hit.id].n > 0)){
+      const n = nwInt(1, 3); c.inj[hit.id] = { n, t: n, y: c.year, w: 'Golpes recibidos en el apriete de la barra' };
+      b += ' ' + hit.n + ' recibió golpes y será baja ' + n + (n === 1 ? ' partido.' : ' partidos.');
+    }
+    nwAdd({ k: 'hinchas', ic: kind === 'cars' ? '🔥' : '😡', h, b, tag: '😡 Apriete de la barra', tids, date: nwClock });
+    try{ instClubSoc(t.id, 'Comunicado oficial: repudiamos cualquier acto de violencia contra nuestros jugadores y sus familias. Pedimos respeto y ya presentamos la denuncia.'); }catch(e){}
+    try{ instSoc(t.id, nwPick(['La barra no puede seguir apretando así. Esto no es ser hincha.', 'Lo de la barra es una vergüenza, esta gente no representa al club.', 'Así no se arregla nada. Que intervenga la Justicia ya.']), false); }catch(e){}
+  }
+  function nwPickW(list){
+    let tot = list.reduce((a, x) => a + x[1], 0), r = Math.random() * tot;
+    for(const x of list){ r -= x[1]; if(r < 0) return x[0]; }
+    return list[0][0];
+  }
+  // Después de un partido de Clausura de un club en zona de descenso: árbitro agredido o asesinado e incidentes en la cancha si el club desciende.
+  function nwBarraMatch(m){
+    const c = state.career;
+    if(!m || m.bye || c.tournament !== 'clausura' || typeof m.homeScore !== 'number' || !c.matches.some(x => x.id === m.id)) return;
+    const bs = nwBarraState();
+    if(!bs || !bs.late) return;
+    const hT = careerTeamById(m.home), aT = careerTeamById(m.away);
+    if(!hT || !aT) return;
+    const res = hT.name + ' ' + m.homeScore + '-' + m.awayScore + ' ' + aT.name, tids = [m.home, m.away];
+    const inZone = [m.home, m.away].filter(id => bs.zoneIds.indexOf(id) >= 0);
+    if(!inZone.length) return;
+    // ¿Este fue el último partido de un club que baja?
+    const lastOf = id => c.matches.filter(x => !x.bye && (x.home === id || x.away === id)).every(x => x.played);
+    const desc = careerComputeDescensos();
+    const downId = inZone.find(id => lastOf(id) && desc.relegated.indexOf(id) >= 0);
+    const ref = m.ref;
+    // Árbitro asesinado (casi nulo) o agredido
+    if(ref && (c.refDead || []).indexOf(ref) < 0){
+      if(Math.random() < (downId ? BARRA_P_REF_KILL_REL : BARRA_P_REF_KILL)){
+        if(!c.refDead) c.refDead = [];
+        if(!c.refKilled) c.refKilled = [];
+        c.refDead.push(ref);
+        const culp = careerTeamById(downId || inZone[0]);
+        c.refKilled.push({ id: 'rk' + c.refKilled.length + '-' + c.year, n: ref, t: culp ? culp.name : '', res, date: nwClock, year: c.year, ack: false });
+        nwAdd({ k: 'fallecimiento', ic: '🕯️', h: '🕯️ Tragedia: murió el árbitro ' + ref, b: 'El árbitro ' + ref + ' murió tras ser atacado por barras a la salida del ' + res + '. La AFA suspendió toda su actividad, declaró duelo y la Justicia investiga a hinchas de ' + (culp ? culp.name : 'uno de los clubes') + '. Es una de las jornadas más negras del fútbol argentino.', tag: '🕯️ Árbitro', tids, date: nwClock });
+        return;
+      }
+      if(Math.random() < BARRA_P_REF_HIT){
+        if(!c.refOut) c.refOut = {};
+        const n = nwInt(2, 5); c.refOut[ref] = addDaysISO(nwClock || nwNow(m), 7 * n);
+        nwAdd({ k: 'arbitral', ic: '🤕', h: '🤕 Agredieron al árbitro ' + ref + ' tras el ' + res, b: 'Hinchas de un club en zona de descenso atacaron a ' + ref + ' a la salida del estadio. Fue asistido y quedará ' + n + ' fechas sin dirigir. La AFA presentó la denuncia.', tag: '🤕 Árbitro', tids, date: nwClock });
+      }
+    }
+    // Incidentes en la cancha por el descenso consumado
+    if(downId){
+      const T = careerTeamById(downId), other = downId === m.home ? aT : hT, cache = playersCache();
+      if(Math.random() < BARRA_P_STONES){
+        const mins = nwInt(40, 120);
+        let b = 'Al final del ' + res + ' se confirmó el descenso de ' + T.name + ' y la tribuna estalló: llovieron piedras y objetos sobre el campo. Jugadores de ambos equipos y el árbitro no pudieron abandonar la cancha durante ' + mins + ' minutos, resguardados por la policía en el círculo central, hasta que se despejó el estadio.';
+        const sq = nwSquad(downId).filter(p => !p.r);
+        if(sq.length && Math.random() < 0.45){
+          const P = nwPick(sq); if(!c.inj) c.inj = {};
+          if(!(c.inj[P.id] && c.inj[P.id].n > 0)){ const n = nwInt(1, 4); c.inj[P.id] = { n, t: n, y: c.year, w: 'Golpe por un piedrazo' }; b += ' ' + P.n + ' fue alcanzado por una piedra y será baja ' + n + (n === 1 ? ' partido.' : ' partidos.'); }
+        }
+        b += ' La AFA abrió un expediente y el club podría jugar sin público.';
+        nwAdd({ k: 'hinchas', ic: '🪨', h: '🪨 Piedrazos tras el descenso de ' + T.name + ': no podían salir de la cancha', b, tag: '🪨 Incidentes', tids, date: nwClock });
+      }else{
+        nwAdd({ k: 'hinchas', ic: '💔', h: '💔 Descendió ' + T.name + ': bronca en la tribuna', b: 'Con el ' + res + ' se consumó el descenso de ' + T.name + '. Los hinchas despidieron al equipo con silbidos y cánticos de reprobación; la policía reforzó el operativo para la salida.', tag: '💔 Descenso', tids, date: nwClock });
+      }
+    }
+  }
+  function careerRefDeadWarningHtml(){
+    const c = state.career, list = (c && c.refKilled || []).filter(d => !d.ack);
+    if(!list.length) return '';
+    return list.map(d => `<div class="death-warning" role="alert">
+        <div class="dw-tag">&#9888;&#65039; Advertencia &middot; Fallecimiento${d.date ? ' &middot; ' + formatCareerDate(d.date) : ''}</div>
+        <div class="dw-main">&#128367;&#65039; Murió el árbitro ${escapeHtml(d.n)}</div>
+        <p class="dw-body">Fue atacado por barras a la salida del ${escapeHtml(d.res)}. Queda fuera de las designaciones para siempre. Es un evento ficticio de la simulación, de probabilidad casi nula.</p>
+        <button class="btn small" data-action="career-ack-refdead" data-id="${escapeHtml(String(d.id))}">Entendido</button>
+      </div>`).join('');
+  }
+
   // ---------- Retiro por lesión grave ----------
   // Cuando alguien sufre una lesión muy larga (16 o más partidos) y es de ligamentos, hay una chance de que sea el final de su carrera:
   // queda retirado (p.r) con p.ri = {y, date, k, w}, sale de los planteles y se anota en c.retInj (ack:false hasta tocar "Entendido").
@@ -6205,10 +6390,11 @@ window.FIREBASE_CONFIG = {
   }
   function careerMatchRef(m){
     if(!m || m.bye) return null;
-    if(m.ref) return m.ref;
+    const dead = (state.career && state.career.refDead) || [];
+    if(m.ref && (m.played || dead.indexOf(m.ref) < 0)) return m.ref;
     const out = (state.career && state.career.refOut) || {};
-    const pool = CAREER_REFEREES.filter(r => !(out[r] && m.date && m.date < out[r]));
-    const list = pool.length ? pool : CAREER_REFEREES;
+    const pool = CAREER_REFEREES.filter(r => dead.indexOf(r) < 0 && !(out[r] && m.date && m.date < out[r]));
+    const list = pool.length ? pool : CAREER_REFEREES.filter(r => dead.indexOf(r) < 0);
     m.ref = list[Math.floor(awardHash(String(m.id) + 'ref') * list.length)];
     return m.ref;
   }
@@ -6315,6 +6501,7 @@ window.FIREBASE_CONFIG = {
       else { const amp = careerRollMatchAmputation(m, luH, luA, cache.byId); if(amp) reds[amp.p] = true; }
       const hurt = [].concat(luH ? playerRollInjuries(luH, cache.byId, 'h', reds) : [], luA ? playerRollInjuries(luA, cache.byId, 'a', reds) : []).sort((x, y) => x.m - y.m);
       if(hurt.length) m.hurt = hurt;
+      playerFixGoalkeeper(m, luH, 'h', pre.h, cache.byId); playerFixGoalkeeper(m, luA, 'a', pre.a, cache.byId);
       careerRollMatchPkVar(m, luH, luA, cache.byId, rk);
     }
     pre.sus = {}; pre.inj = {};
@@ -8297,6 +8484,7 @@ window.FIREBASE_CONFIG = {
     const tryRun = fn => { try{ fn(); }catch(e){} };
     tryRun(() => nwFactual(m));
     tryRun(() => nwRefNews(m));
+    tryRun(() => nwBarraMatch(m));
     tryRun(() => socAfterMatch(m));
     tryRun(() => nwRedFollowUps(m));
     if(Math.random() < NW_P.riot) tryRun(() => nwEvRiot(m));
@@ -8605,6 +8793,11 @@ window.FIREBASE_CONFIG = {
     else if(Math.random() < AMP_P_OFF) run(() => nwEvAmputOff(pick()));
     else if(Math.random() < ACC_P_OFF) run(() => nwEvAccident(pick()));
     else if(Math.random() < ADMIN_P_DAY) run(() => nwEvAdminSanction());
+    run(() => {
+      const bs = nwBarraState(); if(!bs) return;
+      if(bs.relegIds.length && Math.random() < BARRA_P_DAY_RELEGATED) nwEvBarra(careerTeamById(nwPick(bs.relegIds)), true);
+      else if(bs.late && bs.zoneIds.length && Math.random() < BARRA_P_DAY_FIGHT) { const zt = careerTeamById(nwPick(bs.zoneIds)); if(zt) nwEvBarra(zt, bs.relegIds.indexOf(zt.id) >= 0); }
+    });
     if(Math.random() < 0.07) run(() => nwEvIndiscipline(pick()));
     if(Math.random() < 0.012) run(() => nwEvNoBuy(pick()));
     if(Math.random() < NW_DEDUCT_P_DAY) run(() => nwEvDeduct(pick()));
@@ -11840,14 +12033,16 @@ window.FIREBASE_CONFIG = {
 
   // Riel de fases para los cuadros eliminatorios (Copa Argentina / Libertadores / Sudamericana).
   // "activo" = la primera fase con partidos sin jugar; si ya está todo jugado, la última con partidos.
-  function renderStageRail(stages, labels, matches){
+  function renderStageRail(stages, labels, matches, idPrefix){
     const active = stages.find(s => matches.some(m=>m.stage===s && !m.played))
       || stages.slice().reverse().find(s => matches.some(m=>m.stage===s))
       || stages[0];
     const activeIdx = stages.indexOf(active);
     return `<div class="cs-stage-rail">${stages.map((s,i)=>{
       const cls = s===active ? 'active' : (i<activeIdx ? 'done' : '');
-      return `<div class="cs-stage-pip ${cls}">${labels[s]||s}</div>`;
+      const has = !!idPrefix && matches.some(m=>m.stage===s);
+      if(!idPrefix) return `<div class="cs-stage-pip ${cls}">${labels[s]||s}</div>`;
+      return `<button type="button" class="cs-stage-pip go ${cls}" ${has ? `data-action="career-stage-jump" data-target="${idPrefix}-${s}" title="Ir a ${escapeHtml(labels[s]||s)}"` : 'disabled title="Todavía no hay partidos en esta fase"'}>${labels[s]||s}</button>`;
     }).join('<span class="cs-stage-sep">&rarr;</span>')}</div>`;
   }
 
@@ -11999,7 +12194,7 @@ window.FIREBASE_CONFIG = {
     const pendingTotal = allPending.length;
 
     // El panel con los botones de simular/avanzar va SIEMPRE primero: las noticias y avisos van abajo para no empujarlo.
-    const calAlertsHtml = careerDayNewsHtml() + careerDeathWarningHtml() + careerAmpWarningHtml() + careerAccWarningHtml() + careerRetInjWarningHtml() + careerAdminWarningHtml() + careerColectaHtml();
+    const calAlertsHtml = careerDayNewsHtml() + careerDeathWarningHtml() + careerAmpWarningHtml() + careerAccWarningHtml() + careerRefDeadWarningHtml() + careerRetInjWarningHtml() + careerAdminWarningHtml() + careerColectaHtml();
     let html = `<div class="cs-hero">
       <div class="season-tag">Calendario &middot; Temporada ${c.year}</div>
       <div class="matchup" style="font-size:16px;">${formatCareerDate(c.calendarDate)}</div>
@@ -12179,12 +12374,12 @@ window.FIREBASE_CONFIG = {
       }
       return html;
     }
-    let html = `<div class="panel"><h2>Copa Argentina ${c.year}</h2>${renderStageRail(COPA_ARG_STAGES, COPA_ARG_LABELS, c.copaArgentina.matches)}</div>`;
+    let html = `<div class="panel"><h2>Copa Argentina ${c.year}</h2>${renderStageRail(COPA_ARG_STAGES, COPA_ARG_LABELS, c.copaArgentina.matches, 'cs-st-copaarg')}</div>`;
     html += `<div class="panel">`;
     COPA_ARG_STAGES.forEach(stage => {
       const ms = c.copaArgentina.matches.filter(m=>m.stage===stage);
       if(ms.length === 0) return;
-      html += `<div class="round-header"><h3>${COPA_ARG_LABELS[stage]}</h3></div>`;
+      html += `<div class="round-header cs-stage-target" id="cs-st-copaarg-${stage}"><h3>${COPA_ARG_LABELS[stage]}</h3></div>`;
       html += ms.map(m=>renderCareerMatchRow(m, null)).join('');
       const allPlayed = ms.every(m=>m.played);
       const nextStage = COPA_ARG_STAGES[COPA_ARG_STAGES.indexOf(stage)+1];
@@ -12358,7 +12553,7 @@ window.FIREBASE_CONFIG = {
         <div class="btn-row"><button class="btn primary" data-action="career-build-continental" data-cup="${cupKey}">Armar edición ${c.year}</button></div>
       </div>`;
     }
-    let html = `<div class="panel"><h2>${title} ${bucket.edition}</h2>${renderStageRail(stages, CONT_LABELS, bucket.matches)}</div>`;
+    let html = `<div class="panel"><h2>${title} ${bucket.edition}</h2>${renderStageRail(stages, CONT_LABELS, bucket.matches, 'cs-st-' + cupKey)}</div>`;
     if(bucket.champion){
       const champ = careerTeamById(bucket.champion.teamId);
       html += `<div class="msg" style="background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.4);color:var(--gold-bright);">&#127942; Campeón de ${title} ${bucket.edition}: <strong>${champ ? escapeHtml(champ.name) : '&mdash;'}</strong></div>`;
@@ -12371,7 +12566,7 @@ window.FIREBASE_CONFIG = {
       if(si === 1) html += careerContRenderEntrants(cupKey, bucket);
       const ms = careerContStageMatches(bucket, stage);
       if(!ms.length) return;
-      html += `<div class="panel"><div class="round-header"><h3>${CONT_LABELS[stage]}</h3></div>`;
+      html += `<div class="panel cs-stage-target" id="cs-st-${cupKey}-${stage}"><div class="round-header"><h3>${CONT_LABELS[stage]}</h3></div>`;
       if(stage === 'grupos'){
         html += careerContRenderGroups(bucket, cupKey);
       } else if(stage === 'primera'){
