@@ -25123,6 +25123,9 @@ window.FIREBASE_CONFIG = {
   render();
   // Los escudos guardados se leen de IndexedDB de forma asíncrona: cuando llegan se redibuja.
   // ================= PUNTO 5: VIDA INSTITUCIONAL DE LOS CLUBES =================
+  // Todos los equipos de la carrera (Primera + Nacional + B Metro + Federal A + Primera C + Promocional): el sistema institucional los cubre a todos.
+  function instAllTeams(){ const out = []; careerAllRosterTeams().forEach(g => g.teams.forEach(t => out.push(t))); return out; }
+  function instTeamById(id){ try{ return careerTeamById(id) || null; }catch(e){ return null; } }
   // c.inst.clubs[id] = {pres:{name,filo,since,term}, debt (M US$), owner:{name,since,fund}|null, state:'ok'|'crisis'|'judicial'|'refundado', unpaid, hist:[{y,t}]}
   // Datos reales de los 30 clubes de Primera (presidente, estadio, capacidad aproximada). Clave: nombre normalizado.
   const INST_REAL = {
@@ -25208,7 +25211,7 @@ window.FIREBASE_CONFIG = {
   // Se ejecuta una vez por año, al cerrar la temporada.
   function instYearTick(){
     const c = state.career;
-    c.teams.forEach(t => {
+    instAllTeams().forEach(t => {
       const k = instClub(t), n = t.name, y = c.year;
       // 1) Evolución de la deuda según la filosofía y el dueño
       let d = k.debt + (k.pres.filo === 'refuerzos' ? 1.5 : k.pres.filo === 'juveniles' ? -1.5 : -0.3) + (instRnd()*4 - 2);
@@ -25265,7 +25268,7 @@ window.FIREBASE_CONFIG = {
       // 5) Hitos deportivos en la historia
       if(c.champion && c.champion.year === y && c.champion.teamId === t.id) k.hist.unshift({ y:y, t:'Campeón (' + (c.champion.tournament || '') + ').' });
     });
-    c.teams.forEach(t => { try{ instStadiumYear(t); instFanYear(t); instIdolYear(t); instDisasterYear(t); }catch(e){ console.error(e); } });
+    instAllTeams().forEach(t => { try{ instStadiumYear(t); instFanYear(t); instIdolYear(t); instDisasterYear(t); }catch(e){ console.error(e); } });
   }
   // ================= PUNTO 6: ESTADIOS E INFRAESTRUCTURA =================
   // k.est = {cap, cond (0-100), hist (valor histórico 0-100), obra:{y,cap,kind}|null, inc (incidentes registrados)}
@@ -25325,7 +25328,7 @@ window.FIREBASE_CONFIG = {
   function instStadiumEvent(m){
     const c = state.career; if(!m || m.neutral || m.bye) return;
     const hid = m.home && m.home.id != null ? m.home.id : m.home, aid = m.away && m.away.id != null ? m.away.id : m.away;
-    const H = c.teams.find(t => t.id === hid), A = c.teams.find(t => t.id === aid);
+    const H = instTeamById(hid), A = instTeamById(aid);
     if(!H || !A) return;
     const k = instClub(H), e = instEst(k);
     if(Math.random() > 0.004 * (1 + (100 - e.cond) / 40)) return;
@@ -25345,7 +25348,7 @@ window.FIREBASE_CONFIG = {
     const all = careerAllUnplayedDatedMatches();
     try{ instDisasterDay(all); }catch(e){ console.error(e); }
     all.filter(m => m.date === c.calendarDate && !m.bye && !m.neutral && typeof m.round === 'number').forEach(m => {
-      const H = c.teams.find(t => t.id === m.home), A = c.teams.find(t => t.id === m.away); if(!H || !A) return;
+      const H = instTeamById(m.home), A = instTeamById(m.away); if(!H || !A) return;
       const e = instEst(instClub(H)), wx = m.wx || {}, low = e.cond < 50;
       if(instRegion(H) !== instRegion(A) && Math.random() < 0.0008){
         const nd = addDaysISO(c.calendarDate, 1 + Math.floor(Math.random() * 2)), kind = nwPick(['el aeropuerto cerrado por tormenta','una ruta cortada por un derrumbe']);
@@ -25411,7 +25414,7 @@ window.FIREBASE_CONFIG = {
   ];
   function instFanEvent(m){
     const c = state.career; if(!m || m.neutral || m.bye) return;
-    const H = c.teams.find(t => t.id === m.home), A = c.teams.find(t => t.id === m.away); if(!H || !A) return;
+    const H = instTeamById(m.home), A = instTeamById(m.away); if(!H || !A) return;
     const k = instClub(H), f = instFans(k), cl = instIsClasico(H.name, A.name);
     if(cl && Math.random() < 0.15) nwAdd({ k: 'club', ic: '👮', h: '👮 Operativo especial para el clásico ' + H.name + ' - ' + A.name, b: 'Se dispuso un operativo de ' + (800 + Math.floor(Math.random() * 500)) + ' efectivos, con rutas separadas para las hinchadas y escolta policial para el micro visitante. El club afrontó parte del costo.', tids: [H.id, A.id] }), f.fines += 40;
     if(Math.random() > 0.005 * (cl ? 3 : 1) * (1 + f.inc * 0.3) * (m.sec === 'Máxima' ? 0.7 : 1)) return;
@@ -25510,7 +25513,7 @@ window.FIREBASE_CONFIG = {
   // Nombre del DT de un equipo argentino (null si no es de los que tienen institución).
   function careerDtName(teamId){
     try{
-      const c = state.career, t = c.teams.find(x => x.id === teamId);
+      const t = instTeamById(teamId);
       if(!t) return null;
       return instDt(instClub(t)).name;
     }catch(e){ return null; }
@@ -25519,7 +25522,7 @@ window.FIREBASE_CONFIG = {
   function instPreAttend(m){
     const c = state.career; if(m && !m.bye && !m.dtn && typeof m.homeScore === 'number'){ const dh = careerDtName(m.home), da = careerDtName(m.away); if(dh || da) m.dtn = { h: dh, a: da }; }
     if(!m || m.bye || m.neutral || m.comp === 'amistoso' || typeof m.homeScore !== 'number') return;
-    const H = c.teams.find(t => t.id === m.home), A = c.teams.find(t => t.id === m.away); if(!H || !A) return;
+    const H = instTeamById(m.home), A = instTeamById(m.away); if(!H || !A) return;
     const kh = instClub(H), ka = instClub(A), e = instEst(kh), f = instFans(kh), nw = careerNews(), cl = instIsClasico(H.name, A.name);
     // Asistencia: depende de la importancia, la racha, la protesta y las sanciones vigentes
     let occ = 0.5 + (cl ? 0.35 : 0) + (kh.form || 0) * 0.03 + Math.random() * 0.12 - (kh.protest ? 0.08 : 0);
@@ -25622,7 +25625,7 @@ window.FIREBASE_CONFIG = {
   // Nivel 1 (intoxicación, brote) tras un partido y nivel 2 (predio) una vez por año
   function instMedEvent(m){
     const c = state.career, S = instState(); if(!m || m.bye || m.comp === 'amistoso') return;
-    const t = c.teams.find(x => x.id === (Math.random() < 0.5 ? m.home : m.away)); if(!t || Math.random() > 0.0012) return;
+    const t = instTeamById(Math.random() < 0.5 ? m.home : m.away); if(!t || Math.random() > 0.0012) return;
     const n = 5 + Math.floor(Math.random() * 5), brote = Math.random() < 0.3, d = m.date || c.calendarDate;
     instTire(S, [t.id], d, addDaysISO(d, brote ? 9 : 5));
     nwAdd({ k: 'club', ic: brote ? '🦠' : '🤢', h: (brote ? '🦠 Brote en el plantel de ' : '🤢 Intoxicación en ') + t.name, b: (brote ? n + ' jugadores presentaron síntomas y fueron aislados; el club usará juveniles y modificará los entrenamientos.' : n + ' jugadores se enfermaron tras una comida en la concentración y quedaron en duda para el próximo partido.'), tids: [t.id] });
@@ -25641,11 +25644,12 @@ window.FIREBASE_CONFIG = {
   const instUi = { id:null };
   function renderCareraInst(){
     const c = state.career, S = instState();
-    const sel = c.teams.find(t => t.id === (instUi.id || c.myTeamId)) || c.teams[0];
-    const rank = c.teams.map(t => ({ t, k:instClub(t) })).sort((a,b) => b.k.debt - a.k.debt);
+    const all = instAllTeams();
+    const sel = instTeamById(instUi.id || c.myTeamId) || c.teams[0];
+    const rank = all.map(t => ({ t, k:instClub(t) })).sort((a,b) => b.k.debt - a.k.debt);
     const k = instClub(sel);
     const st = { ok:'Estable', crisis:'En crisis', judicial:'Administración judicial', refundado:'Refundado' };
-    const opts = rank.map(r => '<option value="' + r.t.id + '"' + (r.t.id === sel.id ? ' selected' : '') + '>' + escapeHtml(r.t.name) + '</option>').join('');
+    const opts = careerAllRosterTeams().filter(g => g.teams.length).map(g => '<optgroup label="' + escapeHtml(g.label) + '">' + g.teams.map(t => '<option value="' + t.id + '"' + (t.id === sel.id ? ' selected' : '') + '>' + escapeHtml(t.name) + '</option>').join('') + '</optgroup>').join('');
     const rows = rank.slice(0, 10).map(r => '<div class="team-row"><span class="name">' + escapeHtml(r.t.name) + '</span><span class="num">US$ ' + r.k.debt + ' M · ' + st[r.k.state] + '</span></div>').join('');
     const hist = k.hist.map(h => '<div class="team-row"><span class="num" style="min-width:52px">' + h.y + '</span><span class="name">' + escapeHtml(h.t) + '</span></div>').join('');
     return '<div class="panel"><h2>Instituciones</h2><p class="hint">Presidentes, dueños, deuda y crisis de cada club. Todo se actualiza al cerrar cada temporada.</p>' +
