@@ -1235,8 +1235,8 @@ window.FIREBASE_CONFIG = {
   }
   // Número de fecha de los partidos de fase regular (los de llave/final no tienen: ya dicen la instancia).
   function careerFechaSuffix(m){
-    if(!m || typeof m.round !== 'number' || m.round < 1) return '';
-    return ' · Fecha ' + m.round + (m.interzonal ? ' (interzonal)' : '');
+    if(!m || typeof m.round !== 'number' || m.round < 1) return m && m.ppd ? ' · Aplazada por duelo' : '';
+    return ' · Fecha ' + m.round + (m.interzonal ? ' (interzonal)' : '') + (m.ppd ? ' · Aplazada por duelo' : '');
   }
   function careerCompLabel(m){
     const stageLabels = { octavos:'Octavos de Final', cuartos:'Cuartos de Final', semis:'Semifinales', final:'Final' };
@@ -4702,6 +4702,7 @@ window.FIREBASE_CONFIG = {
   function onChange(e){
     if(e.target.hasAttribute){
       if(e.target.hasAttribute('data-club-sel')){ const v = e.target.value; clubUi.id = isNaN(Number(v)) ? v : Number(v); render(); return; }
+      if(e.target.hasAttribute('data-news-club')){ nwUi.club = e.target.value || ''; nwUi.limit = 40; render(); return; }
       if(e.target.hasAttribute('data-inst-sel')){ instUi.id = e.target.value; render(); return; }
       if(e.target.hasAttribute('data-ss-sel')){ ssUi.year = Number(e.target.value); render(); return; }
       if(e.target.hasAttribute('data-crest-upload')){ crestHandleSingle(e.target); return; }
@@ -4861,7 +4862,7 @@ window.FIREBASE_CONFIG = {
       state.career.view = view;
       if(btn.getAttribute('data-tab')) state.career.intlTab = btn.getAttribute('data-tab');
       if(view === 'equipos-list') state.career.selectedTeamId = null;
-      if(view === 'noticias'){ const nw = careerNews(); nwUi.prevSeen = nw.seen || 0; nw.seen = nw.seq; nwUi.filter = 'all'; nwUi.limit = 40; }
+      if(view === 'noticias'){ const nw = careerNews(); nwUi.prevSeen = nw.seen || 0; nw.seen = nw.seq; nwUi.filter = 'all'; nwUi.club = ''; nwUi.limit = 40; }
       if(view === 'redes'){ const so = socState(); so.seen = so.seq; socUi.f = 'all'; socUi.limit = 40; }
       if(view === 'jugadores'){ playersUi.tab = 'divisiones'; playersUi.div = ''; playersUi.team = ''; playersUi.player = ''; }
       render();
@@ -7365,6 +7366,39 @@ window.FIREBASE_CONFIG = {
     careerAllRosterTeams().forEach(g => g.teams.forEach(t => { if(id === null && playerNormKey(t.name) === k) id = t.id; }));
     return id;
   }
+  // Por respeto y duelo: cuando muere un jugador, la próxima fecha del torneo de su club se pospone al menos una semana.
+  // Se elige el torneo del próximo partido pendiente del club y se corre TODA esa fecha (y las siguientes del mismo torneo)
+  // DEATH_MOURNING_DAYS días, así el fixture conserva el orden y los días de la semana. Si esa fecha ya estaba aplazada por
+  // otro fallecimiento, no se acumula (queda igual: una semana).
+  const DEATH_MOURNING_DAYS = 7;
+  function careerPostponeForDeath(tid, date, kind){
+    if(tid == null || !date) return null;
+    const same = (a, b) => String(a) === String(b);
+    const strict = kind === 'partido'; // si murió en un partido, lo que sigue el mismo día ya estaba en juego
+    const ok = m => m && !m.bye && !m.played && m.date && (strict ? m.date > date : m.date >= date);
+    let best = null;
+    careerMatchLists().forEach(list => {
+      (list || []).forEach(m => {
+        if(!ok(m) || !(same(m.home, tid) || same(m.away, tid))) return;
+        if(!best || m.date < best.m.date) best = { list, m };
+      });
+    });
+    if(!best) return null;
+    const first = best.m;
+    if(first.ppd) return { cmp: nwCmp(first), from: first.ppd, to: first.date, already: true };
+    let cutoff = first.date;
+    best.list.forEach(x => { if(ok(x) && x.comp === first.comp && x.stage === first.stage && x.round === first.round && x.date < cutoff) cutoff = x.date; });
+    const cmp = nwCmp(first);
+    let n = 0;
+    best.list.forEach(x => {
+      if(x.bye || x.played || !x.date || x.date < cutoff) return;
+      if(!x.ppd) x.ppd = x.date;
+      x.date = addDaysISO(x.date, DEATH_MOURNING_DAYS);
+      n++;
+    });
+    if(!n) return null;
+    return { cmp, from: cutoff, to: addDaysISO(cutoff, DEATH_MOURNING_DAYS), n };
+  }
   function careerPlayerDeath(p, info){
     const c = state.career;
     if(!c || !p || p.r) return null;
@@ -7381,6 +7415,9 @@ window.FIREBASE_CONFIG = {
     if(info.quiet) return rec;
     try{
       const tid = info.tid != null ? info.tid : careerTeamIdByClub(club);
+      let post = null;
+      try{ post = careerPostponeForDeath(tid, date, info.k); }catch(e){}
+      if(post) rec.post = post;
       const pos = (typeof AWARD_POS_LABEL !== 'undefined' && AWARD_POS_LABEL[p.p]) || p.p;
       const edad = age === null ? '' : ', de ' + age + ' años,';
       let h, b, cmp;
@@ -7396,6 +7433,11 @@ window.FIREBASE_CONFIG = {
         b = p.n + ' (' + pos + edad + ' de ' + club + ') falleció a causa de ' + info.w + '. El club y el mundo del fútbol expresaron su dolor.';
       }
       nwAdd({ k: 'fallecimiento', ic: '🕯️', h, b, tag: '🕯️ Fallecimiento', tids: tid != null ? [tid] : [], date, cmp });
+      if(post){
+        nwAdd({ k: 'club', ic: '🖤', h: '🖤 Duelo: se posterga la fecha por la muerte de ' + p.n,
+          b: 'Por respeto y en señal de duelo por ' + p.n + ' (' + club + '), la AFA resolvió posponer una semana la fecha del torneo en la que iba a jugar el club' + (post.cmp ? ' (' + post.cmp + ')' : '') + '. El partido pasa del ' + formatCareerDate(post.from) + ' al ' + formatCareerDate(post.to) + '.',
+          tag: '🖤 Duelo', tids: tid != null ? [tid] : [], date });
+      }
     }catch(e){}
     return rec;
   }
@@ -7431,6 +7473,7 @@ window.FIREBASE_CONFIG = {
         <div class="dw-tag">&#9888;&#65039; Advertencia &middot; Fallecimiento${when}</div>
         <div class="dw-main">&#128367;&#65039; Murió ${escapeHtml(d.n)} (${escapeHtml(d.t)}${edad})</div>
         <p class="dw-body">Causa: ${escapeHtml(d.w)}. ${where} El jugador quedó fuera de todos los planteles y su ficha figura como fallecido. Es un evento ficticio de la simulación, de muy baja probabilidad.</p>
+        ${d.post ? `<p class="dw-body">&#128420; En señal de duelo, la fecha del torneo${d.post.cmp ? ' (' + escapeHtml(d.post.cmp) + ')' : ''} se pospone una semana: del ${escapeHtml(formatCareerDate(d.post.from))} al ${escapeHtml(formatCareerDate(d.post.to))}.</p>` : ''}
         <button class="btn small" data-action="career-ack-death" data-id="${escapeHtml(String(d.id))}">Entendido</button>
       </div>`;
     }).join('');
@@ -9360,7 +9403,7 @@ window.FIREBASE_CONFIG = {
   const NW_COMP_LABEL = { apertura: 'Copa de la Liga — Apertura', clausura: 'Copa de la Liga — Clausura', nacional: 'Primera Nacional', bmetro: 'Primera B Metropolitana', federal: 'Torneo Federal A', primerac: 'Primera C', promocional: 'Torneo Promocional' };
   const NW_KIND_LABEL = { puertas: 'Puertas cerradas', tribuna: 'Tribuna clausurada', clausura: 'Estadio clausurado' };
   const NW_KIND_RANK = { tribuna: 1, puertas: 2, clausura: 3 };
-  const nwUi = { filter: 'all', limit: 40, prevSeen: 0 };
+  const nwUi = { filter: 'all', club: '', limit: 40, prevSeen: 0 };
   let nwClock = null;
   function nwPick(a){ return a[Math.floor(Math.random() * a.length)]; }
   function nwInt(a, b){ return a + Math.floor(Math.random() * (b - a + 1)); }
@@ -10861,9 +10904,21 @@ window.FIREBASE_CONFIG = {
   function renderCareraNoticias(){
     const nw = careerNews();
     const f = nwUi.filter;
-    const list = nw.items.filter(it => f === 'all' ? true : f === 'sanc' ? it.sanc : f === 'mine' ? it.my : it.k === f);
+    const clubCount = {};
+    nw.items.forEach(it => { (it.tids || []).forEach(t => { const k = String(t); clubCount[k] = (clubCount[k] || 0) + 1; }); });
+    const clubOpts = Object.keys(clubCount).map(k => ({ k, t: careerTeamById(k) || careerTeamById(Number(k)) })).filter(o => o.t).sort((a, b) => a.t.name.localeCompare(b.t.name, 'es'));
+    if(nwUi.club && !clubCount[nwUi.club]) nwUi.club = '';
+    const cf = nwUi.club;
+    const list = nw.items.filter(it => (f === 'all' ? true : f === 'sanc' ? it.sanc : f === 'mine' ? it.my : it.k === f) && (!cf || (it.tids || []).some(t => String(t) === cf)));
     let html = `<div class="panel"><h2>Noticias</h2><p class="hint" style="margin:0;">Novedades al azar del fútbol argentino: incidentes de hinchadas, dopaje, suspensiones, lesiones, clausuras y más. Las noticias son ficticias y se generan con la simulaci&oacute;n; las sanciones que anuncian son reales dentro del juego.</p></div>`;
     html += nwActivePanel();
+    if(clubOpts.length){
+      html += `<label class="hint" style="display:block;margin:0 0 10px;">Club:
+        <select data-news-club style="margin-left:6px;max-width:100%;">
+          <option value="">Todos los clubes</option>
+          ${clubOpts.map(o => `<option value="${escapeHtml(o.k)}" ${o.k === cf ? 'selected' : ''}>${escapeHtml(o.t.name)} (${clubCount[o.k]})</option>`).join('')}
+        </select></label>`;
+    }
     html += `<div class="btn-row" style="flex-wrap:wrap;">${NW_FILTERS.map(x => `<button class="btn small ${f === x[0] ? 'primary' : ''}" data-action="career-news-filter" data-f="${x[0]}">${x[1]}</button>`).join('')}</div>`;
     if(!list.length){
       html += `<div class="cs-empty-hint">${nw.items.length ? 'No hay noticias con este filtro.' : 'Todavía no hay noticias. Aparecen a medida que se juegan partidos y avanza el calendario.'}</div>`;
@@ -25123,9 +25178,6 @@ window.FIREBASE_CONFIG = {
   render();
   // Los escudos guardados se leen de IndexedDB de forma asíncrona: cuando llegan se redibuja.
   // ================= PUNTO 5: VIDA INSTITUCIONAL DE LOS CLUBES =================
-  // Todos los equipos de la carrera (Primera + Nacional + B Metro + Federal A + Primera C + Promocional): el sistema institucional los cubre a todos.
-  function instAllTeams(){ const out = []; careerAllRosterTeams().forEach(g => g.teams.forEach(t => out.push(t))); return out; }
-  function instTeamById(id){ try{ return careerTeamById(id) || null; }catch(e){ return null; } }
   // c.inst.clubs[id] = {pres:{name,filo,since,term}, debt (M US$), owner:{name,since,fund}|null, state:'ok'|'crisis'|'judicial'|'refundado', unpaid, hist:[{y,t}]}
   // Datos reales de los 30 clubes de Primera (presidente, estadio, capacidad aproximada). Clave: nombre normalizado.
   const INST_REAL = {
@@ -25154,19 +25206,7 @@ window.FIREBASE_CONFIG = {
     'independiente rivadavia':'Alfredo Berti','instituto':'Diego Flores','lanus':'Mauricio Pellegrino','newells':'Frank Darío Kudelka',
     'platense':'Martín Palermo','racing club':'Sebastián Romero y Luciano Aued (interinos)','river plate':'Leonardo Ponzio (interino)','rosario central':'Jorge Almirón',
     'san lorenzo':'Rubén Darío Insúa','sarmiento':'Facundo Sava','talleres':'Omar De Felippe','tigre':'Diego Dabove',
-    'union':'Leonardo Madelón','velez sarsfield':'Guillermo Barros Schelotto',
-    // Primera Nacional · Zona A
-    'acassuso':'Ricardo Pancaldo','all boys':'Fabián Nardozza','almirante brown':'Andrés Montenegro','ciudad bolivar':'Diego Funes',
-    'central norte':'Mario Sciacqua','chaco for ever':'Daniel Cravero','colon':'Iván Delfino','defensores de belgrano':'César Vigevani',
-    'deportivo madryn':'Leandro Gracián','estudiantes ba':'Alfredo Grelak','ferro carril oeste':'Juan Manuel Sara','godoy cruz':'Pablo De Muner',
-    'los andes':'Leonardo Lemos','mitre sde':'Claudio Biaggio','deportivo moron':'Walter Otta','racing de cordoba':'Gustavo Coleoni',
-    'san miguel':'Matías Módolo','san telmo':'Marcelo Vázquez',
-    // Primera Nacional · Zona B
-    'agropecuario':'Gabriel Gómez','almagro':'Gabriel Gómez','atlanta':'Cristian Pellerano','atletico rafaela':'Iván Juárez',
-    'chacarita juniors':'Juan Manuel Azconzábal','colegiales':'Leonardo Fernández','deportivo maipu':'Alexis Matteo','gimnasia de jujuy':'Hernán Pellerano',
-    'gimnasia y tiro de salta':'Fernando Quiroz','guemes sde':'Pablo Guiñazú','midland':'Joaquín Iturrería','nueva chicago':'Gastón Lotitto',
-    'patronato':'Marcelo Candia','quilmes':'Emanuel Trípodi','san martin de san juan':'Alejandro Schiapparelli','san martin de tucuman':'Andrés Yllana',
-    'temperley':'Nicolás Domingo','tristan suarez':'José María Martínez'
+    'union':'Leonardo Madelón','velez sarsfield':'Guillermo Barros Schelotto'
   };
   function instApplyDt(t, k){
     if(k.realDt) return; k.realDt = true;
@@ -25211,7 +25251,7 @@ window.FIREBASE_CONFIG = {
   // Se ejecuta una vez por año, al cerrar la temporada.
   function instYearTick(){
     const c = state.career;
-    instAllTeams().forEach(t => {
+    c.teams.forEach(t => {
       const k = instClub(t), n = t.name, y = c.year;
       // 1) Evolución de la deuda según la filosofía y el dueño
       let d = k.debt + (k.pres.filo === 'refuerzos' ? 1.5 : k.pres.filo === 'juveniles' ? -1.5 : -0.3) + (instRnd()*4 - 2);
@@ -25268,7 +25308,7 @@ window.FIREBASE_CONFIG = {
       // 5) Hitos deportivos en la historia
       if(c.champion && c.champion.year === y && c.champion.teamId === t.id) k.hist.unshift({ y:y, t:'Campeón (' + (c.champion.tournament || '') + ').' });
     });
-    instAllTeams().forEach(t => { try{ instStadiumYear(t); instFanYear(t); instIdolYear(t); instDisasterYear(t); }catch(e){ console.error(e); } });
+    c.teams.forEach(t => { try{ instStadiumYear(t); instFanYear(t); instIdolYear(t); instDisasterYear(t); }catch(e){ console.error(e); } });
   }
   // ================= PUNTO 6: ESTADIOS E INFRAESTRUCTURA =================
   // k.est = {cap, cond (0-100), hist (valor histórico 0-100), obra:{y,cap,kind}|null, inc (incidentes registrados)}
@@ -25328,7 +25368,7 @@ window.FIREBASE_CONFIG = {
   function instStadiumEvent(m){
     const c = state.career; if(!m || m.neutral || m.bye) return;
     const hid = m.home && m.home.id != null ? m.home.id : m.home, aid = m.away && m.away.id != null ? m.away.id : m.away;
-    const H = instTeamById(hid), A = instTeamById(aid);
+    const H = c.teams.find(t => t.id === hid), A = c.teams.find(t => t.id === aid);
     if(!H || !A) return;
     const k = instClub(H), e = instEst(k);
     if(Math.random() > 0.004 * (1 + (100 - e.cond) / 40)) return;
@@ -25348,7 +25388,7 @@ window.FIREBASE_CONFIG = {
     const all = careerAllUnplayedDatedMatches();
     try{ instDisasterDay(all); }catch(e){ console.error(e); }
     all.filter(m => m.date === c.calendarDate && !m.bye && !m.neutral && typeof m.round === 'number').forEach(m => {
-      const H = instTeamById(m.home), A = instTeamById(m.away); if(!H || !A) return;
+      const H = c.teams.find(t => t.id === m.home), A = c.teams.find(t => t.id === m.away); if(!H || !A) return;
       const e = instEst(instClub(H)), wx = m.wx || {}, low = e.cond < 50;
       if(instRegion(H) !== instRegion(A) && Math.random() < 0.0008){
         const nd = addDaysISO(c.calendarDate, 1 + Math.floor(Math.random() * 2)), kind = nwPick(['el aeropuerto cerrado por tormenta','una ruta cortada por un derrumbe']);
@@ -25414,7 +25454,7 @@ window.FIREBASE_CONFIG = {
   ];
   function instFanEvent(m){
     const c = state.career; if(!m || m.neutral || m.bye) return;
-    const H = instTeamById(m.home), A = instTeamById(m.away); if(!H || !A) return;
+    const H = c.teams.find(t => t.id === m.home), A = c.teams.find(t => t.id === m.away); if(!H || !A) return;
     const k = instClub(H), f = instFans(k), cl = instIsClasico(H.name, A.name);
     if(cl && Math.random() < 0.15) nwAdd({ k: 'club', ic: '👮', h: '👮 Operativo especial para el clásico ' + H.name + ' - ' + A.name, b: 'Se dispuso un operativo de ' + (800 + Math.floor(Math.random() * 500)) + ' efectivos, con rutas separadas para las hinchadas y escolta policial para el micro visitante. El club afrontó parte del costo.', tids: [H.id, A.id] }), f.fines += 40;
     if(Math.random() > 0.005 * (cl ? 3 : 1) * (1 + f.inc * 0.3) * (m.sec === 'Máxima' ? 0.7 : 1)) return;
@@ -25446,20 +25486,12 @@ window.FIREBASE_CONFIG = {
   function instDt(k){ if(!k.dt){ k.dt = { name: instDtNewName(), since: state.career.year, heat: 0 }; } if(k.form == null) k.form = 0; return k.dt; }
 
   // ---- Mercado de entrenadores: los DT que se van o los echan quedan libres (c.inst.dtFree) y otro club puede contratarlos ----
-  // Técnicos reales que arrancan libres (sin club). Los que hoy dirigen a un club de INST_DT quedan afuera: se suman solos si los echan.
-  const INST_DT_LIBRES = ['Marcelo Gallardo','Carlos Tévez','Gustavo Costas','Eduardo Coudet','Jorge Sampaoli','Gustavo Quinteros','Néstor Gorosito','Lucas Pusineri','Israel Damonte','Claudio Úbeda','Rubén Darío Insúa','Juan Pablo Vojvoda','Sebastián Beccacece','Ricardo Gareca','Hugo Ibarra','Omar De Felippe','Javier Sanguinetti','Rodolfo De Paoli','Favio Orsi','Sergio Gómez'];
   function instDtFreeList(){
     const S = instState();
     if(!S.dtFree){
       S.dtFree = [];
       const used = {}; Object.keys(S.clubs).forEach(id => { if(S.clubs[id].dt) used[S.clubs[id].dt.name] = 1; });
       shuffleArr(INST_NAMES.slice()).filter(n => !used[n]).slice(0, 6).forEach(n => S.dtFree.push({ name: n, y: state.career.year, prev: null, why: 'sin club' }));
-    }
-    if(!S.dtLibresReal){                       // una sola vez por carrera (también en partidas ya empezadas)
-      S.dtLibresReal = 1;
-      const act = {}; Object.keys(INST_DT).forEach(k => act[INST_DT[k]] = 1);
-      INST_DT_LIBRES.forEach(n => { if(!act[n] && !instDtInUse(n) && !S.dtFree.some(x => x.name === n)) S.dtFree.push({ name: n, y: state.career.year, prev: null, why: 'sin club' }); });
-      if(S.dtFree.length > 60) S.dtFree.splice(0, S.dtFree.length - 60);
     }
     return S.dtFree;
   }
@@ -25513,7 +25545,7 @@ window.FIREBASE_CONFIG = {
   // Nombre del DT de un equipo argentino (null si no es de los que tienen institución).
   function careerDtName(teamId){
     try{
-      const t = instTeamById(teamId);
+      const c = state.career, t = c.teams.find(x => x.id === teamId);
       if(!t) return null;
       return instDt(instClub(t)).name;
     }catch(e){ return null; }
@@ -25522,7 +25554,7 @@ window.FIREBASE_CONFIG = {
   function instPreAttend(m){
     const c = state.career; if(m && !m.bye && !m.dtn && typeof m.homeScore === 'number'){ const dh = careerDtName(m.home), da = careerDtName(m.away); if(dh || da) m.dtn = { h: dh, a: da }; }
     if(!m || m.bye || m.neutral || m.comp === 'amistoso' || typeof m.homeScore !== 'number') return;
-    const H = instTeamById(m.home), A = instTeamById(m.away); if(!H || !A) return;
+    const H = c.teams.find(t => t.id === m.home), A = c.teams.find(t => t.id === m.away); if(!H || !A) return;
     const kh = instClub(H), ka = instClub(A), e = instEst(kh), f = instFans(kh), nw = careerNews(), cl = instIsClasico(H.name, A.name);
     // Asistencia: depende de la importancia, la racha, la protesta y las sanciones vigentes
     let occ = 0.5 + (cl ? 0.35 : 0) + (kh.form || 0) * 0.03 + Math.random() * 0.12 - (kh.protest ? 0.08 : 0);
@@ -25625,7 +25657,7 @@ window.FIREBASE_CONFIG = {
   // Nivel 1 (intoxicación, brote) tras un partido y nivel 2 (predio) una vez por año
   function instMedEvent(m){
     const c = state.career, S = instState(); if(!m || m.bye || m.comp === 'amistoso') return;
-    const t = instTeamById(Math.random() < 0.5 ? m.home : m.away); if(!t || Math.random() > 0.0012) return;
+    const t = c.teams.find(x => x.id === (Math.random() < 0.5 ? m.home : m.away)); if(!t || Math.random() > 0.0012) return;
     const n = 5 + Math.floor(Math.random() * 5), brote = Math.random() < 0.3, d = m.date || c.calendarDate;
     instTire(S, [t.id], d, addDaysISO(d, brote ? 9 : 5));
     nwAdd({ k: 'club', ic: brote ? '🦠' : '🤢', h: (brote ? '🦠 Brote en el plantel de ' : '🤢 Intoxicación en ') + t.name, b: (brote ? n + ' jugadores presentaron síntomas y fueron aislados; el club usará juveniles y modificará los entrenamientos.' : n + ' jugadores se enfermaron tras una comida en la concentración y quedaron en duda para el próximo partido.'), tids: [t.id] });
@@ -25644,12 +25676,11 @@ window.FIREBASE_CONFIG = {
   const instUi = { id:null };
   function renderCareraInst(){
     const c = state.career, S = instState();
-    const all = instAllTeams();
-    const sel = instTeamById(instUi.id || c.myTeamId) || c.teams[0];
-    const rank = all.map(t => ({ t, k:instClub(t) })).sort((a,b) => b.k.debt - a.k.debt);
+    const sel = c.teams.find(t => t.id === (instUi.id || c.myTeamId)) || c.teams[0];
+    const rank = c.teams.map(t => ({ t, k:instClub(t) })).sort((a,b) => b.k.debt - a.k.debt);
     const k = instClub(sel);
     const st = { ok:'Estable', crisis:'En crisis', judicial:'Administración judicial', refundado:'Refundado' };
-    const opts = careerAllRosterTeams().filter(g => g.teams.length).map(g => '<optgroup label="' + escapeHtml(g.label) + '">' + g.teams.map(t => '<option value="' + t.id + '"' + (t.id === sel.id ? ' selected' : '') + '>' + escapeHtml(t.name) + '</option>').join('') + '</optgroup>').join('');
+    const opts = rank.map(r => '<option value="' + r.t.id + '"' + (r.t.id === sel.id ? ' selected' : '') + '>' + escapeHtml(r.t.name) + '</option>').join('');
     const rows = rank.slice(0, 10).map(r => '<div class="team-row"><span class="name">' + escapeHtml(r.t.name) + '</span><span class="num">US$ ' + r.k.debt + ' M · ' + st[r.k.state] + '</span></div>').join('');
     const hist = k.hist.map(h => '<div class="team-row"><span class="num" style="min-width:52px">' + h.y + '</span><span class="name">' + escapeHtml(h.t) + '</span></div>').join('');
     return '<div class="panel"><h2>Instituciones</h2><p class="hint">Presidentes, dueños, deuda y crisis de cada club. Todo se actualiza al cerrar cada temporada.</p>' +
