@@ -25151,7 +25151,19 @@ window.FIREBASE_CONFIG = {
     'independiente rivadavia':'Alfredo Berti','instituto':'Diego Flores','lanus':'Mauricio Pellegrino','newells':'Frank Darío Kudelka',
     'platense':'Martín Palermo','racing club':'Sebastián Romero y Luciano Aued (interinos)','river plate':'Leonardo Ponzio (interino)','rosario central':'Jorge Almirón',
     'san lorenzo':'Rubén Darío Insúa','sarmiento':'Facundo Sava','talleres':'Omar De Felippe','tigre':'Diego Dabove',
-    'union':'Leonardo Madelón','velez sarsfield':'Guillermo Barros Schelotto'
+    'union':'Leonardo Madelón','velez sarsfield':'Guillermo Barros Schelotto',
+    // Primera Nacional · Zona A
+    'acassuso':'Ricardo Pancaldo','all boys':'Fabián Nardozza','almirante brown':'Andrés Montenegro','ciudad bolivar':'Diego Funes',
+    'central norte':'Mario Sciacqua','chaco for ever':'Daniel Cravero','colon':'Iván Delfino','defensores de belgrano':'César Vigevani',
+    'deportivo madryn':'Leandro Gracián','estudiantes ba':'Alfredo Grelak','ferro carril oeste':'Juan Manuel Sara','godoy cruz':'Pablo De Muner',
+    'los andes':'Leonardo Lemos','mitre sde':'Claudio Biaggio','deportivo moron':'Walter Otta','racing de cordoba':'Gustavo Coleoni',
+    'san miguel':'Matías Módolo','san telmo':'Marcelo Vázquez',
+    // Primera Nacional · Zona B
+    'agropecuario':'Gabriel Gómez','almagro':'Gabriel Gómez','atlanta':'Cristian Pellerano','atletico rafaela':'Iván Juárez',
+    'chacarita juniors':'Juan Manuel Azconzábal','colegiales':'Leonardo Fernández','deportivo maipu':'Alexis Matteo','gimnasia de jujuy':'Hernán Pellerano',
+    'gimnasia y tiro de salta':'Fernando Quiroz','guemes sde':'Pablo Guiñazú','midland':'Joaquín Iturrería','nueva chicago':'Gastón Lotitto',
+    'patronato':'Marcelo Candia','quilmes':'Emanuel Trípodi','san martin de san juan':'Alejandro Schiapparelli','san martin de tucuman':'Andrés Yllana',
+    'temperley':'Nicolás Domingo','tristan suarez':'José María Martínez'
   };
   function instApplyDt(t, k){
     if(k.realDt) return; k.realDt = true;
@@ -25431,12 +25443,20 @@ window.FIREBASE_CONFIG = {
   function instDt(k){ if(!k.dt){ k.dt = { name: instDtNewName(), since: state.career.year, heat: 0 }; } if(k.form == null) k.form = 0; return k.dt; }
 
   // ---- Mercado de entrenadores: los DT que se van o los echan quedan libres (c.inst.dtFree) y otro club puede contratarlos ----
+  // Técnicos reales que arrancan libres (sin club). Los que hoy dirigen a un club de INST_DT quedan afuera: se suman solos si los echan.
+  const INST_DT_LIBRES = ['Marcelo Gallardo','Carlos Tévez','Gustavo Costas','Eduardo Coudet','Jorge Sampaoli','Gustavo Quinteros','Néstor Gorosito','Lucas Pusineri','Israel Damonte','Claudio Úbeda','Rubén Darío Insúa','Juan Pablo Vojvoda','Sebastián Beccacece','Ricardo Gareca','Hugo Ibarra','Omar De Felippe','Javier Sanguinetti','Rodolfo De Paoli','Favio Orsi','Sergio Gómez'];
   function instDtFreeList(){
     const S = instState();
     if(!S.dtFree){
       S.dtFree = [];
       const used = {}; Object.keys(S.clubs).forEach(id => { if(S.clubs[id].dt) used[S.clubs[id].dt.name] = 1; });
       shuffleArr(INST_NAMES.slice()).filter(n => !used[n]).slice(0, 6).forEach(n => S.dtFree.push({ name: n, y: state.career.year, prev: null, why: 'sin club' }));
+    }
+    if(!S.dtLibresReal){                       // una sola vez por carrera (también en partidas ya empezadas)
+      S.dtLibresReal = 1;
+      const act = {}; Object.keys(INST_DT).forEach(k => act[INST_DT[k]] = 1);
+      INST_DT_LIBRES.forEach(n => { if(!act[n] && !instDtInUse(n) && !S.dtFree.some(x => x.name === n)) S.dtFree.push({ name: n, y: state.career.year, prev: null, why: 'sin club' }); });
+      if(S.dtFree.length > 60) S.dtFree.splice(0, S.dtFree.length - 60);
     }
     return S.dtFree;
   }
