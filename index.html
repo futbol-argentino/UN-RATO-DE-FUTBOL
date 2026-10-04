@@ -10980,6 +10980,52 @@ window.FIREBASE_CONFIG = {
     return apertura.matches.filter(m => m.interzonal && !m.bye).map(m => ({ home: m.home, away: m.away }));
   }
 
+  // Emparejamiento interzonal: devuelve [{a, b, prev}] con a de la zona A y b de la zona B.
+  // 1) Si hay cruces del Apertura (prevPairs), se repiten.
+  // 2) Si no, se maximiza la cantidad de clásicos rivales entre zonas (emparejamiento bipartito máximo).
+  // 3) Los equipos sin clásico disponible se cruzan con un rival sorteado de los que quedan.
+  function careerInterzonalMatching(zoneA, zoneB, prevPairs){
+    const inA = new Set(zoneA), inB = new Set(zoneB);
+    const need = Math.min(zoneA.length, zoneB.length);
+    if(prevPairs && prevPairs.length){
+      const usedA = new Set(), usedB = new Set(), out = [];
+      prevPairs.forEach(p => {
+        const a = inA.has(p.home) ? p.home : p.away, b = inB.has(p.home) ? p.home : p.away;
+        if(inA.has(a) && inB.has(b) && !usedA.has(a) && !usedB.has(b)){ usedA.add(a); usedB.add(b); out.push({ a, b, prev: p }); }
+      });
+      if(out.length === need) return out;
+    }
+    const out = [];
+    const usedA = new Set(), usedB = new Set();
+    // Se empareja por niveles: primero los clásicos con nombre propio (Superclásico, rosarino, etc.) y recién
+    // después los "Clásico de grandes" entre los cinco grandes, para que Boca-River tenga prioridad.
+    const tiers = [
+      (a, b) => { const n = careerClassicName(a, b); return n && n !== 'Clásico de grandes'; },
+      (a, b) => !!careerClassicName(a, b)
+    ];
+    tiers.forEach(isEdge => {
+      const adj = new Map();
+      const edges = [];
+      zoneA.forEach(a => { if(usedA.has(a)) return; zoneB.forEach(b => { if(!usedB.has(b) && isEdge(a, b)) edges.push([a, b]); }); });
+      shuffleArr(edges).forEach(e => { if(!adj.has(e[0])) adj.set(e[0], []); adj.get(e[0]).push(e[1]); });
+      const matchB = new Map();
+      const tryA = (a, seen) => {
+        for(const b of (adj.get(a) || [])){
+          if(seen.has(b)) continue;
+          seen.add(b);
+          if(!matchB.has(b) || tryA(matchB.get(b), seen)){ matchB.set(b, a); return true; }
+        }
+        return false;
+      };
+      shuffleArr(zoneA.slice()).forEach(a => tryA(a, new Set()));
+      matchB.forEach((a, b) => { out.push({ a, b, prev: null }); usedA.add(a); usedB.add(b); });
+    });
+    const restA = shuffleArr(zoneA.filter(id => !usedA.has(id)));
+    const restB = shuffleArr(zoneB.filter(id => !usedB.has(id)));
+    for(let i = 0; i < Math.min(restA.length, restB.length); i++) out.push({ a: restA[i], b: restB[i], prev: null });
+    return out;
+  }
+
   function careerGenerateTournament(){
     const c = state.career;
     c.matches = [];
@@ -11002,58 +11048,63 @@ window.FIREBASE_CONFIG = {
     const zoneRounds = [[], []];
     [zoneA, zoneB].forEach((zoneIds, zi) => {
       if(zoneIds.length < 2) return;
-      const rounds = roundRobinRounds(zoneIds);
-      zoneRounds[zi] = rounds;
-      rounds.forEach((round, ri) => {
+      zoneRounds[zi] = roundRobinRounds(zoneIds);
+      maxRounds = Math.max(maxRounds, zoneRounds[zi].length);
+    });
+
+    // Cruce interzonal de cada equipo: los clásicos rivales de zonas distintas se enfrentan entre sí; el que
+    // no tiene clásico en la otra zona (o lo tiene en la suya) recibe un rival sorteado. En el Clausura se
+    // repiten los cruces del Apertura con la localía invertida.
+    const aperturaInterPairs = esClausura ? careerAperturaInterzonalPairs() : null;
+    const interPairs = (zoneA.length && zoneB.length) ? careerInterzonalMatching(zoneA, zoneB, aperturaInterPairs) : [];
+
+    // Zonas impares (15 y 15): en cada fecha queda libre un equipo por zona. Esos dos libres juegan entre
+    // sí el cruce interzonal, así los 30 equipos juegan todas las fechas y cada uno tiene un interzonal.
+    // Para que cada par de rivales quede libre en la misma fecha, se reordenan las fechas de la zona B.
+    const oddBoth = zoneA.length > 1 && zoneA.length % 2 === 1 && zoneA.length === zoneB.length;
+    if(oddBoth){
+      const byeRound = (rounds, id) => rounds.findIndex(rd => !rd.some(mm => mm.home === id || mm.away === id));
+      const nR = Math.min(zoneRounds[0].length, zoneRounds[1].length);
+      const reordB = new Array(nR);
+      interPairs.forEach(p => {
+        const oldIdx = byeRound(zoneRounds[1], p.b), newIdx = byeRound(zoneRounds[0], p.a);
+        const rd = zoneRounds[1][oldIdx];
+        // se conserva la alternancia local/visitante según la paridad de la fecha
+        reordB[newIdx] = (oldIdx % 2 === newIdx % 2) ? rd : rd.map(mm => ({ home: mm.away, away: mm.home }));
+      });
+      if(reordB.every(Boolean)) zoneRounds[1] = reordB;
+    }
+
+    [zoneA, zoneB].forEach((zoneIds, zi) => {
+      zoneRounds[zi].forEach((round, ri) => {
         round.forEach(mm => {
           const home = esClausura ? mm.away : mm.home;
           const away = esClausura ? mm.home : mm.away;
           c.matches.push(careerMkMatch(c.tournament, zi, ri+1, home, away, {date: dateForRound(ri+1)}));
         });
       });
-      maxRounds = Math.max(maxRounds, rounds.length);
     });
 
-    // Zonas impares (15 y 15): en cada fecha queda libre un equipo por zona. Esos dos libres juegan entre
-    // sí un cruce interzonal, así los 30 equipos juegan todas las fechas y cada uno tiene un interzonal.
-    // En el Clausura se repiten los cruces del Apertura con la localía invertida.
-    const oddBoth = zoneA.length > 1 && zoneA.length % 2 === 1 && zoneA.length === zoneB.length;
+    const interHA = (p) => {
+      if(p.prev) return { home: p.prev.away, away: p.prev.home };
+      const homeIsA = Math.random() < 0.5;
+      return homeIsA ? { home: p.a, away: p.b } : { home: p.b, away: p.a };
+    };
     if(oddBoth){
-      const aperturaInterOdd = esClausura ? careerAperturaInterzonalPairs() : null;
-      const freeOf = (zoneIds, round) => { const played = new Set(); round.forEach(mm => { played.add(mm.home); played.add(mm.away); }); return zoneIds.filter(id => !played.has(id)); };
-      const nR = Math.min(zoneRounds[0].length, zoneRounds[1].length);
-      for(let ri = 0; ri < nR; ri++){
-        const fa = freeOf(zoneA, zoneRounds[0][ri]), fb = freeOf(zoneB, zoneRounds[1][ri]);
-        for(let k = 0; k < Math.min(fa.length, fb.length); k++){
-          let home, away;
-          const prev = aperturaInterOdd && aperturaInterOdd.find(q => (q.home === fa[k] && q.away === fb[k]) || (q.home === fb[k] && q.away === fa[k]));
-          if(prev){ home = prev.away; away = prev.home; }
-          else { const homeIsA = Math.random() < 0.5; home = homeIsA ? fa[k] : fb[k]; away = homeIsA ? fb[k] : fa[k]; }
-          c.matches.push(careerMkMatch(c.tournament, null, ri+1, home, away, {interzonal:true, date: dateForRound(ri+1)}));
-        }
-      }
-    }
-    // Fecha interzonal: en el Apertura se sortea un rival de la otra zona; en el Clausura
-    // se repiten esos mismos cruces con la localía invertida.
-    if(!oddBoth && zoneA.length && zoneB.length){
+      const byeRound = (rounds, id) => rounds.findIndex(rd => !rd.some(mm => mm.home === id || mm.away === id));
+      interPairs.forEach(p => {
+        const ri = byeRound(zoneRounds[0], p.a);
+        const ha = interHA(p);
+        c.matches.push(careerMkMatch(c.tournament, null, ri+1, ha.home, ha.away, {interzonal:true, date: dateForRound(ri+1)}));
+      });
+    } else if(interPairs.length){
+      // Fecha interzonal aparte (zonas pares o desparejas): una fecha extra al final.
       const interRound = maxRounds + 1;
       const interDate = dateForRound(interRound);
-      const aperturaInter = esClausura ? careerAperturaInterzonalPairs() : null;
-      if(aperturaInter && aperturaInter.length){
-        aperturaInter.forEach(p => {
-          c.matches.push(careerMkMatch(c.tournament, null, interRound, p.away, p.home, {interzonal:true, date: interDate}));
-        });
-      } else {
-        const shuffledA = shuffleArr(zoneA.slice());
-        const shuffledB = shuffleArr(zoneB.slice());
-        const n = Math.min(shuffledA.length, shuffledB.length);
-        for(let i=0;i<n;i++){
-          const homeIsA = Math.random() < 0.5;
-          const home = homeIsA ? shuffledA[i] : shuffledB[i];
-          const away = homeIsA ? shuffledB[i] : shuffledA[i];
-          c.matches.push(careerMkMatch(c.tournament, null, interRound, home, away, {interzonal:true, date: interDate}));
-        }
-      }
+      interPairs.forEach(p => {
+        const ha = interHA(p);
+        c.matches.push(careerMkMatch(c.tournament, null, interRound, ha.home, ha.away, {interzonal:true, date: interDate}));
+      });
     }
     c.calendarDate = addDaysISO(seasonStart, -3); // jueves previo: los partidos arrancan desde el viernes
     careerEnsureNacional();
