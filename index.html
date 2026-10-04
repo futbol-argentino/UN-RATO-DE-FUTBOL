@@ -653,10 +653,12 @@
   .soc-more,.soc-empty{ padding:18px; text-align:center; color:#1d9bf0; cursor:pointer; } .soc-empty{ color:#71767b; cursor:default; }
   @media (max-width:1050px){ .soc-app{ grid-template-columns:70px minmax(0,1fr); } .soc-right{ display:none; } .soc-nav{ font-size:0; justify-content:center; padding:10px 0; } .soc-nav span{ font-size:21px; } .soc-me div{ display:none; } }
   @media (max-width:640px){ .soc-app{ grid-template-columns:minmax(0,1fr); } .soc-left{ display:none; } }
-  .fs-speed{ display:inline-flex; gap:4px; align-items:center; margin-right:10px; font-size:12px; color:var(--ink-dim); }
-  .fs-speed button{ background:transparent; border:1px solid rgba(255,255,255,.25); color:inherit; border-radius:6px; padding:3px 8px; cursor:pointer; font:inherit; }
-  .fs-speed button.on{ background:var(--fs-accent); color:#111; border-color:var(--fs-accent); }
+  .fs-speed, .fs-vista{ display:inline-flex; gap:4px; align-items:center; margin-right:10px; font-size:12px; color:var(--ink-dim); }
+  .fs-speed button, .fs-vista button{ background:transparent; border:1px solid rgba(255,255,255,.25); color:inherit; border-radius:6px; padding:3px 8px; cursor:pointer; font:inherit; }
+  .fs-speed button.on, .fs-vista button.on{ background:var(--fs-accent); color:#111; border-color:var(--fs-accent); }
   .fs-actions{ flex-wrap:wrap; align-items:center; }
+  .fs-textmode .fs-feed{ font-size:15px !important; color:var(--ink) !important; max-width:620px; margin:14px auto 6px !important; text-align:center; }
+  .fs-textmode .fs-event{ margin-top:6px; }
   .fs-var{ position:fixed; right:16px; top:50%; transform:translateY(-50%); width:min(310px,34vw); z-index:10000; padding:14px 16px; background:rgba(6,14,26,.97); border:1px solid #2c5a8a; border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,.6); animation:fsFade .25s ease; }
   @media (max-width:900px){ .fs-var{ right:auto; left:50%; top:auto; bottom:12px; transform:translateX(-50%); width:min(94vw,460px); } }
   .fs-var[hidden]{ display:none; }
@@ -1491,6 +1493,9 @@ window.FIREBASE_CONFIG = {
   let careerShowSpeed = 1;
   try{ const sv = parseFloat(localStorage.getItem('careerShowSpeed')); if(sv > 0) careerShowSpeed = sv; }catch(e){}
   const CAREER_SPEEDS = [0.5, 1, 2, 4, 8];
+  // Vista del minuto a minuto: 'cancha' (fichas moviéndose en el campo) o 'texto' (solo reloj, relato y goles).
+  let careerShowView = 'cancha';
+  try{ const sv = localStorage.getItem('careerShowView'); if(sv === 'texto' || sv === 'cancha') careerShowView = sv; }catch(e){}
 
 
   // ---------- Cancha con fichas (minuto a minuto) ----------
@@ -1517,6 +1522,21 @@ window.FIREBASE_CONFIG = {
       r.noAway = ab && !r.all;
     }catch(e){}
     return r;
+  }
+  // Versión "solo texto" del minuto a minuto: mismo contrato que careerPitchMake, pero sin cancha. Los goles y
+  // las revisiones del VAR siguen su curso (se llaman los mismos callbacks), solo que no hay nada que dibujar.
+  function careerPitchText(wait){
+    return {
+      tick(){}, plan(){}, pause(){}, varStart(){}, varVerdict(){}, hide(){},
+      riotMin: -1,
+      async riot(){}, async event(){}, async start(){}, async halftime(){},
+      async entrance(){ return false; },
+      async goal(g, onNet, review){
+        await wait(600);
+        if(onNet) try{ onNet(); }catch(e){}
+        if(review) await review();
+      }
+    };
   }
   function careerPitchMake(slot, m, home, away, wait, ui){
     const pc = playersCache();
@@ -2465,12 +2485,14 @@ window.FIREBASE_CONFIG = {
           <div class="fs-pen-total num">0 - 0</div>
         </div>
         <div class="fs-champ" hidden></div>
-        <div class="fs-actions"><span class="fs-speed">Velocidad: ${CAREER_SPEEDS.map(v => `<button type="button" data-sp="${v}" class="${v === careerShowSpeed ? 'on' : ''}">${v}×</button>`).join('')}</span><button class="btn ghost small fs-lu" type="button">&#128203; Alineaciones</button> <button class="btn ghost small fs-skip" type="button">Saltar animación</button></div>
+        <div class="fs-actions"><span class="fs-vista">Vista: <button type="button" data-vw="cancha" class="${careerShowView === 'cancha' ? 'on' : ''}">Con cancha</button><button type="button" data-vw="texto" class="${careerShowView === 'texto' ? 'on' : ''}">Solo texto</button></span><span class="fs-speed">Velocidad: ${CAREER_SPEEDS.map(v => `<button type="button" data-sp="${v}" class="${v === careerShowSpeed ? 'on' : ''}">${v}×</button>`).join('')}</span><button class="btn ghost small fs-lu" type="button">&#128203; Alineaciones</button> <button class="btn ghost small fs-skip" type="button">Saltar animación</button><div class="fs-vnote" style="width:100%;text-align:center;font-size:12px;color:var(--ink-dim);min-height:16px;margin-top:6px;"></div></div>
       </div>`;
     document.body.appendChild(root);
     const q = sel => root.querySelector(sel);
 
     let skipped = false, finished = false, wakeFn = null;
+    let textMode = (careerShowView === 'texto');
+    if(textMode) root.classList.add('fs-textmode');
     const SKIP = {};
     const wait = ms => new Promise(r => {
       wakeFn = r;
@@ -2494,6 +2516,14 @@ window.FIREBASE_CONFIG = {
     const luBox = q('.fs-lineups'), luBtn = q('.fs-lu');
     const refreshLu = () => { if(!luBox.hidden) luBox.innerHTML = careerLineupPanelHtml(m, curMin); };
     if(luBtn) luBtn.addEventListener('click', () => { luBox.hidden = !luBox.hidden; refreshLu(); });
+    root.querySelectorAll('.fs-vista button').forEach(b => b.addEventListener('click', () => {
+      const v = b.getAttribute('data-vw') === 'texto' ? 'texto' : 'cancha';
+      careerShowView = v;
+      try{ localStorage.setItem('careerShowView', v); }catch(e){}
+      root.querySelectorAll('.fs-vista button').forEach(x => x.classList.toggle('on', x === b));
+      // De cancha a texto se cambia enseguida (al próximo minuto); de texto a cancha no se puede armar a mitad de partido.
+      q('.fs-vnote').textContent = (v === 'cancha' && textMode) ? 'La cancha se mostrará desde el próximo partido.' : '';
+    }));
     root.querySelectorAll('.fs-speed button').forEach(b => b.addEventListener('click', () => {
       careerShowSpeed = parseFloat(b.getAttribute('data-sp')) || 1;
       try{ localStorage.setItem('careerShowSpeed', String(careerShowSpeed)); }catch(e){}
@@ -2518,6 +2548,14 @@ window.FIREBASE_CONFIG = {
     }
     // o: { subject, tone: 'ok'|'no'|'neu', verdict, detail, feed, keep (la jugada ya se vio: no se re-arma), off: { side, isOff } (fuera de juego: dibuja la repetición semiautomática) }
     async function varReview(o){
+      if(textMode){
+        setEvent('🖥️ VAR: ' + o.subject);
+        await wait(1400);
+        setEvent(o.verdict + (o.detail ? ' · ' + o.detail : ''));
+        if(o.feed){ const fl = document.createElement('div'); fl.textContent = curMin + "' 🖥️ VAR: " + o.verdict + (o.detail ? ' · ' + o.detail : ''); q('.fs-feed').appendChild(fl); }
+        await wait(1600);
+        return;
+      }
       varEl.innerHTML = '<div class="fs-var-card"><img class="fs-var-logo" src="' + VAR_LOGO + '" alt="VAR"><div class="fs-var-kick">REVISIÓN DEL VAR</div><div class="fs-var-subj"></div><div class="fs-var-step"></div><div class="fs-var-bar"><i></i></div><div class="fs-var-out"></div></div>';
       varEl.className = 'fs-var' + (o.off ? ' wide' : '');
       if(o.off){ const tmp = document.createElement('div'); tmp.innerHTML = careerOffsideScene(home, away, o.off.side, o.off.isOff); varEl.querySelector('.fs-var-subj').after(tmp.firstChild); }
@@ -2554,8 +2592,18 @@ window.FIREBASE_CONFIG = {
     const varRoll = (key, p) => awardHash(String(m.id) + 'var' + key) < p;
     const refK = careerRefK(m), hasVar = careerCompHasVar(m);
     let pitch;
-    try{ pitch = careerPitchMake(q('.fs-pitch-slot'), m, home, away, wait, { ev: t => setEvent(t), feed: t => { const fl = document.createElement('div'); fl.textContent = t; q('.fs-feed').appendChild(fl); } }); }
-    catch(err){ pitch = { tick(){}, async goal(){}, async event(){}, async riot(){}, riotMin: -1, plan(){}, pause(){}, varStart(){}, varVerdict(){}, async start(){}, async halftime(){}, hide(){} }; }
+    if(textMode){ q('.fs-pitch-slot').hidden = true; pitch = careerPitchText(wait); }
+    else{
+      try{ pitch = careerPitchMake(q('.fs-pitch-slot'), m, home, away, wait, { ev: t => setEvent(t), feed: t => { const fl = document.createElement('div'); fl.textContent = t; q('.fs-feed').appendChild(fl); } }); }
+      catch(err){ pitch = careerPitchText(wait); }
+    }
+    // Cambio de "con cancha" a "solo texto" a mitad de partido: se apaga la cancha y el resto va como relato.
+    function switchToText(){
+      textMode = true; root.classList.add('fs-textmode');
+      try{ pitch.hide(); }catch(e){}
+      q('.fs-pitch-slot').hidden = true;
+      pitch = careerPitchText(wait);
+    }
 
     // ---------- Penal: la jugada con suspenso (se usa en los penales del partido y en la tanda) ----------
     const pkEl = document.createElement('div');
@@ -2575,6 +2623,14 @@ window.FIREBASE_CONFIG = {
       const tm = o.side === 'h' ? home : away, opp = o.side === 'h' ? away : home;
       const hv = n => awardHash(String(m.id) + 'pk' + (o.key || '') + n);
       const who = o.name || tm.name, gk = o.gkName || gkNameAt(o.side, o.min || 90);
+      if(textMode){
+        const fx = !!o.fast;
+        setEvent('⚽ Penal' + (o.tag ? ' · ' + o.tag : '') + ': patea ' + who + ' (' + tm.name + ')');
+        await wait(fx ? 800 : 1500);
+        setEvent({ goal: '⚽ ¡GOOOL!', sv: '🧤 ¡Atajado' + (gk ? ' por ' + gk : '') + '!', po: '😱 ¡Al palo!', of: '❌ ¡Afuera!' }[o.outcome] || '…', o.outcome === 'goal');
+        await wait(fx ? 900 : 1500);
+        return;
+      }
       const dir = ['L', 'C', 'R'][Math.min(2, Math.floor(hv('d') * 3))], high = hv('h') < 0.5;
       const sideOf = d => d === 'L' ? -1 : d === 'R' ? 1 : (hv('s') < 0.5 ? -1 : 1);
       const tx = { L: 24, C: 50, R: 76 }[dir], ty = high ? 30 : 66;
@@ -2771,6 +2827,7 @@ window.FIREBASE_CONFIG = {
         evs.sort((x, y) => x.min - y.min);
         let ei = 0;
         for(let min = 1; min <= 90; min++){
+          if(!textMode && careerShowView === 'texto') switchToText();
           q('.fs-clock').textContent = min + "'";
           curMin = min; refreshLu();
           pitch.tick(min);
@@ -9528,7 +9585,7 @@ window.FIREBASE_CONFIG = {
     { w: 'Agresión al árbitro', n: [5, 12], h: '🟥 {P} ({T}) agredió al árbitro', b: 'Según el informe arbitral, {P} ({T}) empujó e insultó al árbitro al terminar el partido ante {R}.' },
     { w: 'Insultos al árbitro', n: [2, 4], h: '🟥 {P} ({T}) en la mira del Tribunal', b: 'El árbitro reflejó en su informe que {P} ({T}) lo insultó reiteradamente durante el partido ante {R}.' },
     { w: 'Agresión a un rival', n: [3, 7], h: '📹 Las cámaras captaron a {P} ({T}) golpeando a un rival', b: 'El árbitro no lo vio, pero las imágenes de TV mostraron a {P} ({T}) golpeando a un rival lejos de la jugada en el partido ante {R}.' },
-    { w: 'Gesto obsceno a la tribuna', n: [1, 3], h: '🤬 {P} ({T}) y un gesto que le puede costar caro', b: '{P} ({T}) hizo gestos obscenos a la hinchada rival tras convertirse un gol en el partido ante {R}.' },
+    { w: 'Gesto obsceno a la tribuna', n: [1, 3], goal: true, h: '🤬 {P} ({T}) y un gesto que le puede costar caro', b: '{P} ({T}) hizo gestos obscenos a la hinchada rival tras convertir el gol del {G}\' en el partido ante {R}. El árbitro no lo expulsó en el campo, pero lo incluyó en su informe.' },
     { w: 'Escupió a un rival', n: [4, 8], h: '😡 {P} ({T}) escupió a un rival', b: 'Una cámara registró cuando {P} ({T}) escupió a un rival en el partido ante {R}. El árbitro lo incluyó en el informe.' },
     { w: 'Pelea en el túnel', n: [2, 5], h: '🥊 Pelea en el túnel de vestuarios con {P} ({T})', b: 'Tras el partido ante {R}, {P} ({T}) protagonizó una pelea en el túnel de vestuarios y fue denunciado en el informe.' },
     { w: 'Declaraciones contra el arbitraje', n: [1, 3], h: '🎙️ Duras críticas de {P} ({T}) al arbitraje', b: '{P} ({T}) cuestionó con dureza la actuación del árbitro en la zona mixta tras el partido ante {R}. El Tribunal abrió una investigación.' },
@@ -9536,10 +9593,26 @@ window.FIREBASE_CONFIG = {
   ];
   function nwEvConduct(m){
     if(!careerTeamById(m.home) || !careerTeamById(m.away)) return;
-    const side = Math.random() < 0.5 ? 'h' : 'a', p = nwPlayerOf(m, side);
+    let side = Math.random() < 0.5 ? 'h' : 'a', p = null, tp = nwPick(NW_CONDUCT), gmin = null;
+    if(tp.goal){
+      // Esta noticia habla de un festejo: solo puede ser de alguien que de verdad convirtió un gol en el partido
+      // (que figure en la ficha). Si nadie lo hizo, se cuenta otro tipo de conducta.
+      const cache = playersCache(), sides = Math.random() < 0.5 ? ['h', 'a'] : ['a', 'h'];
+      let pick = null;
+      sides.forEach(sd => {
+        if(pick) return;
+        const gs = (m.goals || []).filter(g => g && g.s === sd && g.p && g.t !== 'ec' && cache && cache.byId[g.p] && !cache.byId[g.p].r && !careerNewsBan(g.p));
+        if(gs.length) pick = { sd, g: nwPick(gs) };
+      });
+      if(pick){ side = pick.sd; p = cache.byId[pick.g.p]; gmin = Math.max(1, Math.min(90, pick.g.m || 1)); }
+      else{
+        tp = nwPick(NW_CONDUCT.filter(x => !x.goal));
+        p = nwPlayerOf(m, side);
+      }
+    }else p = nwPlayerOf(m, side);
     if(!p || careerNewsBan(p.id)) return;
     const rid = side === 'h' ? m.away : m.home, tid = side === 'h' ? m.home : m.away;
-    const tp = nwPick(NW_CONDUCT), v = { P: p.n, T: p.t, R: nwTeamName(rid) };
+    const v = { P: p.n, T: p.t, R: nwTeamName(rid), G: gmin };
     nwAdd({ k: 'conducta', ic: '🟥', h: nwFmt(tp.h, v), b: nwFmt(tp.b, v), tids: [tid, rid], cmp: nwCmp(m) });
     nwSchedule(nwInt(2, 5), 'player', { pid: p.id, n: nwInt(tp.n[0], tp.n[1]), w: tp.w });
   }
@@ -12829,13 +12902,28 @@ window.FIREBASE_CONFIG = {
     // careerCopaArgentinaRevealNext, para que se pueda "hacer a mano" en vez de verse de una.
     const seeded = shuffleArr(pool.map(t=>t.id));
     const pairs = buildFirstKnockoutRound(seeded);
-    const date = nextWeekdayAfter(state.career.calendarDate || careerSeasonStart(state.career.year, state.career.tournament), 3);
+    // Nunca antes de que terminen los torneos y amistosos de pretemporada ni del arranque del Apertura
+    // (si el calendario ya estaba en enero por la pretemporada, la Copa arrancaba en pleno verano).
+    let baseDate = state.career.calendarDate || careerSeasonStart(state.career.year, state.career.tournament);
+    const notBefore = careerCopaNotBefore();
+    if(baseDate < notBefore) baseDate = notBefore;
+    const date = nextWeekdayAfter(baseDate, 3);
     c.copaArgentina = { otherTeams, matches: [], built: false, champion: null, draw: { pairs, revealed: 0, date } };
   }
   // Copa Argentina: cada fase se juega en martes, miércoles y jueves repartida en una ventana de semanas,
   // y entre fase y fase pasan unas 6 semanas para que la copa dure todo el año.
   const COPA_ARG_WINDOW_WEEKS = { treintaidosavos:3, dieciseisavos:2, octavos:2, cuartos:1, semis:1, final:1 };
   const COPA_ARG_GAP_DAYS = 42;
+  // Primer día en que puede jugarse la Copa Argentina del año: después del último partido de la pretemporada
+  // y no antes del primer domingo del Apertura.
+  function careerCopaNotBefore(){
+    const c = state.career;
+    let lim = careerSeasonStart(c.year, 'apertura');
+    const A = c.amistosos;
+    if(A && A.year === c.year && A.matches) A.matches.forEach(mm => { if(mm && mm.date && mm.date > lim) lim = mm.date; });
+    if(A && A.year === c.year && A.tournaments) A.tournaments.forEach(t => { if(t && t.finalDate && t.finalDate > lim) lim = t.finalDate; });
+    return lim;
+  }
   function careerCopaFirstTuesday(fromIso){ return nextWeekdayAfter(addDaysISO(fromIso, -1), 2); }
   function careerCopaPickDate(stage, i, n, startTue, home, away){
     const W = COPA_ARG_WINDOW_WEEKS[stage] || 1;
@@ -12866,7 +12954,11 @@ window.FIREBASE_CONFIG = {
     const draw = ca.draw;
     if(draw.revealed >= draw.pairs.length) return;
     const p = draw.pairs[draw.revealed];
-    const startTue = careerCopaFirstTuesday(addDaysISO(draw.date, -1));
+    // Sorteos ya armados con fecha temprana (carreras viejas): se corre al primer día permitido.
+    let drawDate = draw.date;
+    const minDraw = nextWeekdayAfter(careerCopaNotBefore(), 3);
+    if(drawDate < minDraw) drawDate = minDraw;
+    const startTue = careerCopaFirstTuesday(addDaysISO(drawDate, -1));
     const dateCA = careerCopaPickDate('treintaidosavos', draw.revealed, draw.pairs.length, startTue, p.home, p.away);
     ca.matches.push(careerMkMatch('copa-argentina', null, 1, p.home, p.away, {stage:'treintaidosavos', neutral:true, date: dateCA}));
     draw.revealed++;
