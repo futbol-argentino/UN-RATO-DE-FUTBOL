@@ -25197,7 +25197,7 @@ window.FIREBASE_CONFIG = {
     'talleres':['Andrés Fassi','Mario Alberto Kempes',57000],'tigre':['Martín Suárez','José Dellagiovanna',26282],
     'union':['Luis Jorge Spahn','15 de Abril',27000],'velez sarsfield':['Luis Fabián Berlanga','José Amalfitani',49540]
   };
-  // Presidentes reales de Primera Nacional (solo nombre). Clave: nombre normalizado.
+  // Presidentes reales de Primera Nacional y B Metropolitana (solo nombre). Clave: nombre normalizado.
   const INST_PRES = {
     'acassuso':'Alberto Trípoli','agropecuario':'Bernardo Grobocopatel','all boys':'Nicolás Cambiasso',
     'almirante brown':'Maximiliano Levy','almagro':'Julio Cucchi','atlanta':'Gabriel Greco',
@@ -25210,7 +25210,8 @@ window.FIREBASE_CONFIG = {
     'los andes':'Omar Plaini','mitre sde':'Luis Miguel','nueva chicago':'Sergio Ramos',
     'patronato':'Dante Molina','quilmes':'Carlos Giulianetti','racing de cordoba':'Manuel Pérez',
     'san martin de san juan':'Jorge Miadoski','san martin de tucuman':'Rubén Moisello','san miguel':'Daniel Sagman',
-    'san telmo':'Martín Rodríguez','temperley':'Alberto Lecchi','tristan suarez':'Gastón Granados'
+    'san telmo':'Martín Rodríguez','temperley':'Alberto Lecchi','tristan suarez':'Gastón Granados',
+    'defensores unidos':'Leandro Moyano','argentino de quilmes':'Eduardo Larosa','excursionistas':'Javier Cartier','arsenal de sarandi':'Lara Grondona','talleres rde':'Leonardo Salvadore','sportivo italiano':'Christian Iorio','villa dalmine':'Alejandro Guzman','camioneros':'Pablo Moyano','real pilar':'Cesar Mansilla','deportivo armenio':'Luciano Nakis','comunicaciones':'Ezequiel Segura','laferrere':'Fernando Rotondi','san martin de burzaco':'Gabriel Ostanelli','dock sud':'Hernan Zvizer','villa san carlos':'Juan Manuel Cordoba','argentino de merlo':'Agustin Brieva','liniers':'Marcelo Gomez','deportivo merlo':'Guillermo Gutierrez','flandria':'Vanina Torres','brown de adrogue':'Agustin Galeota','uai urquiza':'Ramiro Perez','ituzaingo':'Hernando Politano'
   };
   // Aplica los datos reales una sola vez por club (también en carreras ya empezadas). Después la historia sigue por su cuenta.
   const INST_DT = {
@@ -25238,14 +25239,48 @@ window.FIREBASE_CONFIG = {
     'quilmes':'Emanuel Trípodi','san martin de san juan':'Alejandro Schiapparelli','san martin de tucuman':'Andrés Yllana',
     'temperley':'Nicolás Domingo','tristan suarez':'José María Martínez'
   });
+  // Técnicos de Primera B Metropolitana.
+  Object.assign(INST_DT, {
+    'defensores unidos':'Diego Farias','argentino de quilmes':'Marcos Flores','excursionistas':'Rodrigo Bilbao',
+    'arsenal de sarandi':'Fabian Lisa','talleres rde':'Lucas Licht','sportivo italiano':'Matias Gimenez',
+    'villa dalmine':'Ariel Fuscaldo','camioneros':'Axel Clazon','real pilar':'Gabriel Torres',
+    'deportivo armenio':'Ezequiel Giaccaglia','comunicaciones':'Agustin Castiglione','laferrere':'Cesar Carranza',
+    'san martin de burzaco':'Federico Scurnik','dock sud':'Miguel Angel Gutiérrez','villa san carlos':'Miguel Angel Restelli',
+    'argentino de merlo':'Lucas Nohra','liniers':'Dario Lema','deportivo merlo':'Ariel Zarate',
+    'flandria':'Jesús Diaz','brown de adrogue':'Adrian Czornomaz','uai urquiza':'Federico Barrionuevo',
+    'ituzaingo':'Guillermo Szeszurak'
+  });
   function instApplyDt(t, k){
     if(k.realDt) return; k.realDt = true;
     const n = INST_DT[playerNormKey(t.name)]; if(!n) return;
     k.dt = { name: n, since: state.career.year, heat: 0 }; if(k.form == null) k.form = 0;
   }
+  // Estadios reales de Primera Nacional: [estadio, capacidad].
+  const INST_STAD = {
+    'midland':['Ferrocarril Midland',6000],
+    'acassuso':['La Quema',2000],'agropecuario':['Ofelia Rosenzuaig',8000],
+    'all boys':['Islas Malvinas',12000],'almirante brown':['Fragata Presidente Sarmiento',25000],
+    'almagro':['Tres de Febrero',19000],'atlanta':['Don León Kolbowski',14000],
+    'atletico rafaela':['Nuevo Monumental',16000],'central norte':['Padre Ernesto Martearena',42000],
+    'chaco for ever':['Juan Alberto García',25000],'chacarita juniors':['18 de Julio',25000],
+    'ciudad bolivar':['Municipal Eva Perón',5000],'colegiales':['Libertarios Unidos',8000],
+    'colon':['Brigadier General Estanislao López',40000],'defensores de belgrano':['Juan Pasquale',11500],
+    'deportivo madryn':['Abel Sastre',8000],'deportivo maipu':['Omar Higinio Sperdutti',9000],
+    'deportivo moron':['Nuevo Francisco Urbano',32000],'estudiantes ba':['Ciudad de Caseros',16000],
+    'ferro carril oeste':['Arquitecto Ricardo Etcheverri',24000],'gimnasia de jujuy':['23 de Agosto',24000],
+    'gimnasia y tiro de salta':['El Gigante del Norte',24000],'godoy cruz':['Feliciano Gambarte',18000],
+    'guemes sde':['Arturo Jiya Miranda',12000],'los andes':['Eduardo Gallardón',36000],
+    'mitre sde':['Doctores José y Antonio Castiglione',16000],'nueva chicago':['República de Mataderos',28000],
+    'patronato':['Presbítero Bartolomé Grella',23500],'quilmes':['Centenario Ciudad de Quilmes',30200],
+    'racing de cordoba':['Miguel Sancho',22000],'san martin de san juan':['Hilario Sánchez',17000],
+    'san martin de tucuman':['La Ciudadela',30000],'san miguel':['Malvinas Argentinas',7000],
+    'san telmo':['Osvaldo Baletto',5000],'temperley':['Alfredo Beranger',17500],
+    'tristan suarez':['20 de Octubre',15000]
+  };
   function instApplyReal(t, k){
     const key = playerNormKey(t.name);
     if(!k.realP){ k.realP = true; const p = INST_PRES[key]; if(p && !INST_REAL[key]) k.pres.name = p; }
+    if(!k.realS){ k.realS = true; const q = INST_STAD[key]; if(q && !INST_REAL[key]){ const e = instEst(k); e.stadium = q[0]; e.cap = q[1]; } }
     if(k.real) return; k.real = true;
     const r = INST_REAL[key]; if(!r) return;
     const e = instEst(k);
