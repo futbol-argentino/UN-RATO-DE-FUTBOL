@@ -25197,6 +25197,21 @@ window.FIREBASE_CONFIG = {
     'talleres':['Andrés Fassi','Mario Alberto Kempes',57000],'tigre':['Martín Suárez','José Dellagiovanna',26282],
     'union':['Luis Jorge Spahn','15 de Abril',27000],'velez sarsfield':['Luis Fabián Berlanga','José Amalfitani',49540]
   };
+  // Presidentes reales de Primera Nacional (solo nombre). Clave: nombre normalizado.
+  const INST_PRES = {
+    'acassuso':'Alberto Trípoli','agropecuario':'Bernardo Grobocopatel','all boys':'Nicolás Cambiasso',
+    'almirante brown':'Maximiliano Levy','almagro':'Julio Cucchi','atlanta':'Gabriel Greco',
+    'atletico rafaela':'Silvio Fontanini','central norte':'Héctor De Francesco','chaco for ever':'Héctor Gómez',
+    'chacarita juniors':'Néstor Di Pierro','ciudad bolivar':'Marcos Pisano','colegiales':'Tomás Costa',
+    'colon':'José Alonso','defensores de belgrano':'Marcelo Achile','deportivo madryn':'Ricardo Sastre',
+    'deportivo maipu':'Omar Sperdutti','deportivo moron':'Gabriel Mansilla','estudiantes ba':'Alicio Dagatti',
+    'midland':'Agustín Orión','ferro carril oeste':'Patricio Baigorrotegui','gimnasia de jujuy':'Walter Morales',
+    'gimnasia y tiro de salta':'Marcelo Mentesana','godoy cruz':'Alejandro Chapini','guemes sde':'Federico Javier Lo Bruno',
+    'los andes':'Omar Plaini','mitre sde':'Luis Miguel','nueva chicago':'Sergio Ramos',
+    'patronato':'Dante Molina','quilmes':'Carlos Giulianetti','racing de cordoba':'Manuel Pérez',
+    'san martin de san juan':'Jorge Miadoski','san martin de tucuman':'Rubén Moisello','san miguel':'Daniel Sagman',
+    'san telmo':'Martín Rodríguez','temperley':'Alberto Lecchi','tristan suarez':'Gastón Granados'
+  };
   // Aplica los datos reales una sola vez por club (también en carreras ya empezadas). Después la historia sigue por su cuenta.
   const INST_DT = {
     'aldosivi':'Javier Sanguinetti','argentinos juniors':'Nicolás Diez','atletico tucuman':'Julio César Falcioni','banfield':'Pedro Troglio',
@@ -25208,14 +25223,31 @@ window.FIREBASE_CONFIG = {
     'san lorenzo':'Rubén Darío Insúa','sarmiento':'Facundo Sava','talleres':'Omar De Felippe','tigre':'Diego Dabove',
     'union':'Leonardo Madelón','velez sarsfield':'Guillermo Barros Schelotto'
   };
+  // Técnicos de Primera Nacional.
+  Object.assign(INST_DT, {
+    'acassuso':'Ricardo Pancaldo','all boys':'Fabián Nardozza','almirante brown':'Andrés Montenegro',
+    'ciudad bolivar':'Diego Funes','central norte':'Mario Sciacqua','chaco for ever':'Daniel Cravero',
+    'colon':'Iván Delfino','defensores de belgrano':'César Vigevani','deportivo madryn':'Leandro Gracián',
+    'estudiantes ba':'Alfredo Grelak','ferro carril oeste':'Juan Manuel Sara','godoy cruz':'Pablo De Muner',
+    'los andes':'Leonardo Lemos','mitre sde':'Claudio Biaggio','deportivo moron':'Walter Otta',
+    'racing de cordoba':'Gustavo Coleoni','san miguel':'Matías Módolo','san telmo':'Marcelo Vázquez',
+    'agropecuario':'Gabriel Gómez','almagro':'Carlos Mayor','atlanta':'Cristian Pellerano','atletico rafaela':'Iván Juárez',
+    'chacarita juniors':'Juan Manuel Azconzábal','colegiales':'Leonardo Fernández','deportivo maipu':'Alexis Matteo',
+    'gimnasia de jujuy':'Hernán Pellerano','gimnasia y tiro de salta':'Fernando Quiroz','guemes sde':'Pablo Guiñazú',
+    'midland':'Joaquín Iturrería','nueva chicago':'Gastón Lotitto','patronato':'Marcelo Candia',
+    'quilmes':'Emanuel Trípodi','san martin de san juan':'Alejandro Schiapparelli','san martin de tucuman':'Andrés Yllana',
+    'temperley':'Nicolás Domingo','tristan suarez':'José María Martínez'
+  });
   function instApplyDt(t, k){
     if(k.realDt) return; k.realDt = true;
     const n = INST_DT[playerNormKey(t.name)]; if(!n) return;
     k.dt = { name: n, since: state.career.year, heat: 0 }; if(k.form == null) k.form = 0;
   }
   function instApplyReal(t, k){
+    const key = playerNormKey(t.name);
+    if(!k.realP){ k.realP = true; const p = INST_PRES[key]; if(p && !INST_REAL[key]) k.pres.name = p; }
     if(k.real) return; k.real = true;
-    const r = INST_REAL[playerNormKey(t.name)]; if(!r) return;
+    const r = INST_REAL[key]; if(!r) return;
     const e = instEst(k);
     k.pres.name = r[0]; e.cap = r[2]; e.stadium = r[1];
   }
@@ -25242,16 +25274,20 @@ window.FIREBASE_CONFIG = {
     }
     return S.clubs[t.id];
   }
+  // Club fuera de Primera: tiene vida institucional propia pero no llena las noticias (salvo que sea el equipo del jugador).
+  function instIsLite(t){ const c = state.career; return !(c.teams || []).some(x => x.id === t.id); }
+  function instAllTeams(){ const out = []; careerAllRosterTeams().forEach(g => g.teams.forEach(t => out.push(t))); return out; }
   function instLog(k, t, club, ic, h, b, force){
     const y = state.career.year;
     k.hist.unshift({ y:y, t:h.replace(/^\S+\s/, '') });
     if(k.hist.length > 80) k.hist.length = 80;
+    if(instIsLite(t) && t.id !== state.career.myTeamId) return;
     if(force || t.id === state.career.myTeamId || instRnd() < 0.35) nwAdd({ k:'club', ic:ic, h:h, b:b, tids:[t.id] });
   }
   // Se ejecuta una vez por año, al cerrar la temporada.
   function instYearTick(){
     const c = state.career;
-    c.teams.forEach(t => {
+    instAllTeams().forEach(t => {
       const k = instClub(t), n = t.name, y = c.year;
       // 1) Evolución de la deuda según la filosofía y el dueño
       let d = k.debt + (k.pres.filo === 'refuerzos' ? 1.5 : k.pres.filo === 'juveniles' ? -1.5 : -0.3) + (instRnd()*4 - 2);
@@ -25294,7 +25330,7 @@ window.FIREBASE_CONFIG = {
       }else if(k.debt >= 120 && k.state !== 'judicial' && k.state !== 'refundado'){
         k.state = 'judicial'; k.jud = 0;
         instLog(k, t, null, '⚖️', '⚖️ ' + n + ' entra en administración judicial', 'Un administrador controla gastos, contratos y ventas. Con deuda de US$ ' + k.debt + ' M, hay embargo sobre cuentas e ingresos futuros.', true);
-        const nw = careerNews(); nw.noBuy[playerNormKey(n)] = { n:1, w:'una inhibición por la administración judicial', name:n };
+        if(!instIsLite(t)){ const nw = careerNews(); nw.noBuy[playerNormKey(n)] = { n:1, w:'una inhibición por la administración judicial', name:n }; }
       }else if(k.debt >= 70 && k.state === 'ok'){
         k.state = 'crisis'; k.unpaid = 1;
         instLog(k, t, null, '📉', '📉 Grave crisis financiera en ' + n, 'La deuda llegó a US$ ' + k.debt + ' M y aparecen los salarios atrasados.', false);
@@ -25489,9 +25525,7 @@ window.FIREBASE_CONFIG = {
   function instDtFreeList(){
     const S = instState();
     if(!S.dtFree){
-      S.dtFree = [];
-      const used = {}; Object.keys(S.clubs).forEach(id => { if(S.clubs[id].dt) used[S.clubs[id].dt.name] = 1; });
-      shuffleArr(INST_NAMES.slice()).filter(n => !used[n]).slice(0, 6).forEach(n => S.dtFree.push({ name: n, y: state.career.year, prev: null, why: 'sin club' }));
+      S.dtFree = [];   // sin técnicos inventados de arranque: el mercado se llena solo con los DT que dejan un club
     }
     return S.dtFree;
   }
@@ -25512,17 +25546,44 @@ window.FIREBASE_CONFIG = {
     if(!name) return;
     const list = instDtFreeList();
     if(list.some(x => x.name === name)) return;
-    list.push({ name, y: state.career.year, prev: clubName || null, why: why || 'se fue del club' });
+    list.push({ name, y: state.career.year, prev: clubName || null, why: why || 'se fue del club', lvl: instTierByName(clubName) || 1 });
     if(list.length > 60) list.shift();
   }
-  // El club necesita DT: 70% sale del mercado de libres (si hay), si no aparece uno nuevo. Devuelve el nombre y lo asigna.
+  // Categoría de un club: 1 Primera, 2 Primera Nacional, 3 B Metro / Federal A, 4 Primera C, 5 Promocional.
+  const INST_TIER = { primera:1, nacional:2, bmetro:3, federal:3, primerac:4, promocional:5 };
+  function instTierOfTeam(t){
+    if(!t) return null;
+    try{ const gs = careerAllRosterTeams(); for(let i = 0; i < gs.length; i++){ if(gs[i].teams.some(x => x.id === t.id)) return INST_TIER[gs[i].key]; } }catch(e){}
+    return null;
+  }
+  function instTierByName(name){
+    if(!name) return null;
+    try{ const gs = careerAllRosterTeams(); for(let i = 0; i < gs.length; i++){ if(gs[i].teams.some(x => x.name === name)) return INST_TIER[gs[i].key]; } }catch(e){}
+    return null;
+  }
+  // El club necesita DT. Sale siempre del mercado de libres si hay alguien apto: un DT conserva su categoría (de la misma o, si
+  // viene de más abajo, asciende). Bajar de categoría es muy raro (4%). Solo si no hay ningún libre apto se inventa uno.
+  // Un DT que desciende con su club se queda en él: eso no pasa por acá.
   function instDtHire(t, k, opt){
     opt = opt || {};
     const list = instDtFreeList();
-    const cand = list.filter(x => !instDtInUse(x.name));
+    const h = instTierOfTeam(t) || 1;
+    const tierOf = x => x.lvl || instTierByName(x.prev) || 1;
+    const free = list.filter(x => !instDtInUse(x.name));
+    let pool = free.filter(x => tierOf(x) >= h);
+    if(pool.length){
+      const same = pool.filter(x => tierOf(x) === h);
+      if(same.length && Math.random() < 0.85) pool = same;
+    }else{
+      const drops = free.filter(x => tierOf(x) < h);
+      if(drops.length && Math.random() < 0.04){
+        const best = Math.max.apply(null, drops.map(tierOf));      // el que menos baja
+        pool = drops.filter(x => tierOf(x) === best);
+      }
+    }
     let name, from = null;
-    if(cand.length && Math.random() < 0.7){
-      const x = nwPick(cand); name = x.name; from = x;
+    if(pool.length){
+      const x = nwPick(pool); name = x.name; from = x;
       list.splice(list.indexOf(x), 1);
     }else{
       name = instDtNewName();
@@ -25676,16 +25737,19 @@ window.FIREBASE_CONFIG = {
   const instUi = { id:null };
   function renderCareraInst(){
     const c = state.career, S = instState();
-    const sel = c.teams.find(t => t.id === (instUi.id || c.myTeamId)) || c.teams[0];
-    const rank = c.teams.map(t => ({ t, k:instClub(t) })).sort((a,b) => b.k.debt - a.k.debt);
+    const groups = careerAllRosterTeams().filter(g => g.teams.length);
+    const allT = []; groups.forEach(g => g.teams.forEach(t => allT.push({ t, g })));
+    const cur = allT.find(x => x.t.id === (instUi.id || c.myTeamId)) || allT[0];
+    const sel = cur.t;
+    const rank = cur.g.teams.map(t => ({ t, k:instClub(t) })).sort((a,b) => b.k.debt - a.k.debt);
     const k = instClub(sel);
     const st = { ok:'Estable', crisis:'En crisis', judicial:'Administración judicial', refundado:'Refundado' };
-    const opts = rank.map(r => '<option value="' + r.t.id + '"' + (r.t.id === sel.id ? ' selected' : '') + '>' + escapeHtml(r.t.name) + '</option>').join('');
+    const opts = groups.map(g => '<optgroup label="' + escapeHtml(g.label) + '">' + g.teams.slice().sort((a,b) => a.name.localeCompare(b.name, 'es')).map(t => '<option value="' + t.id + '"' + (t.id === sel.id ? ' selected' : '') + '>' + escapeHtml(t.name) + '</option>').join('') + '</optgroup>').join('');
     const rows = rank.slice(0, 10).map(r => '<div class="team-row"><span class="name">' + escapeHtml(r.t.name) + '</span><span class="num">US$ ' + r.k.debt + ' M · ' + st[r.k.state] + '</span></div>').join('');
     const hist = k.hist.map(h => '<div class="team-row"><span class="num" style="min-width:52px">' + h.y + '</span><span class="name">' + escapeHtml(h.t) + '</span></div>').join('');
-    return '<div class="panel"><h2>Instituciones</h2><p class="hint">Presidentes, dueños, deuda y crisis de cada club. Todo se actualiza al cerrar cada temporada.</p>' +
+    return '<div class="panel"><h2>Instituciones</h2><p class="hint">Presidentes, dueños, deuda y crisis de todos los clubes del país, de Primera a Promocional. Todo se actualiza al cerrar cada temporada.</p>' +
       '<div class="field"><label>Club</label><select data-inst-sel="1">' + opts + '</select></div>' +
-      '<h3>' + escapeHtml(sel.name) + ' — ' + st[k.state] + '</h3>' +
+      '<h3>' + escapeHtml(sel.name) + ' — ' + st[k.state] + ' <span class="hint" style="font-weight:400;">· ' + escapeHtml(cur.g.label) + '</span></h3>' +
       '<div class="team-row"><span class="name">Presidente</span><span>' + escapeHtml(k.pres.name) + ' (desde ' + k.pres.since + ')</span></div>' +
       '<div class="team-row"><span class="name">Filosofía</span><span>' + INST_FILO[k.pres.filo] + '</span></div>' +
       '<div class="team-row"><span class="name">Mandato hasta</span><span class="num">' + k.pres.term + '</span></div>' +
@@ -25710,7 +25774,7 @@ window.FIREBASE_CONFIG = {
         '<div class="team-row"><span class="name">Protesta</span><span>' + (k.protest ? 'Pide la renuncia del presidente' : 'Sin protestas') + '</span></div>' +
         k.fh.slice(0, 10).map(h => '<div class="team-row"><span class="num" style="min-width:52px">' + h.y + '</span><span class="name">' + escapeHtml(h.t) + '</span></div>').join('') + '</div>'; })() +
       '<div class="panel"><h2>Historia institucional</h2>' + hist + '</div>' +
-      '<div class="panel"><h2>Clubes más endeudados</h2>' + rows + '</div>';
+      '<div class="panel"><h2>Clubes más endeudados · ' + escapeHtml(cur.g.label) + '</h2>' + rows + '</div>';
   }
   crestLoadAll().then(function(){ render(); });
 })();
